@@ -296,9 +296,11 @@ export class World {
     const pcx = Math.floor(px / CS), pcz = Math.floor(pz / CS);
     const R = this.renderDist;
     const list = [];
-    for (let dz = -R - 2; dz <= R + 2; dz++) for (let dx = -R - 2; dx <= R + 2; dx++) {
+    // Meshing needs all 8 neighbours lit, lighting needs all 8 neighbours generated,
+    // so each stage reaches a little over sqrt(2) chunks further than the next.
+    for (let dz = -R - 4; dz <= R + 4; dz++) for (let dx = -R - 4; dx <= R + 4; dx++) {
       const d = Math.sqrt(dx * dx + dz * dz);
-      if (d > R + 2.5) continue;
+      if (d > R + 3.5) continue;
       list.push([d, pcx + dx, pcz + dz]);
     }
     list.sort((a, b) => a[0] - b[0]);
@@ -313,7 +315,7 @@ export class World {
         if (m) for (const [i, id] of m) c.blocks[i] = id;
         c.state = 1; work++; continue;
       }
-      if (c.state === 1 && d <= R + 1.5 && this.neighborsAtLeast(cx, cz, 1)) { this.lightChunk(c); work++; continue; }
+      if (c.state === 1 && d <= R + 2 && this.neighborsAtLeast(cx, cz, 1)) { this.lightChunk(c); work++; continue; }
       if (c.state === 2 && d <= R + 0.5 && (!c.meshed || c.dirty) && this.neighborsAtLeast(cx, cz, 2)) { this.meshChunk(c); work++; continue; }
     }
     // Neighbour light spill marks meshed chunks dirty; refresh them
@@ -321,7 +323,7 @@ export class World {
     // Unload far chunks
     for (const c of this.chunks.values()) {
       const dx = c.cx - pcx, dz = c.cz - pcz;
-      if (dx * dx + dz * dz > (R + 5) * (R + 5)) this.unload(c);
+      if (dx * dx + dz * dz > (R + 6) * (R + 6)) this.unload(c);
     }
     return work;
   }
@@ -346,7 +348,7 @@ export class World {
   progress(px, pz) {
     const pcx = Math.floor(px / CS), pcz = Math.floor(pz / CS);
     let total = 0, done = 0; const R = Math.min(3, this.renderDist);
-    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) { total++; const c = this.chunkAt(pcx + dx, pcz + dz); if (c && c.meshed) done++; }
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) { if (dx * dx + dz * dz > R * R + 1) continue; total++; const c = this.chunkAt(pcx + dx, pcz + dz); if (c && c.meshed) done++; }
     return done / total;
   }
 

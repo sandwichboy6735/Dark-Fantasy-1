@@ -794,6 +794,7 @@ function frame(now) {
     $('clockName').textContent = timeName(dayTime);
     $('clockSub').textContent = (env.night > 0.5 ? 'Night ' : 'Day ') + dayCount + (seedText ? ` · ${seedText}` : '');
   }
+  $('touch').hidden = !(isTouch && state === 'playing');
   $('clickPrompt').hidden = !(state === 'playing' && !locked && !lockFailed && !isTouch);
   if (areaTimer > 0) { areaTimer -= dt; if (areaTimer <= 0) $('area').classList.remove('show'); }
   if (whisperTimer > 0) { whisperTimer -= dt; if (whisperTimer <= 0) $('whisper').classList.remove('show'); }
