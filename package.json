@@ -1,0 +1,17 @@
+{
+  "name": "ashenveil",
+  "version": "1.0.0",
+  "description": "A dark fantasy voxel sandbox. Explore, gather, build. No combat, no ending.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0"
+  }
+}
