@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GAZE_RADIUS } from '../game/quest.js';
+import { GAZE_COUNT, GAZE_RADIUS } from '../game/quest.js';
 import { live } from '../game/live.js';
 import { EYE_POSITION, skipInNormalPass } from './Sky.jsx';
 
@@ -73,5 +73,5 @@ function Searchlight({ index }) {
 }
 
 export function Gaze() {
-  return [0, 1, 2].map((i) => <Searchlight key={i} index={i} />);
+  return Array.from({ length: GAZE_COUNT }, (_, i) => <Searchlight key={i} index={i} />);
 }

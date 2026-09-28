@@ -8,6 +8,8 @@ let master;
 let droneGain;
 let jigGain;
 let jigLevel = 0;
+let dangerGain;
+let dangerLevel = 0;
 let muted = false;
 
 export function startAudio() {
@@ -19,6 +21,7 @@ export function startAudio() {
       master.connect(ctx.destination);
       buildDrone();
       buildJig();
+      buildDanger();
     }
     ctx.resume();
   } catch {
@@ -72,6 +75,21 @@ function note(freq, start, length, type, volume, destination) {
   osc.stop(start + length + 0.02);
 }
 
+function whoop(start, destination) {
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.type = 'square';
+  const base = 500 + Math.random() * 300;
+  osc.frequency.setValueAtTime(base, start);
+  osc.frequency.exponentialRampToValueAtTime(base * 1.8, start + 0.12);
+  osc.frequency.exponentialRampToValueAtTime(base * 0.9, start + 0.3);
+  env.gain.setValueAtTime(0.2, start);
+  env.gain.exponentialRampToValueAtTime(0.001, start + 0.32);
+  osc.connect(env).connect(destination);
+  osc.start(start);
+  osc.stop(start + 0.35);
+}
+
 function buildJig() {
   jigGain = ctx.createGain();
   jigGain.gain.value = 0;
@@ -87,11 +105,42 @@ function buildJig() {
     while (next < ctx.currentTime + 0.4) {
       const n = MELODY[i % MELODY.length];
       if (n) note(midi(n), next, step * 0.9, 'square', 0.25, jigGain);
+      // Now and then a goblin whoops along.
+      if (i % 16 === 8 && Math.random() < 0.5) whoop(next, jigGain);
       if (i % 4 === 0) note(midi(BASS[(i / 4) % BASS.length]), next, step * 3.5, 'triangle', 0.5, jigGain);
       i++;
       next += step;
     }
   }, 100);
+}
+
+// A tense pulse that rises under everything while something is after you.
+function buildDanger() {
+  dangerGain = ctx.createGain();
+  dangerGain.gain.value = 0;
+  dangerGain.connect(master);
+  const pattern = [40, 40, 43, 40, 46, 40, 43, 39];
+  let i = 0;
+  let next = ctx.currentTime + 0.1;
+  setInterval(() => {
+    if (dangerLevel < 0.01) {
+      next = ctx.currentTime + 0.1;
+      return;
+    }
+    const step = 0.2 - dangerLevel * 0.07;
+    while (next < ctx.currentTime + 0.4) {
+      note(midi(pattern[i % pattern.length]), next, step * 0.8, 'sawtooth', 0.5, dangerGain);
+      if (i % 2 === 0) note(midi(pattern[i % pattern.length] + 24), next, 0.05, 'square', 0.15, dangerGain);
+      i++;
+      next += step;
+    }
+  }, 100);
+}
+
+export function setDanger(level) {
+  if (!ctx) return;
+  dangerLevel = level;
+  dangerGain.gain.setTargetAtTime(0.09 * level, ctx.currentTime, 0.3);
 }
 
 // `tavern` is 0 on the causeway and 1 in the tavern yard.
@@ -136,6 +185,41 @@ export const sfx = {
       [64, 71, 76].forEach((n, i) => note(midi(n), t + 0.1 + i * 0.06, 0.4, 'triangle', 0.1, master));
     }),
   spill: () => play((t) => [67, 63, 60, 55].forEach((n, i) => note(midi(n), t + i * 0.12, 0.25, 'square', 0.06, master))),
+  meow: () =>
+    play((t) => {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(520, t);
+      osc.frequency.linearRampToValueAtTime(820, t + 0.15);
+      osc.frequency.linearRampToValueAtTime(430, t + 0.45);
+      env.gain.setValueAtTime(0.001, t);
+      env.gain.linearRampToValueAtTime(0.18, t + 0.08);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.connect(env).connect(master);
+      osc.start(t);
+      osc.stop(t + 0.55);
+    }),
+  step: (surface) =>
+    play((t) => noiseBurst(t, 0.07, surface === 'dirt' ? 'lowpass' : 'bandpass', surface === 'dirt' ? 500 : 1600, surface === 'dirt' ? 0.18 : 0.1)),
+  throw: () => play((t) => noiseBurst(t, 0.2, 'highpass', 2500, 0.12)),
+  fuse: () => play((t) => noiseBurst(t, 0.5, 'highpass', 5000, 0.06)),
+  bang: () =>
+    play((t) => {
+      noiseBurst(t, 0.6, 'lowpass', 900, 0.9);
+      note(70, t, 0.3, 'square', 0.25, master);
+    }),
+  spotted: () => play((t) => [76, 72].forEach((n, i) => note(midi(n), t + i * 0.1, 0.12, 'square', 0.08, master))),
+  greatBell: () =>
+    play((t) => {
+      // A bronze bell: a few inharmonic partials with long decays, struck three times.
+      for (let k = 0; k < 3; k++) {
+        const at = t + k * 1.6;
+        [[98, 0.5, 6], [196, 0.3, 4.5], [233, 0.18, 3.5], [294, 0.14, 3], [392, 0.1, 2.2], [523, 0.06, 1.5]].forEach(([f, v, d]) =>
+          note(f, at, d, 'sine', v, master),
+        );
+      }
+    }),
   heartbeat: () =>
     play((t) => {
       note(52, t, 0.14, 'sine', 0.5, master);

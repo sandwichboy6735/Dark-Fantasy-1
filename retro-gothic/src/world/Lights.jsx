@@ -62,12 +62,12 @@ function flicker(t, seed) {
   return 0.82 + 0.1 * Math.sin(t * 7.3 + seed) + 0.06 * Math.sin(t * 13.1 + seed * 2.3) + 0.04 * Math.sin(t * 23.7 + seed * 5.1);
 }
 
-export function FlickerLight({ intensity, color = '#ffc85a', distance = 12, seed = 0, ...props }) {
+export function FlickerLight({ intensity, color = '#ffc85a', distance = 12, decay = 1.8, seed = 0, ...props }) {
   const light = useRef();
   useFrame(({ clock }) => {
     light.current.intensity = intensity * flicker(clock.elapsedTime, seed);
   });
-  return <pointLight ref={light} color={color} intensity={intensity} distance={distance} decay={1.8} {...props} />;
+  return <pointLight ref={light} color={color} intensity={intensity} distance={distance} decay={decay} {...props} />;
 }
 
 // A hanging lantern: iron cage around a warm glass, with a soft yellow light.

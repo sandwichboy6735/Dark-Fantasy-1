@@ -10,6 +10,10 @@ import { Tavern } from './world/Tavern.jsx';
 import { Goblins } from './world/Goblin.jsx';
 import { Bells, HeldTankard, VigilStone } from './world/Quest.jsx';
 import { Gaze } from './world/Gaze.jsx';
+import { Watchers } from './world/Watchers.jsx';
+import { Bangers } from './world/Bangers.jsx';
+import { Cats } from './world/Cats.jsx';
+import { Embers } from './world/Embers.jsx';
 import { Player } from './player/Player.jsx';
 import { Overlay } from './ui/Overlay.jsx';
 
@@ -46,8 +50,12 @@ export default function App() {
         <Bells />
         <VigilStone />
         <Gaze />
+        <Watchers />
+        <Cats />
+        <Embers />
         <Player />
         <HeldTankard />
+        <Bangers />
         <RetroPipeline />
       </Canvas>
     </KeyboardControls>

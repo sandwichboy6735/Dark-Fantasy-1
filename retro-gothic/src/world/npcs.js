@@ -1,6 +1,7 @@
 // Everyone you can talk to. Look at them to hear them; press E or click for more.
 // `lines` is the default; `stages` overrides it for a quest stage (see game/quest.js):
-// 0 arrived, 1 hunting bells, 'ready' all bells found, 2 carrying the Toast, 3 the Eye is closed.
+// 0 arrived, 1 hunting bells, 'ready' all bells found, 2 carrying the Toast, 'spilled' the Toast
+// went flat, 3 the castle is open, 4 the Eye is closed.
 
 export const GUARDS = [
   {
@@ -24,7 +25,8 @@ export const GUARDS = [
         'Stand in it too long and it SEES you. You\'ll wake back at the last torch you sheltered by. Torchlight hides you.',
       ],
       2: ['Is that... ale? Taken UP there? The Captain will have words. Or perhaps he will have a sip.'],
-      3: ['I think... I think I could sleep. Tonight, I might.', 'Nine hundred and one nights. The last one was the quietest.'],
+      3: ['The gate is OPEN? I heard it from here. Go, pilgrim, before it thinks better of it.'],
+      4: ['I think... I think I could sleep. Tonight, I might.', 'Nine hundred and one nights. The last one was the quietest.'],
     },
   },
   {
@@ -48,7 +50,7 @@ export const GUARDS = [
         'Relight my torches as you climb. Wait in their glow while the gaze passes, then go.',
       ],
       2: ['Walk, do not run, with that cup. And wait in the torchlight for the gaze to pass. The Eye is angry now; it moves faster.'],
-      3: ['The torches burn the same, but they are no longer hiding anything. How strange.'],
+      4: ['The torches burn the same, but they are no longer hiding anything. How strange.'],
     },
   },
   {
@@ -64,7 +66,7 @@ export const GUARDS = [
     ],
     stages: {
       1: ['A bell rolled past me on the stair earlier. I did not chase it. Knights do not chase.', 'Clank. Clank. Clank. Forgive me. The armour talks when I walk.'],
-      3: ['Do you hear that? Nothing. No humming in the helm. I had forgotten silence.'],
+      4: ['Do you hear that? Nothing. No humming in the helm. I had forgotten silence.'],
     },
   },
   {
@@ -80,7 +82,7 @@ export const GUARDS = [
     ],
     stages: {
       2: ['That smell... goblin ale. The Eye hates their noise more than anything. Hurry, before the foam settles.'],
-      3: ['It is no longer listening. I could take off my hood. ...Not yet. Soon.'],
+      4: ['It is no longer listening. I could take off my hood. ...Not yet. Soon.'],
     },
   },
   {
@@ -94,7 +96,7 @@ export const GUARDS = [
       'Look up if you like. Everyone does, once.',
     ],
     stages: {
-      3: ['Patrol. Turn. Patrol... why am I patrolling? I could sit down. I could sit DOWN.'],
+      4: ['Patrol. Turn. Patrol... why am I patrolling? I could sit down. I could sit DOWN.'],
     },
   },
   {
@@ -113,7 +115,12 @@ export const GUARDS = [
         'Goblin ale, at my gate. Of all the foolish... wait. The Stone.',
         'The old Vigil Stone, there in the middle of the court. They say a toast raised there once made the Eye look away. Try it, pilgrim.',
       ],
-      3: ['The Vigil is over. My knights may finally take off their helmets.', 'Go down to the Tankard. Tell them Vane owes them a round.'],
+      3: [
+        'The gate... it rose. After a hundred years. Listen well, pilgrim.',
+        'In the nave hangs the Great Bell. Ring it, and the Eye will close for good.',
+        'But the Eyeless Watchers walk there. Keep out of their blue lantern-light, hide by the candles, and throw a banger if they come for you.',
+      ],
+      4: ['The Vigil is over. My knights may finally take off their helmets.', 'Go down to the Tankard. Tell them Vane owes them a round.'],
     },
   },
   {
@@ -128,7 +135,8 @@ export const GUARDS = [
       'Your eyes are very clear. Keep them that way.',
     ],
     stages: {
-      3: ['~ Dormi, dormi... ~ It sleeps. And listen... it is dreaming of a tavern.'],
+      3: ['The Watchers inside have no eyes of their own. They see with its light. Stay where the candles burn.'],
+      4: ['~ Dormi, dormi... ~ It sleeps. And listen... it is dreaming of a tavern.'],
     },
   },
 ];
@@ -143,9 +151,10 @@ export const VIGIL_STONE_INFO = {
     2: [
       'You set your feet, and raise the Toast of Courage to the sky.',
       'Far below, the goblins see it. A hundred voices roar at once: CHEERS!',
-      'The Eye flinches. It shudders. And, slowly, it closes.',
+      'The Eye reels, half-blinded. Behind you, with a scream of old iron, the portcullis begins to rise.',
     ],
-    3: ['The Toast of Courage stands on the stone, foaming gently. Above, the Eye sleeps.'],
+    3: ['The Toast of Courage stands on the stone, foaming gently. The castle gate stands open.'],
+    4: ['The Toast of Courage stands on the stone, foaming gently. Above, the Eye sleeps.'],
   },
 };
 
@@ -168,7 +177,8 @@ export const GOBLINS = [
       1: ['Five bells, pilgrim! They rolled all the way up the causeway, right to the castle gate!', 'You\'ve found {bells} so far. Hat feels naked without \'em.'],
       ready: ['JINGLE! I can hear \'em in your pocket! Take \'em to Grubnik!'],
       2: ['Go on, go on! Raise it high! We\'ll all be watching from the tables!'],
-      3: ['WE DID IT! The Eye is SHUT! I\'m never taking this hat off again!'],
+      3: ['The GATE opened! We saw it from here! Get in there and ring something!'],
+      4: ['WE DID IT! The Eye is SHUT! I\'m never taking this hat off again!'],
     },
   },
   {
@@ -181,7 +191,7 @@ export const GOBLINS = [
     tunic: '#6a2a1c',
     lines: ['*HIC* ...you want some? It\'s mostly ale. Mostly.', 'To the Eye! May it get something in it!'],
     stages: {
-      3: ['To you! To the Eye! May it have nice dreams! *HIC*'],
+      4: ['To you! To the Eye! May it have nice dreams! *HIC*'],
     },
   },
   {
@@ -195,7 +205,7 @@ export const GOBLINS = [
     lines: ['WHAT? I SAID WHAT? OH! CHEERS!', 'I\'ve been sat on this stool since the bridge was new.'],
     stages: {
       2: ['WHEN YOU RAISE IT, WE\'LL ALL SHOUT! LIKE THIS! CHEEEERS!', 'Sorry. Practising.'],
-      3: ['DID YOU HEAR US SHOUT? THEY HEARD US IN THE NEXT KINGDOM!'],
+      4: ['DID YOU HEAR US SHOUT? THEY HEARD US IN THE NEXT KINGDOM!'],
     },
   },
   {
@@ -209,7 +219,7 @@ export const GOBLINS = [
     lines: ['Dance with me! Left foot, right foot, jingle jingle!', 'The bells on the hat keep off ghosts. And tax collectors.'],
     stages: {
       1: ['Bells are important! Without bells, how do you know you\'re dancing?', 'Snaggle\'s are gold. Shiny. Look where the torches are.'],
-      3: ['A victory jig! Left foot, right foot, jingle jingle, EYE SHUT!'],
+      4: ['A victory jig! Left foot, right foot, jingle jingle, EYE SHUT!'],
     },
   },
   {
@@ -230,8 +240,8 @@ export const GOBLINS = [
         'Trouble is, Snaggle ran up the causeway on a dare, and the Eye looked at him. He came back without his FIVE GOLDEN BELLS.',
         'No bells, no motley. No motley, no Toast. Find \'em on the causeway, and I\'ll pour you something legendary.',
         'Mind the Eye\'s blue searchlights up there. Keep to the torchlight when they come near.',
+        'And take these: three goblin BANGERS. Throw one (F, or the BANG button) and the Eye can\'t help but look at the noise.',
       ],
-      1: ['{bells} of 5 bells so far, pilgrim. They\'ll be glinting somewhere between here and the castle gate.', 'House special while you wait: Bog Stout. Brewed with real bog.'],
       ready: [
         'THE BELLS! Hear that jingle? Snaggle, get your hat!',
         'Here. The Toast of Courage: the foamiest tankard ever poured. Pure, loud goblin cheer.',
@@ -242,8 +252,17 @@ export const GOBLINS = [
         'FLAT?! You ran with it, didn\'t you. Or the Eye stared the head clean off it.',
         'Here, a fresh one. Walk, wait in the torchlight, and walk again. Foam is a delicate thing.',
       ],
-      2: ['Don\'t spill it! Up the causeway, to the Vigil Stone by the gate. Raise it high!'],
-      3: ['They\'ll sing about you in here for a hundred years. Well. Until Tuesday. CHEERS!', 'Drinks are on the house. Forever. Within reason.'],
+      2: ['Don\'t spill it! Up the causeway, to the Vigil Stone by the gate. Raise it high!', 'Need bangers? Every chat with me tops you back up to three.'],
+      1: [
+        '{bells} of 5 bells so far, pilgrim. They\'ll be glinting somewhere between here and the castle gate.',
+        'Press F (or tap BANG) to throw a banger. The bang drags the Eye\'s searchlights over to it. Handy, eh?',
+        'Come back when you\'re out. Every chat with me tops you up to three.',
+      ],
+      3: [
+        'The gate\'s open! Inside there\'s a bell they say could wake the dead. Or put the Eye to sleep.',
+        'Watch for the Eyeless in there. Bangers will send \'em sniffing the wrong way. Here, three fresh ones.',
+      ],
+      4: ['They\'ll sing about you in here for a hundred years. Well. Until Tuesday. CHEERS!', 'Drinks are on the house. Forever. Within reason.'],
     },
   },
   {
@@ -256,7 +275,7 @@ export const GOBLINS = [
     tunic: '#2e4a2a',
     lines: ['To us! To ale! To not being up THERE!', 'Brisket owes me three pints and a tooth.'],
     stages: {
-      3: ['To the pilgrim! To ale! To being ANYWHERE we like!'],
+      4: ['To the pilgrim! To ale! To being ANYWHERE we like!'],
     },
   },
   {
@@ -270,7 +289,7 @@ export const GOBLINS = [
     phase: 1.6,
     lines: ['Clink! Ha! Clink again! CLINK!', 'Mogg\'s lying about the tooth.'],
     stages: {
-      3: ['CLINK! For the pilgrim! CLINK! For the Eye! CLINK! For... CLINK!'],
+      4: ['CLINK! For the pilgrim! CLINK! For the Eye! CLINK! For... CLINK!'],
     },
   },
   {
@@ -284,7 +303,37 @@ export const GOBLINS = [
     lines: ['Them barrels is full of courage. The liquid kind.', 'Saw the Eye blink once. Whole causeway went quiet as fish.'],
     stages: {
       2: ['That\'s the real Toast, that is. Last time anyone carried one of those up there, I had hair.'],
-      3: ['Hundred years I waited to see that Eye shut. Worth every barrel.'],
+      4: ['Hundred years I waited to see that Eye shut. Worth every barrel.'],
     },
   },
+];
+
+// The bell in the nave that ends it.
+export const GREAT_BELL_INFO = {
+  id: 'great-bell',
+  name: 'The Great Bell',
+  accent: '#e8b830',
+  range: 5,
+  lines: ['A bronze bell as big as a cottage, green with age. Its rope hangs within reach.'],
+  stages: {
+    3: [
+      'You take the rope in both hands and haul with everything you have.',
+      'BONNNG. The sound goes through the stone, through the clouds, through the Eye itself.',
+      'Far above, the lid comes down. The Eye closes, and the whole sky goes quiet.',
+    ],
+    4: ['The Great Bell still hums, very faintly, like a cat purring.'],
+  },
+};
+
+// A black cat, curled up somewhere it shouldn't be.
+export const CAT_LINES = ['Mrrrp.', 'The cat allows you to pet it. It purrs like a tiny engine.', 'It seems entirely unbothered by the giant Eye.'];
+
+// The Eyeless Watchers: hostile, silent, seeing with the Eye's own light.
+// They walk `path` back and forth and chase you if their lantern-light finds you.
+export const WATCHERS = [
+  { id: 'watcher-causeway', path: [[0, -58], [0, -71]], from: 2 },
+  { id: 'watcher-bailey', path: [[-9, -125.5], [9, -125.5]], from: 3 },
+  { id: 'watcher-nave-west', path: [[-8, -135], [-8, -148]], from: 3 },
+  { id: 'watcher-nave-east', path: [[8, -148], [8, -135]], from: 3 },
+  { id: 'watcher-nave-aisle', path: [[0, -137.5], [0, -144]], from: 3, speed: 1.1 },
 ];

@@ -8,6 +8,8 @@ import { useSyncExternalStore } from 'react';
 //   stage    quest progress, see game/quest.js
 //   bells    ids of the golden bells picked up
 //   lit      ids of the causeway torches you relit
+//   cats     ids of the black cats you petted
+//   bangers  goblin firecrackers in your pocket
 //   seen     how many times the Eye has caught you
 //   spilled  the Toast went flat and needs replacing
 //   intro    the goal card is showing (new games)
@@ -21,6 +23,8 @@ let state = {
   stage: 0,
   bells: [],
   lit: [],
+  cats: [],
+  bangers: 0,
   seen: 0,
   spilled: false,
   ending: false,
@@ -46,3 +50,7 @@ export const useStore = (select) => useSyncExternalStore(store.subscribe, () => 
 // "Talk" presses from E, a click or the TALK button all go through here.
 export const talkButton = new EventTarget();
 export const pressTalk = () => talkButton.dispatchEvent(new Event('press'));
+
+// Throwing a banger: F, or the BANG button.
+export const bangButton = new EventTarget();
+export const pressBang = () => bangButton.dispatchEvent(new Event('press'));

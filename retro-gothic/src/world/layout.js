@@ -47,6 +47,20 @@ export const COURT = { minX: -13, maxX: 14, minZ: -3, maxZ: 21 };
 export const YARD = { minX: 14, maxX: 39.2, minZ: -7, maxZ: 25 };
 export const FORECOURT = { minX: -15, maxX: 15, minZ: -113.4, maxZ: -96, y: 13 };
 
+// Behind the gate, walkable only once it opens: the gate passage, the bailey,
+// the keep's door and the nave, with the Great Bell's dais at the far end.
+export const GATEWAY = { minX: -2.4, maxX: 2.4, minZ: -119.4, maxZ: -113.4 };
+export const BAILEY = { minX: -11, maxX: 11, minZ: -129.2, maxZ: -119 };
+export const DOORWAY = { minX: -1.6, maxX: 1.6, minZ: -132.2, maxZ: -129 };
+export const NAVE = { minX: -10.8, maxX: 10.8, minZ: -150, maxZ: -131.8 };
+export const DAIS_Z = -144.5;
+export const DAIS_HEIGHT = 0.3;
+
+let castleOpen = false;
+export const setCastleOpen = (open) => {
+  castleOpen = open;
+};
+
 const inside = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
 
 // Height of the walkable ground at (x, z), or null over the abyss / outside the map.
@@ -54,6 +68,10 @@ export function groundAt(x, z) {
   if (inside(COURT, x, z) || inside(YARD, x, z)) return 0;
   if (Math.abs(x) <= BRIDGE_HALF_WIDTH - 0.4 && z < COURT.minZ && z >= -96) return bridgeHeight(Math.min(z, -4));
   if (inside(FORECOURT, x, z)) return FORECOURT.y;
+  if (castleOpen) {
+    if (inside(NAVE, x, z)) return z < DAIS_Z ? FORECOURT.y + DAIS_HEIGHT : FORECOURT.y;
+    if (inside(GATEWAY, x, z) || inside(BAILEY, x, z) || inside(DOORWAY, x, z)) return FORECOURT.y;
+  }
   return null;
 }
 
@@ -67,6 +85,8 @@ export const addCircle = (x, z, r) => circleColliders.push({ x, z, r });
 export const addBox = (minX, maxX, minZ, maxZ) => boxColliders.push({ minX, maxX, minZ, maxZ });
 
 export function zoneAt(x, z) {
+  if (z < -130) return 'The Nave of the Vigil';
+  if (z < -114) return 'The Bailey';
   if (x > 14) return 'The Grinning Tankard';
   if (z < -96) return 'Gate of the Vigil';
   if (z < -4) return 'The Mourning Causeway';
@@ -81,4 +101,7 @@ export const SPAWNS = {
   bar: { position: [36.4, 0, 10], yaw: -90, pitch: 0 },
   bridge: { position: [0, 6.5, -53], yaw: 0, pitch: 10 },
   gate: { position: [0, 13, -99], yaw: 0, pitch: 12 },
+  bailey: { position: [0, 13, -120], yaw: 0, pitch: 5 },
+  nave: { position: [0, 13, -130.5], yaw: 0, pitch: 4 },
+  dais: { position: [0, 13.3, -144.2], yaw: 0, pitch: 12 },
 };

@@ -16,13 +16,13 @@ import {
   objectiveTarget,
   safeLights,
   saveGame,
-  seenByTheEye,
+  caught,
   spillToast,
 } from '../game/quest.js';
-import { setAmbience, sfx } from '../game/audio.js';
+import { setAmbience, setDanger, sfx } from '../game/audio.js';
 import { live } from '../game/live.js';
 import { IS_TOUCH, input } from './input.js';
-import { SPAWNS, boxColliders, circleColliders, dynamicColliders, groundAt, zoneAt } from '../world/layout.js';
+import { SPAWNS, boxColliders, circleColliders, dynamicColliders, groundAt, setCastleOpen, zoneAt } from '../world/layout.js';
 
 const EYE_HEIGHT = 1.62;
 const RADIUS = 0.35;
@@ -37,6 +37,10 @@ const DREAD_RISE = 0.6; // per second in the gaze: about 1.7 s until you're seen
 const DREAD_FALL = 0.35;
 const FOAM_SPILL = 0.16; // per second of running with the Toast
 const TORCH_REACH = 2.6;
+const CHECKPOINTS = [
+  { x: 0, z: -99, y: 13 },
+  { x: 0, z: -130.5, y: 13 },
+];
 
 function readSpawn() {
   const params = new URLSearchParams(window.location.search);
@@ -87,6 +91,7 @@ export function Player() {
     wake: { x: 0, z: 0, y: 0 },
     heartbeat: 0,
     saveTimer: 0,
+    stride: 0,
   });
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const look = useMemo(() => new THREE.Euler(), []);
@@ -104,6 +109,8 @@ export function Player() {
     const b = body.current;
 
     const { playing } = store.get();
+    live.now = clock.elapsedTime;
+    setCastleOpen(store.get().stage >= STAGE.CASTLE);
 
     // Mouse, drag and touch look all arrive through `input`.
     if (playing && (input.lookX || input.lookY)) {
@@ -143,16 +150,26 @@ export function Player() {
       }
     }
 
-    // Ease up and down the steps, with a small head bob.
+    // Footsteps on every stride: soft thuds on dirt, clicks on stone.
+    if (moving && Math.floor(b.bob / Math.PI) !== b.stride) {
+      b.stride = Math.floor(b.bob / Math.PI);
+      sfx.step(b.x > 14 ? 'dirt' : 'stone');
+    }
+
+    // Ease up and down the steps, with a small head bob and any shake.
     b.y += (b.ground + EYE_HEIGHT - b.y) * Math.min(1, dt * 14);
     const bob = moving ? Math.sin(b.bob) * 0.035 : 0;
-    camera.position.set(b.x, b.y + bob, b.z);
+    const shake = live.shake * 0.12;
+    camera.position.set(b.x + (Math.random() - 0.5) * shake, b.y + bob + (Math.random() - 0.5) * shake, b.z + (Math.random() - 0.5) * shake);
+    live.shake = Math.max(0, live.shake - dt * 1.6);
 
     // Ray from the centre of the screen: the first thing it hits decides who you're looking at.
     raycaster.setFromCamera(CENTER, camera);
     raycaster.far = TALK_RANGE;
     const hit = playing ? raycaster.intersectObjects(scene.children, true)[0] : null;
-    const found = hit ? interactableOf(hit.object) : null;
+    let found = hit ? interactableOf(hit.object) : null;
+    // Some things (cats, the bell) only answer when you're close.
+    if (found?.range && hit.distance > found.range) found = null;
     const now = clock.elapsedTime;
     const current = store.get().target;
     if (found) {
@@ -187,11 +204,16 @@ export function Player() {
     }
 
     // The Eye's gaze: searchlights sweep the causeway. Torchlight keeps you hidden.
-    if (playing && state.stage < STAGE.DONE) live.gazeTime += dt * (state.stage === STAGE.TOAST ? 1.3 : 1);
-    live.gazes = gazePositions(live.gazeTime, state.stage);
-    const lights = safeLights(state.lit);
+    if (playing && state.stage < STAGE.DONE) live.gazeTime += dt * (state.stage >= STAGE.TOAST ? 1.3 : 1);
+    live.gazes = gazePositions(live.gazeTime, state.stage, live.lure, live.now);
+    const lights = safeLights(state.lit, state.stage);
     const shelter = lights.find((l) => Math.hypot(l.x - b.x, l.z - b.z) < SAFE_RADIUS);
     if (shelter) b.wake = shelter.wake;
+    // Reaching the gate forecourt, and later the keep's door, are checkpoints too:
+    // you never wake further back than the furthest of these you've reached.
+    for (const point of CHECKPOINTS) {
+      if (b.z < point.z + 1 && b.wake.z > point.z) b.wake = point;
+    }
     live.safe = Boolean(shelter);
     live.inGaze = live.gazes.some((g) => g.active && Math.hypot(g.x - b.x, g.z - b.z) < GAZE_RADIUS && Math.abs(g.y - b.ground) < 3);
     if (playing && live.inGaze && !live.safe) {
@@ -205,17 +227,26 @@ export function Player() {
       live.dread = Math.max(0, live.dread - dt * DREAD_FALL);
       b.heartbeat = 0;
     }
-    if (live.dread >= 1) {
-      // Seen. Black out and wake by the last light you sheltered in.
+    live.player.x = b.x;
+    live.player.y = b.ground;
+    live.player.z = b.z;
+    live.player.safe = live.safe;
+    live.player.yaw = look.setFromQuaternion(camera.quaternion, 'YXZ').y;
+    if (live.dread >= 1 || live.caughtBy) {
+      // Seen or grabbed. Black out and wake by the last light you sheltered in.
+      const by = live.caughtBy ?? 'gaze';
       live.dread = 0;
+      live.caughtBy = null;
       live.fade = 1;
+      live.resetWatchers += 1;
       b.x = b.wake.x;
       b.z = b.wake.z;
       b.ground = b.wake.y;
       b.y = b.wake.y + EYE_HEIGHT;
       camera.quaternion.setFromEuler(look.set(0, 0, 0, 'YXZ'));
-      seenByTheEye();
+      caught(by);
     }
+    setDanger(playing ? Math.max(live.hunted > 0 ? 1 : 0, live.dread) : 0);
     live.fade = Math.max(0, live.fade - dt * 0.8);
 
     // Carrying the Toast: running sloshes the foam out.

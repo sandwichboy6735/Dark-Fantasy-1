@@ -117,8 +117,9 @@ function Eye() {
     const u = mesh.current.material.uniforms;
     u.uTime.value = t;
 
-    // Once the Toast is raised the lids come down over three seconds and stay down.
-    const shut = store.get().stage >= STAGE.DONE ? 1 : 0;
+    // Raising the Toast leaves it squinting, half-blind; the Great Bell shuts it for good.
+    const stage = store.get().stage;
+    const shut = stage >= STAGE.DONE ? 1 : stage === STAGE.CASTLE ? 0.45 : 0;
     eye.closed += Math.sign(shut - eye.closed) * Math.min(Math.abs(shut - eye.closed), Math.min(delta, 0.1) / 3);
     u.uGlow.value = 1 - eye.closed * 0.75;
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { pressTalk, store, useStore } from '../store.js';
+import { pressBang, pressTalk, store, useStore } from '../store.js';
+import { STAGE } from '../game/quest.js';
 import { addLook, input } from '../player/input.js';
 
 const STICK_RADIUS = 56;
@@ -8,6 +9,7 @@ const STICK_RADIUS = 56;
 // else to look, a TALK button when someone is under the crosshair.
 export function TouchControls() {
   const target = useStore((s) => s.target);
+  const stage = useStore((s) => s.stage);
   const stickPointer = useRef(null);
   const lookPointers = useRef(new Map());
   const [stick, setStick] = useState(null); // { x, y, dx, dy } in screen pixels
@@ -77,6 +79,11 @@ export function TouchControls() {
       {target && (
         <button type="button" className="touch-button talk" onPointerDown={tap(pressTalk)}>
           TALK
+        </button>
+      )}
+      {stage >= STAGE.BELLS && (
+        <button type="button" className="touch-button bang" onPointerDown={tap(pressBang)}>
+          BANG
         </button>
       )}
       <button type="button" className="touch-button pause" onPointerDown={tap(() => store.set({ playing: false }))}>

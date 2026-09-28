@@ -421,8 +421,8 @@ canvas {
 }
 .ending .stats {
   margin: 0 auto 20px;
-  font-size: var(--text);
-  line-height: 2;
+  font-size: var(--small);
+  line-height: 1.9;
   border-spacing: 20px 0;
 }
 .ending .stats td:first-child {
@@ -517,3 +517,142 @@ canvas {
     display: none;
   }
 }
+
+/* Watchers: the vignette turns red while you're hunted. */
+.vignette.hunted {
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(255, 40, 40, 0.5) 100%);
+}
+.gaze-status.hunted {
+  color: #ff6a5a;
+}
+
+/* Bottom right: what's in your pockets. */
+.pockets {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  font-size: var(--small);
+  text-shadow: 2px 2px 0 #000;
+}
+.pocket {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(8, 6, 18, 0.7);
+  border: 2px solid #000;
+}
+.pocket.empty {
+  color: #8a8098;
+}
+.pocket .key {
+  padding: 2px 5px;
+  color: #000;
+  background: var(--edge);
+}
+.banger-icon {
+  width: 8px;
+  height: 16px;
+  background: #d02828;
+  box-shadow: 0 -6px 0 -2px #ffe070;
+}
+.cat-icon {
+  width: 14px;
+  height: 12px;
+  background: #141218;
+  border: 2px solid #e8d040;
+}
+
+.touch-button.bang {
+  right: 20px;
+  bottom: calc(40% - 90px);
+  padding: 18px 16px;
+  font-size: var(--small);
+  background: #ff6a3a;
+}
+@media (max-width: 700px) {
+  .pockets {
+    bottom: auto;
+    top: calc(var(--text) * 5 + 64px);
+  }
+}
+
+/* Ending rank. */
+.ending .rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.ending .letter {
+  display: grid;
+  place-items: center;
+  width: calc(var(--big) * 2.4);
+  height: calc(var(--big) * 2.4);
+  font-size: calc(var(--big) * 1.6);
+  color: #000;
+  border: 4px solid #000;
+  box-shadow: 0 0 0 3px var(--edge);
+}
+.rank-S { background: #ffcc4a; }
+.rank-A { background: #9be05a; }
+.rank-B { background: #8fb0ff; }
+.rank-C { background: #b8accf; }
+.ending .rank-title {
+  font-size: var(--text);
+  color: var(--gold);
+  text-align: left;
+}
+
+/* Pause-screen map. */
+.map {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 20px;
+}
+.map svg {
+  height: min(46vh, 380px);
+  width: auto;
+  border: 3px solid var(--edge);
+  image-rendering: pixelated;
+}
+.map-void { fill: #07060e; }
+.map-land { fill: #3a3448; }
+.map-closed { fill: #1e1a28; stroke: #5a5068; stroke-width: 0.6; stroke-dasharray: 2 2; }
+.map-bridge { fill: #5a4a50; }
+.map-yard { fill: #4a3a28; }
+.map-building { fill: #7a6040; }
+.map-label { fill: #b8accf; font-size: 4px; text-anchor: middle; font-family: 'Press Start 2P', monospace; }
+.map-torch { fill: #ff8a2a; }
+.map-torch-out { fill: #4a4050; }
+.map-bell { fill: #ffd24a; }
+.map-cat { fill: #141218; stroke: #e8d040; stroke-width: 0.6; }
+.map-goal { fill: none; stroke: #ffcc4a; stroke-width: 1; animation: blink 0.8s steps(2) infinite; }
+.map-player { fill: #ffffff; stroke: #000; stroke-width: 0.6; }
+.map-key {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  font-size: var(--small);
+  text-align: left;
+}
+.map-key .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.dot.you { background: #fff; }
+.dot.goal { border: 2px solid #ffcc4a; }
+.dot.bell { background: #ffd24a; border-radius: 50%; }
+.dot.torch { background: #ff8a2a; border-radius: 50%; }
+.dot.cat { background: #141218; border: 2px solid #e8d040; border-radius: 50%; }

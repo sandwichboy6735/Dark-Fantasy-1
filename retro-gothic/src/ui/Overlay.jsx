@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { pressTalk, store, talkButton, useStore } from '../store.js';
-import { TORCHES, advanceQuest, hasProgress, linesFor, loadGame, newGame, objective, STAGE } from '../game/quest.js';
+import { pressBang, pressTalk, store, talkButton, useStore } from '../store.js';
+import { CATS, TORCHES, advanceQuest, hasProgress, linesFor, loadGame, newGame, objective, scoreRun, STAGE } from '../game/quest.js';
+import { MapView } from './MapView.jsx';
 import { live } from '../game/live.js';
 import { sfx, startAudio, toggleMute } from '../game/audio.js';
 import { IS_TOUCH, addLook } from '../player/input.js';
@@ -130,12 +131,23 @@ function LiveHud() {
       }
       if (r.foamFill) r.foamFill.style.width = `${live.foam * 100}%`;
       if (r.foam) r.foam.classList.toggle('warn', live.running);
-      if (r.vignette) r.vignette.style.opacity = String(Math.min(1, live.dread * 1.2));
+      if (r.vignette) {
+        r.vignette.style.opacity = String(live.hunted > 0 ? 0.8 : Math.min(1, live.dread * 1.2));
+        r.vignette.classList.toggle('hunted', live.hunted > 0);
+      }
       if (r.fade) r.fade.style.opacity = String(live.fade);
       if (r.status) {
-        const text = live.inGaze && !live.safe ? 'THE EYE IS LOOKING. MOVE!' : live.inGaze && live.safe ? 'HIDDEN IN TORCHLIGHT' : '';
+        const hunted = live.hunted > 0;
+        const exposed = live.inGaze && !live.safe;
+        const text = hunted
+          ? 'A WATCHER IS HUNTING YOU! RUN FOR THE LIGHT!'
+          : exposed
+            ? 'THE EYE IS LOOKING. MOVE!'
+            : live.inGaze && live.safe
+              ? 'HIDDEN IN THE LIGHT'
+              : '';
         r.status.textContent = text;
-        r.status.className = `gaze-status${live.inGaze && !live.safe ? ' alarm' : ''}`;
+        r.status.className = `gaze-status${hunted ? ' alarm hunted' : exposed ? ' alarm' : ''}`;
       }
       frame = requestAnimationFrame(tick);
     };
@@ -168,11 +180,36 @@ function LiveHud() {
         )}
       </div>
       <div className="gaze-status" ref={bind('status')} />
+      <Pockets />
     </>
   );
 }
 
+// Bottom right: bangers left, and cats petted once you've found one.
+function Pockets() {
+  const bangers = useStore((s) => s.bangers);
+  const stage = useStore((s) => s.stage);
+  const cats = useStore((s) => s.cats.length);
+  const mode = useStore((s) => s.mode);
+  return (
+    <div className="pockets">
+      {stage >= STAGE.BELLS && (
+        <div className={`pocket${bangers === 0 ? ' empty' : ''}`}>
+          <span className="banger-icon" /> BANGERS x{bangers}
+          {mode !== 'touch' && <span className="key">F</span>}
+        </div>
+      )}
+      {cats > 0 && (
+        <div className="pocket">
+          <span className="cat-icon" /> CATS {cats}/{CATS.length}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Ending() {
+  const [result] = useState(() => scoreRun(store.get(), live.playTime));
   useEffect(() => {
     const close = () => store.set({ ending: false });
     // Ignore the press that raised the Toast; let the card sit for a moment.
@@ -186,13 +223,18 @@ function Ending() {
     <div className="ending">
       <div className="panel">
         <h2>THE EYE CLOSES</h2>
-        <p>For the first time in a hundred years, the causeway sleeps.</p>
-        <p>Down in the Grinning Tankard, they will be singing about you until at least Tuesday.</p>
+        <p>The Great Bell rings out, and for the first time in a hundred years the causeway sleeps. The goblins will sing about you until at least Tuesday.</p>
+        <div className="rank">
+          <span className={`letter rank-${result.rank}`}>{result.rank}</span>
+          <span className="rank-title">{result.title}</span>
+        </div>
         <table className="stats">
           <tbody>
             <tr><td>TIME</td><td>{formatTime(live.playTime)}</td></tr>
-            <tr><td>SEEN BY THE EYE</td><td>{store.get().seen}</td></tr>
+            <tr><td>TIMES CAUGHT</td><td>{store.get().seen}</td></tr>
             <tr><td>TORCHES RELIT</td><td>{store.get().lit.length} / {TORCHES.filter((t) => !t.startsLit).length}</td></tr>
+            <tr><td>CATS PETTED</td><td>{store.get().cats.length} / {CATS.length}</td></tr>
+            <tr><td>SCORE</td><td>{result.score}</td></tr>
           </tbody>
         </table>
         <p className="thanks">Thank you for playing. Wander as long as you like.</p>
@@ -208,6 +250,7 @@ function useGlobalInput() {
     const onKey = (e) => {
       if (e.repeat) return;
       if (e.code === 'KeyE') pressTalk();
+      if ((e.code === 'KeyF' || e.code === 'KeyQ') && store.get().playing) pressBang();
       if (e.code === 'KeyM') toggleMute();
       // Pointer lock releases on Esc by itself; the other modes pause here.
       if (e.code === 'Escape' && store.get().mode !== 'lock') store.set({ playing: false });
@@ -241,9 +284,11 @@ function TitleScreen({ playing }) {
   const [started, setStarted] = useState(false);
   const [saved] = useState(hasProgress);
   const mode = useStore((s) => s.mode);
+  const pausedAt = useRef(0);
 
   useEffect(() => {
     if (playing) setStarted(true);
+    else pausedAt.current = performance.now();
   }, [playing]);
 
   useEffect(() => {
@@ -253,6 +298,8 @@ function TitleScreen({ playing }) {
   }, []);
 
   const start = () => {
+    // A tap on the pause button is followed by a click on this screen; ignore it.
+    if (performance.now() - pausedAt.current < 500) return;
     startAudio();
     if (IS_TOUCH) {
       store.set({ playing: true, mode: 'touch' });
@@ -282,6 +329,7 @@ function TitleScreen({ playing }) {
           THE TANKARD
         </h1>
         <p className="blink">{IS_TOUCH ? prompt.replace('CLICK', 'TAP') : prompt}</p>
+        {started && <MapView />}
         {saved && !started && (
           <button type="button" className="anew" onClick={restart}>
             BEGIN ANEW
@@ -293,6 +341,8 @@ function TitleScreen({ playing }) {
               <tr><td>LEFT THUMB</td><td>WALK</td></tr>
               <tr><td>DRAG RIGHT</td><td>LOOK</td></tr>
               <tr><td>TALK</td><td>WHEN SOMEONE IS CLOSE</td></tr>
+              <tr><td>BANG</td><td>THROW A BANGER</td></tr>
+              <tr><td>II</td><td>PAUSE AND MAP</td></tr>
             </tbody>
           </table>
         ) : (
@@ -302,8 +352,9 @@ function TitleScreen({ playing }) {
               <tr><td>SHIFT</td><td>RUN</td></tr>
               <tr><td>MOUSE</td><td>{mode === 'drag' ? 'DRAG TO LOOK' : 'LOOK'}</td></tr>
               <tr><td>E / CLICK</td><td>TALK</td></tr>
+              <tr><td>F</td><td>THROW BANGER</td></tr>
               <tr><td>M</td><td>MUTE</td></tr>
-              <tr><td>ESC</td><td>PAUSE</td></tr>
+              <tr><td>ESC</td><td>PAUSE AND MAP</td></tr>
             </tbody>
           </table>
         )}

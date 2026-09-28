@@ -11,13 +11,22 @@ Your goal: close the giant Eye that has watched this land for a hundred years. T
 1. **Find the keeper.** Grubnik Tapfoot runs the Grinning Tankard, east of the court. Snaggle ran up the causeway on a dare, the Eye looked at him, and he came back without the five golden bells from his jester hat.
 2. **Find the five bells.** They're scattered up the causeway to the castle gate, marked by shafts of gold light. Walk into a bell to pick it up.
 3. **Carry the Toast.** Take the bells back to Grubnik. He pours the Toast of Courage, and you carry it in your hand.
-4. **Raise it to the Eye.** Take it to the Vigil Stone in the gate forecourt and talk to the stone.
+4. **Raise it to the Eye.** Take it to the Vigil Stone in the gate forecourt and talk to the stone. The Eye reels, half-blind, and the castle gate opens.
+5. **Ring the Great Bell.** Cross the bailey and the candlelit nave inside the keep, past the Eyeless Watchers, and ring the bell on the dais. The Eye closes for good.
 
 **The Eye's gaze.** Blue searchlights sweep the causeway. Standing in one fills your DREAD meter; when it's full, the Eye has seen you and you wake by the last light you sheltered in. Torchlight hides you. Most of the causeway torches have blown out: walk up to one to relight it, and it becomes a safe spot and your new waking place. Wait in the light while a searchlight passes, then move.
 
+**The Eyeless Watchers.** Tall hooded figures with a single blue eye, patrolling the upper causeway (once you carry the Toast), the bailey and the nave. Their blue lantern-light shows on the ground as a cone. Stay in it for half a second and they come for you, a red "!" over their heads; they walk slower than you, so keep moving and head for torchlight or candlelight, which they won't enter. If one reaches you, you wake by the last light.
+
+**Bangers.** Grubnik gives you three goblin firecrackers and tops you back up to three whenever you talk to him. Throw one with `F` (or the BANG button): when it goes off, nearby searchlights swing over to the noise and Watchers go to look, a yellow "?" over their heads.
+
+**Cats.** Six black cats are curled up in odd corners: on walls, barrels and fences, and one by the Great Bell. Walk up and pet them.
+
+**Map.** Pause (`Esc`, or the II button) for a map of where you are, your goal, the bells still out there, which torches are lit, and the cats you've found.
+
 **The Toast.** While you carry it, running sloshes out the foam (the FOAM meter), and being seen curdles half of it. If it goes flat, fetch a fresh one from Grubnik. Once you carry it, the Eye gets angry: its searchlights sweep faster and a third one watches the gate.
 
-The ending shows your time, how often the Eye saw you, and how many torches you relit. Everyone's lines change as the story moves on, so talk to people again. Progress saves in the browser by itself; the title screen offers **Begin anew**.
+The ending ranks your run from S to C, from your time, how often you were caught, the torches you relit and the cats you petted. Everyone's lines change as the story moves on, so talk to people again. Progress saves in the browser by itself; the title screen offers **Begin anew**.
 
 ## Run it
 
@@ -39,7 +48,7 @@ npm run build:pages   # build into ../docs/vigil/ for GitHub Pages
 
 The build uses relative paths, so `dist/` (or `docs/vigil/`) can be served from any folder.
 
-Start somewhere else with `?spawn=bridge`, `?spawn=gate`, `?spawn=tavern`, `?spawn=yard` or `?spawn=bar`. Add `&look=yaw,pitch` (in degrees) to set the starting view.
+Start somewhere else with `?spawn=bridge`, `gate`, `bailey`, `nave`, `dais`, `tavern`, `yard` or `bar` (the castle ones only work once the gate is open in your save). In development builds, `window.__game` exposes the live game state. Add `&look=yaw,pitch` (in degrees) to set the starting view.
 
 ## Controls
 
@@ -49,12 +58,13 @@ Start somewhere else with `?spawn=bridge`, `?spawn=gate`, `?spawn=tavern`, `?spa
 | `Shift` | Run |
 | Mouse | Look (click the page to lock the pointer) |
 | `E` / left click | Talk: finish the line, then show the next one |
+| `F` or `Q` | Throw a banger |
 | `M` | Mute |
-| `Esc` | Pause |
+| `Esc` | Pause and map |
 
 If the browser won't lock the pointer (in some embedded frames, for example), the game falls back to dragging with the mouse to look.
 
-On a phone or tablet, put your left thumb anywhere on the left of the screen for a movement stick (push it all the way to run), drag anywhere else to look, and tap **TALK** when someone is under the crosshair.
+On a phone or tablet, put your left thumb anywhere on the left of the screen for a movement stick (push it all the way to run), drag anywhere else to look, tap **TALK** when someone is under the crosshair and **BANG** to throw a banger. **II** pauses and shows the map.
 
 ## How the retro look is made
 
@@ -73,6 +83,10 @@ All of it is tuned in `src/retro/config.js`.
 | `src/game/quest.js` | The story's stages, bells, torches, searchlight paths, saving, and who says what when |
 | `src/game/live.js` | Per-frame values the HUD reads: dread, foam, the objective arrow |
 | `src/world/Gaze.jsx` | The Eye's searchlights: beam, pool of light and a real blue light |
+| `src/world/Watchers.jsx` | The Eyeless Watchers: patrol, sight cone, chase, investigate |
+| `src/world/Bangers.jsx` | Throwing a banger, its fuse and bang |
+| `src/world/Cats.jsx`, `Embers.jsx` | The hidden cats; ash and embers drifting around you |
+| `src/ui/MapView.jsx` | The pause-screen map |
 | `src/game/audio.js` | Synthesised sound: the drone, the tavern reel, blips, chimes, the fanfare |
 | `src/world/Quest.jsx` | The golden bells, the Vigil Stone, and the Toast in your hand |
 | `src/retro/*` | The pipeline above, plus the cached material and geometry helpers |
