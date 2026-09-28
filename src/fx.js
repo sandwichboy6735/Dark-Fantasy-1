@@ -340,3 +340,50 @@ export class LightPool {
     });
   }
 }
+
+// ---------- Shooting stars, summoned at the Moon Circle ----------
+export class ShootingStars {
+  constructor(scene, tex) {
+    this.stars = [];
+    const headMat = new THREE.SpriteMaterial({ map: tex, color: new THREE.Color(2.5, 2.7, 4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    for (let i = 0; i < 8; i++) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array([3, 3.2, 4, 0, 0, 0]), 3));
+      const line = new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+      line.frustumCulled = false; line.visible = false;
+      const head = new THREE.Sprite(headMat); head.scale.setScalar(7); head.visible = false;
+      scene.add(line, head);
+      this.stars.push({ line, head, pos: new THREE.Vector3(), vel: new THREE.Vector3(), life: 0 });
+    }
+    this.shower = 0; this.next = 0;
+  }
+  start(seconds = 7) { this.shower = seconds; }
+  update(dt, camera) {
+    const cam = camera.position;
+    this.shower -= dt; this.next -= dt;
+    if (this.shower > 0 && this.next <= 0) {
+      this.next = 0.25 + Math.random() * 0.4;
+      const s = this.stars.find((x) => x.life <= 0);
+      if (s) {
+        const f = camera.getWorldDirection(new THREE.Vector3()); f.y = 0; f.normalize();
+        const r = new THREE.Vector3(-f.z, 0, f.x), side = (Math.random() - 0.5) * 700, dir = Math.random() < 0.5 ? -1 : 1;
+        s.pos.copy(cam).addScaledVector(f, 600).addScaledVector(r, side); s.pos.y += 150 + Math.random() * 200;
+        s.vel.copy(r).multiplyScalar(dir * (250 + Math.random() * 200)); s.vel.y = -90 - Math.random() * 90;
+        s.life = 1.1;
+      }
+    }
+    for (const s of this.stars) {
+      if (s.life <= 0) { s.line.visible = false; s.head.visible = false; continue; }
+      s.life -= dt;
+      s.pos.addScaledVector(s.vel, dt);
+      const p = s.line.geometry.attributes.position;
+      p.setXYZ(0, s.pos.x, s.pos.y, s.pos.z);
+      p.setXYZ(1, s.pos.x - s.vel.x * 0.3, s.pos.y - s.vel.y * 0.3, s.pos.z - s.vel.z * 0.3);
+      p.needsUpdate = true;
+      s.line.material.opacity = Math.min(1, s.life * 2);
+      s.line.visible = true;
+      s.head.position.copy(s.pos); s.head.visible = true;
+    }
+  }
+}

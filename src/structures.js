@@ -290,7 +290,7 @@ export function moonCircle(scene, k, w, T, cx, cz, glowMat) {
     k.box('glow', 0.18, h * 0.6, 0.05, '#86b8ff', { x: x - Math.cos(a) * 0.58, y: y + h * 0.5, z: z - Math.sin(a) * 0.58, ry: Math.PI / 2 - a, bright: 2 });
     w.circle(x, z, 1.1, y - 2, y + h);
   }
-  k.box('stone', 3.4, 1.2, 2.2, '#8e8ba4', { x: cx, y: y0 + 0.5, z: cz });
+  k.box('plain', 3.4, 1.2, 2.2, '#8a879c', { x: cx, y: y0 + 0.5, z: cz });
   w.box(cx, cz, 1.7, 1.1, 0, y0 - 2, y0 + 1.1);
   w.platform({ x: cx, z: cz, r: 1.2, top: () => y0 + 1.1 });
   const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 2), glowMat);

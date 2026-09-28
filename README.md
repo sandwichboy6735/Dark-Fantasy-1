@@ -18,7 +18,7 @@ Your progress saves in the browser by itself. Tap to continue where you left off
 | Look around | Mouse (click the game first); scroll to zoom | Drag anywhere else on the screen |
 | Jump | `Space` | Jump |
 | Glide | Hold `Space` while falling | Hold Jump while falling |
-| Talk | `E` next to someone | Talk (appears near someone) |
+| Talk or use something | `E` next to someone or something | Talk / Use (appears when you're close) |
 | Hide the screen text for photos | `P` | |
 | Menu | `Esc` | Moon button, top right |
 
@@ -41,6 +41,16 @@ The compass at the top points to the places you've found, and ◇ marks the ones
 - Drifting castle islands all around the edge of the world.
 
 There are 45 characters to talk to: goblins, witches, wizards, knights, villagers, children, ghosts, a cat, the Moon Queen and more. The menu counts the places you've found and the people you've met.
+
+### Things to try
+
+A few things in the world react when you walk up and press `E` (or tap Use):
+
+- **Ring the chapel bell** in Emberlight Village (walk up to the chapel door)
+- **Toss a coin into the well** in the village square and get a fortune
+- **Throw goblin powder on the bonfire** at the Goblin Market for a burst of coloured sparks
+- **Stir Mother Hemlock's cauldron** in the Witchwood
+- **Touch the humming stone** in the Moon Circle and watch shooting stars fall
 
 If you fall off the edge, the clouds catch you and carry you back.
 

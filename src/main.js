@@ -12,7 +12,7 @@ import { makeMaterials } from './art.js';
 import { Kit } from './kit.js';
 import * as S from './structures.js';
 import { Flora, glowFlowers } from './flora.js';
-import { makeSky, makeCloudSea, makeLake, makeCloudPuffs, Particles, makeWellVisual, LightPool, moonDir } from './fx.js';
+import { makeSky, makeCloudSea, makeLake, makeCloudPuffs, Particles, makeWellVisual, LightPool, ShootingStars, moonDir } from './fx.js';
 import { buildCharacter, buildDragon, NPC } from './characters.js';
 import { NPCS } from './npcs.js';
 import { Player } from './player.js';
@@ -117,6 +117,7 @@ resize();
 const mats = makeMaterials();
 const terrain = new Terrain();
 const world = new World(terrain);
+let stars = null;
 let tmesh = null, flora = null, particles = null, puffDrift = null, player = null, dragon = null, lights = null;
 const npcs = [];
 const wellVisuals = [];
@@ -145,6 +146,7 @@ async function load() {
   bar.style.width = '90%'; text.textContent = 'Waking the villagers'; await tick();
   buildPeople();
   particles = new Particles(scene, mats.tex.soft, world, terrain);
+  stars = new ShootingStars(scene, mats.tex.soft);
   puffDrift = makeCloudPuffs(scene, mats.tex.cloud);
   lights = new LightPool(scene, HQ() ? 6 : 3);
   // Warm up terrain near the title camera and the start
@@ -230,6 +232,7 @@ function buildPlaces() {
     wellVisuals.push({ w, v });
   }
   world.bubbles = pots;
+  addInteractables(T, pots[0]);
 }
 
 function buildPeople() {
@@ -321,6 +324,66 @@ function checkPlaces() {
   }
 }
 
+// ---------- A few things to do ----------
+const things = [];
+const FORTUNES = [
+  'Your coin sinks, glowing. You feel a little braver.',
+  'The well whispers back: \u201cYes. Probably.\u201d',
+  'Somewhere, a goblin sneezes. That means good luck.',
+  'The water ripples into the shape of a crescent moon.',
+  'You hear a faint giggle from the bottom of the well.',
+];
+function burst(x, y, z, colors, n, up = 6, spread = 3, life = 1.6) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * spread;
+    particles.sparkle(x, y, z, Math.cos(a) * r, up * (0.5 + Math.random()), Math.sin(a) * r, colors[i % colors.length], life * (0.6 + Math.random() * 0.6));
+  }
+}
+function addInteractables(T, pot) {
+  const add = (x, z, label, act, y = T.heightAt(x, z)) => things.push({ x, z, y, label, act, cool: 0 });
+  add(0, -29.5, 'Ring the chapel bell', () => {
+    audio.bell(); setTimeout(() => audio.bell(), 900);
+    burst(0, T.heightAt(0, -33) + 30, -33, [[1.6, 1.3, 0.6]], 40, 2, 4);
+    showWhisper('DONG... DONG... The bell rings out across Moonveil.');
+  });
+  add(0, 32.6, 'Toss a coin into the well', () => {
+    audio.chime();
+    burst(0, T.heightAt(0, 30) + 1, 30, [[1.6, 1.4, 0.5], [0.6, 0.8, 1.8]], 30, -1.5, 0.6);
+    showWhisper(FORTUNES[(Math.random() * FORTUNES.length) | 0]);
+  });
+  add(-640, 143.5, 'Throw goblin powder on the fire', () => {
+    audio.thud(300, 0.5, 0.4); audio.chime();
+    burst(-640, T.heightAt(-640, 140) + 2, 140, [[2, 0.5, 0.3], [0.4, 2, 0.6], [0.5, 0.7, 2.2], [2, 0.4, 2]], 120, 12, 5, 2.2);
+    showWhisper('FWOOSH! The goblins cheer. \u201cDo it again!\u201d');
+  });
+  add(pot.cx - 1.6, pot.cz, 'Stir the cauldron', () => {
+    audio.thud(200, 0.4, 0.2);
+    burst(pot.cx, pot.cy + 1.3, pot.cz, [[0.4, 2, 0.6], [1.2, 0.5, 2]], 70, 3, 1.2, 2.4);
+    showWhisper('Blorp. The stew smells of mushrooms and something that might be a sock.');
+  });
+  add(-278, 537, 'Touch the humming stone', () => {
+    audio.chime(); setTimeout(() => audio.chime(), 400);
+    burst(-280, T.heightAt(-280, 540) + 3, 540, [[0.6, 0.9, 2.4]], 60, 5, 2);
+    stars.start(8);
+    showWhisper('The stones hum louder. Look up! The sky is falling, very gently.');
+  });
+}
+function nearestThing() {
+  let best = null, bd = 3.2;
+  for (const t of things) {
+    const d = Math.hypot(t.x - player.pos.x, t.z - player.pos.z);
+    if (d < bd && Math.abs(t.y - player.pos.y) < 3) { bd = d; best = t; }
+  }
+  return best;
+}
+function useThing(t) { if (t.cool > 0) return; t.cool = 2.5; t.act(); }
+function doAction() {
+  const n = nearestTalker();
+  if (n) { openTalk(n); return; }
+  const t = nearestThing();
+  if (t) useThing(t);
+}
+
 // ---------- Dialogue ----------
 let talk = null; // { npc, i, shown, full, t }
 function nearestTalker() {
@@ -399,8 +462,8 @@ function begin(fresh) {
   $('hud').hidden = false;
   $('touch').hidden = !isTouch;
   $('controlsText').textContent = isTouch
-    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone.'
-    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk. P hides the screen text for photos. Esc for this menu.';
+    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone, or Use near something that glows or hums.'
+    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk to people or use things (a bell, a well, a bonfire, a cauldron, a humming stone). P hides the screen text for photos. Esc for this menu.';
   if (!s) setTimeout(() => showBanner('Moonveil', 'Walk, glide and meet the folk who live here. Nothing here will hurt you.', 'Welcome to'), 600);
   captureMouse();
 }
@@ -469,7 +532,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(k);
   if (k === 'Space') e.preventDefault();
   if (talk && (k === 'KeyE' || k === 'Space' || k === 'Enter')) { advanceTalk(); return; }
-  if (k === 'KeyE') { const n = nearestTalker(); if (n) openTalk(n); }
+  if (k === 'KeyE') doAction();
   if (k === 'Escape') { if (talk) closeTalk(); else if (lockFailed) openMenu(); }
   if (k === 'KeyP') document.body.classList.toggle('photo');
 });
@@ -505,7 +568,7 @@ if (isTouch) {
   const jb = $('tJump');
   jb.addEventListener('touchstart', (e) => { e.preventDefault(); touch.jump = true; jb.classList.add('on'); if (talk) advanceTalk(); }, { passive: false });
   jb.addEventListener('touchend', (e) => { e.preventDefault(); touch.jump = false; jb.classList.remove('on'); }, { passive: false });
-  $('tTalk').addEventListener('touchstart', (e) => { e.preventDefault(); const n = nearestTalker(); if (n) openTalk(n); }, { passive: false });
+  $('tTalk').addEventListener('touchstart', (e) => { e.preventDefault(); doAction(); }, { passive: false });
 }
 
 // ---------- Environment by region ----------
@@ -565,10 +628,13 @@ function frame(now) {
       if (areaT <= 0) { areaT = 0.4; checkPlaces(); }
       updateCompass();
       updateTalk(dt);
+      for (const th of things) th.cool -= dt;
       const n = talk ? null : nearestTalker();
-      $('prompt').hidden = !n;
-      if (isTouch) $('tTalk').hidden = !n;
+      const th = talk || n ? null : nearestThing();
+      $('prompt').hidden = !n && !th;
+      if (isTouch) { $('tTalk').hidden = !n && !th; $('tTalk').textContent = n ? 'Talk' : 'Use'; }
       if (n) $('promptText').textContent = 'Talk to ' + n.name;
+      else if (th) $('promptText').textContent = th.label;
       // glide trail
       if (player.gliding && Math.random() < 0.6) particles.sparkle(player.pos.x + (Math.random() - 0.5), player.pos.y + 1.2, player.pos.z + (Math.random() - 0.5), 0, -0.3, 0, [0.5, 0.7, 1.6], 1.2);
     }
@@ -605,6 +671,7 @@ function frame(now) {
   regionEnv(dt);
   particles.update(dt, state === 'title' ? camera.position : player.pos, env);
   puffDrift(dt);
+  stars.update(dt, camera);
   lights.update(dt, world.lights, state === 'title' ? camera.position : player.pos);
 
   // Sky follows the camera; the moon sits on the dome
@@ -631,4 +698,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 load();
 
-window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera };
+window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing };
