@@ -109,7 +109,7 @@ export class Player {
     const mag = Math.min(1, len);
     if (len > 0.01) { mx /= len; mz /= len; }
     const run = inp.run || mag > 0.95 && inp.touchRun;
-    let speed = (run ? 9.5 : 5) * mag;
+    let speed = (run ? 10 : 5.2) * mag;
     if (this.swimming) speed *= 0.55;
     if (this.gliding) speed = Math.max(speed, 12);
 
@@ -122,8 +122,15 @@ export class Player {
 
     // Jump / glide
     const jumpPressed = inp.jump && !this.jumpHeld;
+    if (jumpPressed) this.jumpBuffer = 0.15; else this.jumpBuffer = Math.max(0, (this.jumpBuffer || 0) - dt);
+    this.coyote = this.grounded ? 0.14 : Math.max(0, (this.coyote || 0) - dt);
     this.jumpHeld = inp.jump;
-    if (jumpPressed && (this.grounded || this.swimming)) { v.y = this.swimming ? 6 : 8.2; this.grounded = false; }
+    if (this.jumpBuffer > 0 && (this.grounded || this.coyote > 0 || this.swimming)) {
+      v.y = this.swimming ? 6 : 8.4; this.grounded = false; this.coyote = 0; this.jumpBuffer = 0;
+      if (this.onJump) this.onJump();
+    }
+    // let go of jump early for a short hop
+    if (!inp.jump && v.y > 3 && !this.swimming) v.y -= 30 * dt;
     this.gliding = !this.grounded && !this.swimming && inp.jump && v.y < 0;
     v.y -= 22 * dt;
     if (this.gliding) v.y = Math.max(v.y, this.rested > 0 ? -0.7 : -1.3);
@@ -134,7 +141,10 @@ export class Player {
     const g0 = w.groundAt(p.x, p.z, p.y);
     p.x += v.x * dt; p.z += v.z * dt;
     const g1 = w.groundAt(p.x, p.z, p.y);
-    if (this.grounded && g1 - g0 > 1.4 * Math.hypot(p.x - ox, p.z - oz) + 0.35) { p.x = ox; p.z = oz; v.x *= 0.2; v.z *= 0.2; }
+    if (this.grounded && g1 - g0 > 1.4 * Math.hypot(p.x - ox, p.z - oz) + 0.35) {
+      if (g1 - g0 < 0.75) { p.y = g1; } // step up small ledges and stairs
+      else { p.x = ox; p.z = oz; v.x *= 0.2; v.z *= 0.2; }
+    }
     if (w.collide(p, R, H)) { /* pushed out */ }
 
     // Vertical
@@ -232,7 +242,7 @@ export class Player {
     const g = this.T.heightAt(want.x, want.z) + 0.5;
     if (want.y < g) want.y = g;
     if (!this._cam) this._cam = want.clone();
-    this._cam.lerp(want, 1 - Math.exp(-dt * 12));
+    this._cam.lerp(want, 1 - Math.exp(-dt * 9));
     cam.position.copy(this._cam);
     cam.lookAt(target);
   }

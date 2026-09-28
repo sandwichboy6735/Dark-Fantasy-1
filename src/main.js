@@ -38,7 +38,7 @@ const store = {
 };
 
 const isTouch = matchMedia('(pointer: coarse)').matches && (navigator.maxTouchPoints || 0) > 0;
-const settings = Object.assign({ quality: isTouch ? 'fast' : 'beautiful', sound: true }, store.get(SET_KEY) || {});
+const settings = Object.assign({ quality: isTouch ? 'fast' : 'beautiful', sound: true, sens: 1 }, store.get(SET_KEY) || {});
 const HQ = () => settings.quality === 'beautiful';
 if (isTouch) document.body.classList.add('touch');
 
@@ -435,7 +435,8 @@ function buildPeople() {
   player = new Player(pm, world, terrain);
   player.broomModel = broomModel;
   player.onStep = () => audio.step(player.swimming);
-  player.onLand = () => audio.land();
+  player.onLand = () => { audio.land(); burst(player.pos.x, player.pos.y + 0.1, player.pos.z, [[0.5, 0.45, 0.4]], 14, 1.5, 2.5, 0.6); };
+  player.onJump = () => audio.whoosh(0.05);
   player.onLift = (label) => { audio.lift(); if (label) showWhisper(label, 2.5); };
   player.onFallIntoClouds = () => showWhisper('The clouds catch you, and carry you back to solid ground.');
 }
@@ -564,7 +565,7 @@ let talk = null; // { npc, i, shown, full, t }
 function nearestTalker() {
   let best = null, bd = 3.8;
   for (const n of npcs) {
-    if (!n.talkable || !n.model.visible) continue;
+    if (!n.talkable) continue;
     const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z) - Math.max(0, n.radius - 0.5);
     if (d < bd && Math.abs(n.pos.y - player.pos.y) < 2.6 + n.radius) { bd = d; best = n; }
   }
@@ -704,12 +705,15 @@ function openMap() {
   const me = $('mapMe');
   me.style.left = `calc(${px / 10.24}% - 8px)`; me.style.top = `calc(${py / 10.24}% - 12px)`;
   me.style.transform = `rotate(${(Math.PI - player.facing) * 180 / Math.PI}deg)`;
+  $('mapHelp').textContent = isTouch ? 'Tap a place you have found to travel there by moonlight. Tap outside the map to close it.' : 'Click a place you have found to travel there by moonlight. Press M or Esc to close.';
+  $('hud').hidden = true;
   $('mapPanel').hidden = false;
 }
-function closeMap() { if (state !== 'map') return; $('mapPanel').hidden = true; state = 'play'; captureMouse(); }
+function closeMap() { if (state !== 'map') return; $('mapPanel').hidden = true; $('hud').hidden = false; state = 'play'; captureMouse(); }
 const TRAVEL = { bayou: [520, 620], emberdeep: [120, -660], overlook: [-1.6, 347], lake: [60, 300], village: [0, 60], castle: [-380, -548], moonspire: [60, -600], witchwood: [600, 30], market: [-640, 124], graves: [430, 530], circle: [-272, 560], tower: [-752, -244], lighthouse: [126, 1170], starfall: [-852, 852], queen: [-1258, 1296] };
 function travelTo(p) {
   $('mapPanel').hidden = true;
+  $('hud').hidden = false;
   state = 'play';
   $('fade').style.opacity = 1;
   audio.lift();
@@ -776,6 +780,7 @@ function openMenu() {
   $('foundList').innerHTML = PLACES.map((p) => `<li class="${found.has(p.id) ? '' : 'no'}">${found.has(p.id) ? p.name : '???'}</li>`).join('');
   $('metCount').textContent = `Folk met: ${met.size} of ${npcs.filter((n) => n.talkable).length} \u00b7 Fish caught: ${data.fish.length} of ${FISH.length} \u00b7 Lanterns released: ${data.lanterns} \u00b7 Snowmen built: ${data.snowmen.length}`;
   $('soundBtn').textContent = 'Sound: ' + (settings.sound ? 'on' : 'off');
+  $('sensBtn').textContent = 'Look speed: ' + ({ 0.5: 'very slow', 0.75: 'slow', 1: 'normal', 1.35: 'fast', 1.8: 'very fast' }[settings.sens] || 'normal');
   $('qualityBtn').textContent = 'Graphics: ' + settings.quality + (settings.quality !== store.get(SET_KEY)?.quality ? '' : '');
   save();
 }
@@ -786,6 +791,12 @@ $('soundBtn').addEventListener('click', () => {
   settings.sound = !settings.sound; store.set(SET_KEY, settings);
   if (settings.sound) { audio.start(); audio.setVolume(0.8); } else audio.setVolume(0);
   $('soundBtn').textContent = 'Sound: ' + (settings.sound ? 'on' : 'off');
+});
+$('sensBtn').addEventListener('click', () => {
+  const steps = [0.5, 0.75, 1, 1.35, 1.8];
+  settings.sens = steps[(steps.indexOf(settings.sens) + 1) % steps.length] || 1;
+  store.set(SET_KEY, settings);
+  $('sensBtn').textContent = 'Look speed: ' + { 0.5: 'very slow', 0.75: 'slow', 1: 'normal', 1.35: 'fast', 1.8: 'very fast' }[settings.sens];
 });
 $('qualityBtn').addEventListener('click', () => {
   settings.quality = HQ() ? 'fast' : 'beautiful'; store.set(SET_KEY, settings);
@@ -816,8 +827,9 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('wheel', (e) => { if (state === 'play') player.camDist = Math.max(3, Math.min(16, player.camDist + Math.sign(e.deltaY) * 0.8)); }, { passive: true });
 function look(dx, dy) {
-  player.camYaw -= dx * 0.0032;
-  player.camPitch = Math.max(-0.35, Math.min(1.25, player.camPitch + dy * 0.0026));
+  const k = settings.sens || 1;
+  player.camYaw -= dx * 0.0032 * k;
+  player.camPitch = Math.max(-0.35, Math.min(1.25, player.camPitch + dy * 0.0026 * k));
 }
 window.addEventListener('keydown', (e) => {
   const k = e.code;

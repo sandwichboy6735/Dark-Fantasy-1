@@ -23,6 +23,7 @@ Your progress saves in the browser by itself. Tap to continue where you left off
 | Ride your broom | `B` (Space climbs, `C` dives, `Shift` is fast) | Broom (hold Jump to climb) |
 | Stop an activity | `E` | Stop |
 | Hide the screen text for photos | `P` | |
+| Map | `M` (click a found place to travel there) | Map button, top right |
 | Menu | `Esc` | Moon button, top right |
 
 The compass at the top points to the places you've found, and ◇ marks the ones still waiting.
@@ -30,7 +31,7 @@ The compass at the top points to the places you've found, and ◇ marks the ones
 ## The world
 
 - **Wayfarer's Rest:** where you start, at a stone wall above the Mirror Lake, next to the witch Morwen.
-- **Emberlight Village:** thatched cottages with glowing windows and chimney smoke, a chapel spire, and a mill with a turning water wheel.
+- **Emberlight:** a walled town of timber-framed houses with mossy thatch and slate roofs, glowing windows and chimney smoke, cobbled streets, a square with a clock tower, a chapel spire, and a mill with a turning water wheel.
 - **The Mirror Lake:** Charon the ferryman rows across it all night.
 - **Castle Vaelmoor:** a castle full of lit windows on a snowy crag in the Frostfang Mountains. Step into the blue Moonlift at its gate to ride up.
 - **The Moonspire:** the tallest peak. Vessryn the moon dragon circles it.
@@ -40,6 +41,9 @@ The compass at the top points to the places you've found, and ◇ marks the ones
 - **The Moon Circle:** humming standing stones and a druid.
 - **Archmage Oriel's Tower:** take the Moonlift up, then glide off the top.
 - **Starwatch Light:** a lighthouse on a cliff that sweeps its beam across the clouds.
+- **The Weeping Bayou:** giant cypress trees dripping with moss over dark water, a heron called Grey Wisdom, and an ember glow that never quite fades.
+- **Old Mossback:** a hill-sized turtle, covered in moss, slowly walking the western meadows with a lantern-lit house on its back.
+- **The yak caravan:** Old Harrow leads three shaggy yaks up the snow road toward the Emberdeep, a dwarven forge glowing in a mountain pass.
 - **Starfall Point and the Moon Queen's Castle:** hop across floating stepping stones, riding the blue updrafts, to reach the Moon Queen's island.
 - Drifting castle islands all around the edge of the world.
 
@@ -112,6 +116,11 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/flora.js` | Forests, glowing mushrooms and flowers |
 | `src/characters.js` | Character models and how they move |
 | `src/npcs.js` | Everyone in the world, what they say, and what they ask |
+| `src/town.js` | Emberlight's houses, streets, clock tower and town walls |
+| `src/creatures.js` | Old Mossback the turtle |
+| `src/sculpt.js`, `src/paint.js` | Sculpted faces and hands; the oil-paint filter |
+| `src/groundcover.js` | Wind-blown grass and wildflowers |
+| `src/map.js` | The parchment map |
 | `src/activities.js` | Joining in: bonfire dance, sing-along, broom race, hide and seek, ferry ride |
 | `src/cozy.js` | Sleeping, sitting, fishing, telescopes, sky lanterns, snowmen, rope swing |
 | `src/player.js` | Walking, running, gliding, swimming, broom flying, lifts, camera |
