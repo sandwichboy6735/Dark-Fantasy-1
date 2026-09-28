@@ -5,6 +5,8 @@ import { verbFor } from './verbs.js';
 import { addLook, input } from '../player/input.js';
 
 const STICK_RADIUS = 56;
+const TOUCH_LOOK = 3.4; // turn per pixel dragged, relative to a mouse
+let lookedOnce = false; // hide the "drag here to look" label once you have
 
 // Phones and tablets: a floating stick on the left of the screen, drag anywhere
 // else to look, a TALK button when someone is under the crosshair.
@@ -18,6 +20,7 @@ export function TouchControls() {
   const lookPointers = useRef(new Map());
   const [stick, setStick] = useState(null); // { x, y, dx, dy } in screen pixels
   const [sneak, setSneak] = useState(input.sneak);
+  const [looked, setLooked] = useState(lookedOnce);
 
   const onDown = (e) => {
     e.preventDefault();
@@ -52,7 +55,11 @@ export function TouchControls() {
     }
     const last = lookPointers.current.get(e.pointerId);
     if (!last) return;
-    addLook((e.clientX - last.x) * 2.2, (e.clientY - last.y) * 2.2);
+    addLook((e.clientX - last.x) * TOUCH_LOOK, (e.clientY - last.y) * TOUCH_LOOK);
+    if (!lookedOnce && Math.abs(e.clientX - last.x) > 2) {
+      lookedOnce = true;
+      setLooked(true);
+    }
     lookPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
   };
 
@@ -81,6 +88,7 @@ export function TouchControls() {
         </div>
       )}
       {!stick && <div className="stick-hint">MOVE</div>}
+      {!looked && <div className="look-hint">DRAG HERE TO LOOK</div>}
       {(target || talking) && (
         <button type="button" className={`touch-button talk${talking ? '' : ' ready'}`} onPointerDown={tap(pressTalk)}>
           {talking ? (

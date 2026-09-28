@@ -1049,3 +1049,116 @@ canvas {
 .chapter-card .danger {
   margin-bottom: 14px;
 }
+
+/* ---- A lighter HUD --------------------------------------------------------
+   The quest line sits small in the top-left corner with the goal arrow under
+   it, pop-up messages are smaller and quicker, and the middle of the screen is
+   left to the game. */
+.top-stack {
+  left: 12px;
+  top: 12px;
+  transform: none;
+  width: min(430px, calc(100% - 84px));
+  align-items: flex-start;
+  gap: 8px;
+}
+.objective {
+  width: auto;
+  padding: 8px 10px;
+  font-size: var(--small);
+  line-height: 1.55;
+  text-align: left;
+  background: rgba(8, 6, 18, 0.62);
+  box-shadow: inset 0 0 0 2px rgba(255, 204, 74, 0.7);
+}
+.objective .label {
+  margin-right: 8px;
+}
+.objective .hint {
+  margin-top: 4px;
+  font-size: calc(var(--small) * 0.85);
+  animation: hint-in 0.4s steps(3);
+}
+@keyframes hint-in {
+  0% { opacity: 0; }
+}
+.marker {
+  position: static;
+  transform: none;
+  gap: 8px;
+  font-size: var(--small);
+}
+.arrow-up {
+  border-left-width: 10px;
+  border-right-width: 10px;
+  border-bottom-width: 18px;
+}
+.notice {
+  padding: 7px 10px;
+  font-size: calc(var(--small) * 0.9);
+  line-height: 1.5;
+  text-align: left;
+  border-width: 3px;
+  animation-duration: 3s;
+}
+.objective-banner {
+  top: 30%;
+  width: min(520px, calc(100% - 32px));
+  padding: 12px 14px;
+  font-size: var(--small);
+  gap: 6px;
+  border-width: 3px;
+  animation-duration: 3.2s;
+}
+.objective-banner small {
+  font-size: calc(var(--small) * 0.85);
+}
+@keyframes zone-in {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.pockets {
+  gap: 5px;
+  font-size: calc(var(--small) * 0.85);
+}
+.pocket {
+  padding: 4px 8px;
+}
+.meter {
+  font-size: calc(var(--small) * 0.9);
+}
+.meter .bar {
+  width: clamp(100px, 14vw, 180px);
+  height: 12px;
+}
+.prompt {
+  font-size: var(--small);
+  padding: 6px 10px;
+}
+@media (max-width: 700px) {
+  .top-stack {
+    left: 8px;
+    top: 8px;
+    width: calc(100% - 70px);
+  }
+  .objective {
+    padding: 6px 8px;
+  }
+}
+/* Until you first drag to look on a phone. */
+.look-hint {
+  position: absolute;
+  right: 18px;
+  bottom: 18%;
+  max-width: 9em;
+  padding: 8px 10px;
+  font-size: calc(var(--small) * 0.85);
+  line-height: 1.5;
+  text-align: center;
+  color: var(--ink);
+  border: 3px dashed rgba(232, 220, 192, 0.6);
+  pointer-events: none;
+  animation: blink 1.2s steps(2) infinite;
+}

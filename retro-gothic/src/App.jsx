@@ -33,8 +33,10 @@ import { PeakScene } from './chapters/peak/PeakScene.jsx';
 const KEYS = [
   { name: 'forward', keys: ['KeyW', 'ArrowUp'] },
   { name: 'back', keys: ['KeyS', 'ArrowDown'] },
-  { name: 'left', keys: ['KeyA', 'ArrowLeft'] },
-  { name: 'right', keys: ['KeyD', 'ArrowRight'] },
+  { name: 'left', keys: ['KeyA'] },
+  { name: 'right', keys: ['KeyD'] },
+  { name: 'turnLeft', keys: ['ArrowLeft'] },
+  { name: 'turnRight', keys: ['ArrowRight'] },
   { name: 'run', keys: ['ShiftLeft', 'ShiftRight'] },
   { name: 'sneak', keys: ['KeyC', 'ControlLeft'] },
 ];

@@ -2,7 +2,8 @@ import { useSyncExternalStore } from 'react';
 
 // A tiny store shared by the 3D scene and the DOM overlay.
 //   playing  the player has control (pointer locked, dragging or touch)
-//   mode     'lock' | 'drag' | 'touch': how you look around
+//   mode     'lock' | 'free' | 'touch': how you look around (free: no pointer lock,
+//            the mouse turns you as it moves)
 //   target   { id, name, lines, stages } of the character under the crosshair, or null
 //   talking  the conversation that's open (press E / TALK on a target to start one)
 //   zone     name of the area you're standing in

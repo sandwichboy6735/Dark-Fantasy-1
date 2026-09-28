@@ -21,6 +21,7 @@ import {
   saveGame,
   scoreRun,
   travelTo,
+  notify,
   STAGE,
 } from '../game/quest.js';
 import { MapView } from './MapView.jsx';
@@ -31,6 +32,8 @@ import { TouchControls } from './TouchControls.jsx';
 import { verbFor } from './verbs.js';
 
 const TYPE_SPEED_MS = 28;
+const EDGE_ZONE = 0.1; // how near the left or right edge the mouse turns you by itself
+const EDGE_TURN = 900; // "pixels" of turn per second right at the edge
 const BUTTON = IS_TOUCH ? 'TALK' : 'E';
 
 // Retro text box: the speaker's name on a tab, text typed out a letter at a
@@ -93,6 +96,74 @@ function Prompt({ target }) {
   );
 }
 
+// Which way the next goal is, and how far: an arrow under the quest line.
+function GoalArrow() {
+  const box = useRef();
+  const arrow = useRef();
+  const distance = useRef();
+  useEffect(() => {
+    let frame;
+    const tick = () => {
+      const m = live.marker;
+      if (box.current) {
+        box.current.style.visibility = m ? 'visible' : 'hidden';
+        if (m) {
+          arrow.current.style.transform = `rotate(${-m.angle}rad)`;
+          distance.current.textContent = `${Math.round(m.distance)} m`;
+        }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return (
+    <div className="marker" ref={box}>
+      <div className="arrow-up" ref={arrow} />
+      <span ref={distance} />
+    </div>
+  );
+}
+
+// The quest line, top left. How to do it shows underneath for a while after the
+// objective changes, then tucks away (the pause journal always has it).
+const HINT_SECONDS = 10;
+function QuestLine({ goal, hint, playing }) {
+  const [showHint, setShowHint] = useState(true);
+  useEffect(() => {
+    setShowHint(true);
+    if (!playing) return undefined;
+    const timer = setTimeout(() => setShowHint(false), HINT_SECONDS * 1000);
+    return () => clearTimeout(timer);
+  }, [goal, playing]);
+  return (
+    <div className="objective" key={goal}>
+      <span className="label">QUEST</span>
+      {goal}
+      {showHint && <small className="hint">{hint}</small>}
+    </div>
+  );
+}
+
+// The first time you play, how to look around (it depends how you're playing).
+let lookHintShown = false;
+function useLookHint(playing, mode) {
+  useEffect(() => {
+    if (!playing || lookHintShown || mode === 'lock') return undefined;
+    lookHintShown = true;
+    const timer = setTimeout(
+      () =>
+        notify(
+          mode === 'touch'
+            ? 'Drag your finger on the right side of the screen to look around'
+            : 'Move the mouse to look around. Hold it near the edge of the screen to keep turning, or use the arrow keys',
+        ),
+      800,
+    );
+    return () => clearTimeout(timer);
+  }, [playing, mode]);
+}
+
 // A big banner whenever the objective changes, so you never miss the next step.
 function ObjectiveBanner({ goal }) {
   const first = useRef(true);
@@ -103,7 +174,7 @@ function ObjectiveBanner({ goal }) {
       return undefined;
     }
     setShown(goal);
-    const timer = setTimeout(() => setShown(null), 4500);
+    const timer = setTimeout(() => setShown(null), 3200);
     return () => clearTimeout(timer);
   }, [goal]);
   if (!shown) return null;
@@ -260,14 +331,6 @@ function LiveHud() {
     let frame;
     const tick = () => {
       const r = refs.current;
-      const m = live.marker;
-      if (r.marker) {
-        r.marker.style.visibility = m ? 'visible' : 'hidden';
-        if (m) {
-          r.arrow.style.transform = `rotate(${-m.angle}rad)`;
-          r.distance.textContent = `${Math.round(m.distance)} m`;
-        }
-      }
       if (r.dread) {
         r.dread.style.visibility = live.dread > 0.01 ? 'visible' : 'hidden';
         r.dreadFill.style.width = `${live.dread * 100}%`;
@@ -324,10 +387,6 @@ function LiveHud() {
       <div className="vignette" ref={bind('vignette')} />
       <div className="frost" ref={bind('frost')} />
       <div className="fade" ref={bind('fade')} />
-      <div className="marker" ref={bind('marker')}>
-        <div className="arrow-up" ref={bind('arrow')} />
-        <span ref={bind('distance')} />
-      </div>
       <div className="meters">
         <div className="meter dread" ref={bind('dread')}>
           <span>DREAD</span>
@@ -579,30 +638,68 @@ function useGlobalInput() {
       if (e.code === 'Escape' && store.get().mode !== 'lock') store.set({ playing: false });
     };
     const onMouseDown = (e) => {
-      if (e.button === 0 && store.get().playing && store.get().mode === 'lock') pressTalk();
+      const { playing, mode } = store.get();
+      // Buttons on the cards handle their own clicks.
+      if (e.target.closest?.('button, .panel')) return;
+      if (e.button === 0 && playing && (mode === 'lock' || mode === 'free')) pressTalk();
     };
-    // Look with the locked mouse or, where pointer lock is blocked (some frames), by dragging.
+    // Where the pointer can't be locked (the game embedded in another page), the
+    // mouse still turns you as it moves, and holding it near an edge keeps turning.
+    const pointer = { x: 0, y: 0, inside: false };
     const onMouseMove = (e) => {
       const { playing, mode } = store.get();
+      // Some browsers and embedded pages report no movement at all; then the change
+      // in the cursor's position is the movement (while truly locked it never moves).
+      const reported = e.movementX !== 0 || e.movementY !== 0;
+      const dx = reported ? e.movementX : pointer.inside ? e.clientX - pointer.x : 0;
+      const dy = reported ? e.movementY : pointer.inside ? e.clientY - pointer.y : 0;
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      pointer.inside = true;
       if (!playing) return;
-      const looking = (mode === 'lock' && document.pointerLockElement) || (mode === 'drag' && e.buttons & 1);
+      const looking = (mode === 'lock' && document.pointerLockElement) || mode === 'free';
       // Chrome sometimes reports one huge jump just after locking; drop it.
-      if (looking && Math.abs(e.movementX) < 250 && Math.abs(e.movementY) < 250) addLook(e.movementX, e.movementY);
+      if (looking && Math.abs(dx) < 250 && Math.abs(dy) < 250) addLook(dx, dy);
     };
+    const onLeave = () => {
+      pointer.inside = false;
+    };
+    let frame;
+    let last = performance.now();
+    const edgeTurn = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const { playing, mode } = store.get();
+      if (playing && mode === 'free' && pointer.inside) {
+        const edge = (size, at) => {
+          const zone = size * EDGE_ZONE;
+          if (at < zone) return -(1 - at / zone);
+          if (at > size - zone) return 1 - (size - at) / zone;
+          return 0;
+        };
+        addLook(edge(window.innerWidth, pointer.x) * EDGE_TURN * dt, 0);
+      }
+      frame = requestAnimationFrame(edgeTurn);
+    };
+    frame = requestAnimationFrame(edgeTurn);
     window.addEventListener('keydown', onKey);
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseleave', onLeave);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseleave', onLeave);
     };
   }, []);
 }
 
 // The title card doubles as the pause screen. Clicking it asks for pointer lock
 // (PointerLockControls listens on #enter); if that's refused we fall back to
-// drag-to-look, and touch screens go straight to touch controls.
+// free look (the mouse turns you as it moves), and touch screens go straight to
+// touch controls.
 function TitleScreen({ playing }) {
   const [started, setStarted] = useState(false);
   const [saved] = useState(hasProgress);
@@ -615,7 +712,7 @@ function TitleScreen({ playing }) {
   }, [playing]);
 
   useEffect(() => {
-    const fallback = () => store.set({ playing: true, mode: 'drag' });
+    const fallback = () => store.set({ playing: true, mode: 'free' });
     document.addEventListener('pointerlockerror', fallback);
     return () => document.removeEventListener('pointerlockerror', fallback);
   }, []);
@@ -626,18 +723,18 @@ function TitleScreen({ playing }) {
     startAudio();
     if (IS_TOUCH) {
       store.set({ playing: true, mode: 'touch' });
-    } else if (mode === 'drag') {
+    } else if (mode === 'free') {
       store.set({ playing: true });
     } else {
       // Some browsers refuse the lock without firing pointerlockerror.
-      setTimeout(() => !store.get().playing && store.set({ playing: true, mode: 'drag' }), 600);
+      setTimeout(() => !store.get().playing && store.set({ playing: true, mode: 'free' }), 600);
     }
   };
 
   const restart = (e) => {
     newGame();
     start();
-    if (IS_TOUCH || mode === 'drag') e.stopPropagation();
+    if (IS_TOUCH || mode === 'free') e.stopPropagation();
   };
 
   const prompt = started ? 'PAUSED - CLICK TO RESUME' : saved ? 'CLICK TO CONTINUE' : 'CLICK TO BEGIN';
@@ -701,7 +798,8 @@ function TitleScreen({ playing }) {
             <tbody>
               <tr><td>W A S D</td><td>WALK</td></tr>
               <tr><td>SHIFT</td><td>RUN</td></tr>
-              <tr><td>MOUSE</td><td>{mode === 'drag' ? 'DRAG TO LOOK' : 'LOOK'}</td></tr>
+              <tr><td>MOUSE</td><td>{mode === 'free' ? 'MOVE TO LOOK (EDGES KEEP TURNING)' : 'LOOK'}</td></tr>
+              <tr><td>← →</td><td>TURN</td></tr>
               <tr><td>E / CLICK</td><td>TALK</td></tr>
               <tr><td>F</td><td>THROW BANGER</td></tr>
               <tr><td>C (HOLD)</td><td>SNEAK</td></tr>
@@ -727,6 +825,7 @@ export function Overlay() {
   const talking = useStore((s) => s.talking);
   const chapter = useStore((s) => s.chapter);
   useGlobalInput();
+  useLookHint(playing, mode);
 
   // E / TALK on whatever you're facing opens a conversation (the open one handles its own presses).
   useEffect(() => {
@@ -751,11 +850,8 @@ export function Overlay() {
         </div>
       )}
       <div className="top-stack">
-        <div className="objective" key={goal}>
-          <span className="label">QUEST</span>
-          {goal}
-          <small className="hint">{hint}</small>
-        </div>
+        <QuestLine goal={goal} hint={hint} playing={playing} />
+        <GoalArrow />
         <Notice />
       </div>
       <ObjectiveBanner goal={goal} />

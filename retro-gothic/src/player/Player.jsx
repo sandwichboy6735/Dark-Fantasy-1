@@ -21,6 +21,7 @@ const TALK_RANGE = 9;
 const CENTER = new THREE.Vector2(0, 0);
 const LOOK_SPEED = 0.0022; // radians per pixel of mouse or drag
 const MAX_PITCH = Math.PI / 2 - 0.05;
+const TURN_SPEED = 2.2; // radians per second with the arrow keys
 const PROXIMITY_REACH = 4;
 const PROXIMITY_ANGLE = (55 * Math.PI) / 180;
 const FALL_SECONDS = 1.4;
@@ -167,6 +168,14 @@ export function Player() {
     }
     input.lookX = 0;
     input.lookY = 0;
+    // The arrow keys turn you, for anyone without a mouse to look with.
+    const turning = getKeys();
+    if (playing && (turning.turnLeft || turning.turnRight)) {
+      look.setFromQuaternion(camera.quaternion, 'YXZ');
+      look.y += ((turning.turnLeft ? 1 : 0) - (turning.turnRight ? 1 : 0)) * TURN_SPEED * dt;
+      look.z = 0;
+      camera.quaternion.setFromEuler(look);
+    }
 
     // WASD (or the touch stick) relative to where the camera faces, flattened onto the ground.
     let moving = false;

@@ -107,7 +107,8 @@ Start somewhere else in the current chapter with `?spawn=`: in the Vigil `bridge
 
 | Key | Action |
 |---|---|
-| `W A S D` / arrows | Walk |
+| `W A S D` (or `↑` `↓`) | Walk |
+| `←` `→` | Turn |
 | `Shift` | Run |
 | Mouse | Look (click the page to lock the pointer) |
 | `E` / left click | Talk to whoever you're facing; again to read on; again to close |
@@ -116,7 +117,7 @@ Start somewhere else in the current chapter with `?spawn=`: in the Vigil `bridge
 | `M` | Mute |
 | `Esc` | Pause: quest journal, map and chapter select |
 
-If the browser won't lock the pointer (in some embedded frames, for example), the game falls back to dragging with the mouse to look.
+If the browser won't lock the pointer (when the game is embedded in another page, for example), moving the mouse still turns you, and holding it near the left or right edge of the screen keeps turning. The arrow keys `←` `→` turn you too, in any mode.
 
 On a phone or tablet, put your left thumb anywhere on the left of the screen for a movement stick (push it all the way to run), drag anywhere else to look, tap **TALK** when someone is under the crosshair, **BANG** to throw a banger and **SNEAK** to crouch (tap again to stand). **II** pauses and shows the map.
 
