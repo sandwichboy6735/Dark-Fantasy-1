@@ -100,6 +100,10 @@ A few things in the world react when you walk up and press `E` (or tap Use):
 
 If you fall off the edge, the clouds catch you and carry you back.
 
+## Also in this repo: The Vigil & the Tankard
+
+`retro-gothic/` is a separate, smaller game: a PS1-style first-person walk from a gothic castle causeway to a goblin tavern, built with Vite and React Three Fiber. See [`retro-gothic/README.md`](retro-gothic/README.md) for how to run it.
+
 ## Development
 
 ```sh
