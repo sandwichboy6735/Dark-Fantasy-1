@@ -74,7 +74,7 @@ function VigilSky() {
     <>
       <fog attach="fog" args={[FOG_COLOR, 40, 260]} />
       {/* A soft violet fill so nothing sinks to black; the torches and lanterns do the rest. */}
-      <ambientLight color="#5a5290" intensity={1.35} />
+      <ambientLight color="#5a5290" intensity={1.7} />
       <Sky />
     </>
   );

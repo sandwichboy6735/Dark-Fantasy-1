@@ -34,6 +34,8 @@ export function RetroPipeline() {
     ditherPass.uniforms.uLift.value = RETRO.lift;
     ditherPass.uniforms.uGamma.value = RETRO.gamma;
     ditherPass.uniforms.uSaturation.value = RETRO.saturation;
+    ditherPass.uniforms.uBloom.value = RETRO.bloom;
+    ditherPass.uniforms.uBloomThreshold.value = RETRO.bloomThreshold;
 
     composer.addPass(pixelPass);
     composer.addPass(ditherPass);

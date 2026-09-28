@@ -47,8 +47,8 @@ function Daylight() {
     }
     if (scene.background?.isColor) scene.background.copy(scene.fog.color);
     ambient.current.color.copy(colour.copy(NIGHT_AMBIENT).lerp(DAWN_AMBIENT, d));
-    ambient.current.intensity = 1.9 + d * 0.9;
-    moon.current.intensity = 2.2 * (1 - d);
+    ambient.current.intensity = 2.4 + d * 0.5;
+    moon.current.intensity = 2.8 * (1 - d);
     sun.current.intensity = d * 3.6;
   });
   return (

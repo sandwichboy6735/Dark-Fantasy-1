@@ -8,15 +8,15 @@ import { store, useStore } from '../store.js';
 import { CANDELABRA, GREAT_BELL, STAGE } from '../game/quest.js';
 import { GREAT_BELL_INFO } from './npcs.js';
 
-const stone = mat({ color: '#5e5a70', map: 'castle' });
-const darkStone = mat({ color: '#3e3b4c', map: 'castle' });
+const stone = mat({ color: '#8a86a0', map: 'castle' });
+const darkStone = mat({ color: '#625e76', map: 'castle' });
 const slate = mat({ color: '#6a6680', map: 'slate' });
 const iron = mat({ color: '#1c1c22', type: 'phong', shininess: 50 });
 const banner = mat({ color: '#ffffff', map: 'tabard' });
 const lit = glow('#ff7a1e');
 const dimWindow = glow('#b8420c');
-const floorTile = mat({ color: '#4a4658', map: 'castle' });
-const pewWood = mat({ color: '#5a4030', map: 'wood' });
+const floorTile = mat({ color: '#7a7690', map: 'castle' });
+const pewWood = mat({ color: '#8e6a4e', map: 'wood' });
 const bronze = mat({ color: '#6a5a2a', type: 'phong', shininess: 80 });
 const verdigris = mat({ color: '#3a6a58', type: 'phong', shininess: 40 });
 const rope = mat({ color: '#8a7050' });
@@ -194,7 +194,7 @@ function Candelabrum({ x, z }) {
       {[-0.5, 0, 0.5].map((dx) => (
         <Candle key={dx} position={[dx, 2.1, 0]} />
       ))}
-      <FlickerLight intensity={45} color="#ffa040" distance={14} seed={x * 3 + z} position={[0, 2.8, 0]} />
+      <FlickerLight intensity={70} color="#ffa040" distance={18} seed={x * 3 + z} position={[0, 2.8, 0]} />
     </group>
   );
 }
@@ -220,7 +220,7 @@ function Chandelier({ z }) {
       {Array.from({ length: 8 }, (_, i) => (
         <Candle key={i} position={[Math.sin((i * Math.PI) / 4) * 1.2, 0.06, Math.cos((i * Math.PI) / 4) * 1.2]} />
       ))}
-      <FlickerLight intensity={70} color="#ffb050" distance={16} decay={1.4} seed={z} position={[0, -0.5, 0]} />
+      <FlickerLight intensity={110} color="#ffb050" distance={22} decay={1.4} seed={z} position={[0, -0.5, 0]} />
     </group>
   );
 }

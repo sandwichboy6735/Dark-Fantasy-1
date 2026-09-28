@@ -78,10 +78,10 @@ const painters = {
   },
 
   rock(ctx, rand) {
-    ctx.fillStyle = '#211e28';
+    ctx.fillStyle = '#2c2834';
     ctx.fillRect(0, 0, 32, 32);
     for (let i = 0; i < 40; i++) {
-      ctx.fillStyle = shade('#2f2b38', (rand() - 0.5) * 0.12);
+      ctx.fillStyle = shade('#3c3746', (rand() - 0.5) * 0.12);
       ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 2 + Math.floor(rand() * 6), 1 + Math.floor(rand() * 3));
     }
     speckle(ctx, 32, 32, rand, 0.2);

@@ -2,31 +2,36 @@
 export const RETRO = {
   // The scene is rendered at this many lines and blown up with nearest-neighbour
   // sampling. Width follows the window's aspect ratio (240 lines = 320x240 at 4:3;
-  // 288 is a touch cleaner while still chunky).
-  internalHeight: 288,
+  // 336 is cleaner while still chunky).
+  internalHeight: 336,
 
   // Bits per channel after dithering. [5, 6, 5] is 16-bit RGB565 colour.
   // [5, 5, 5] is the PlayStation's 15-bit mode, [8, 8, 8] is 24/32-bit true colour.
   colorBits: [5, 6, 5],
 
   // 0 = plain rounding (banding), 1 = full 8x8 Bayer dither.
-  ditherStrength: 0.55,
+  ditherStrength: 0.4,
 
   // Linear exposure applied before the colour is quantised.
-  exposure: 1.4,
+  exposure: 1.5,
 
   // Final grade, in sRGB: `lift` raises the blacks so shadows keep some detail,
   // `gamma` below 1 opens up the mid-tones, `saturation` above 1 adds colour.
-  lift: 0.035,
-  gamma: 0.88,
-  saturation: 1.12,
+  lift: 0.03,
+  gamma: 0.86,
+  saturation: 1.15,
+
+  // A soft glow around anything brighter than `bloomThreshold` (flames, lanterns,
+  // magic, the Eye), spread over a few low-res pixels. 0 turns it off.
+  bloom: 0.6,
+  bloomThreshold: 0.8,
 
   // 1 = vertices snap to one internal pixel, 2 = two pixels, 0 = off.
-  jitterStrength: 0.5,
+  jitterStrength: 0.35,
 
   // Outline strengths used by RenderPixelatedPass.
-  normalEdgeStrength: 0.2,
-  depthEdgeStrength: 0.28,
+  normalEdgeStrength: 0.16,
+  depthEdgeStrength: 0.22,
 };
 
 // RenderPixelatedPass renders at (buffer size / pixelSize). Picking the pixel size
