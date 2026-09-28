@@ -1,10 +1,12 @@
 # The Vigil & the Tankard
 
-A short first-person adventure rendered like a 1990s console game, built with React Three Fiber.
+A first-person adventure in three chapters, rendered like a 1990s console game, built with React Three Fiber.
 
 Start in a torchlit court. North, a cobbled causeway climbs over the abyss to a gothic castle, under a sky of swirling clouds and one enormous blue eye. East, goblins in blue-and-black jester hats are celebrating outside the Grinning Tankard. Look at anyone to hear what they have to say.
 
-## The story
+Close the Eye, and the journey goes on: down to a flooded marsh to bring the fallen stars home, then up a frozen mountain to bring back the sun.
+
+## Chapter I: the Vigil
 
 Your goal: close the giant Eye that has watched this land for a hundred years.
 
@@ -35,7 +37,49 @@ Choose **Pilgrim** (easier: dread builds slower, Watchers are slower to notice a
 
 **The Toast.** While you carry it, running sloshes out the foam (the FOAM meter), and being seen curdles half of it. If it goes flat, fetch a fresh one from Grubnik. Once you carry it, the Eye gets angry: its searchlights sweep faster and a third one watches the gate.
 
-The ending ranks your run from S to C, from your time, how often you were caught (or fell), the torches you relit, the cats you petted and the pages you read; Pilgrim runs score a little lower. Everyone's lines change as the story moves on, so talk to people again. Progress saves in the browser by itself; the title screen offers **Begin anew**.
+The ending ranks the chapter from S to C, from your time, how often you were caught (or fell), the torches you relit, the cats you petted and the pages you read; Pilgrim runs score a little lower. Everyone's lines change as the story moves on, so talk to people again. Then press E (or **ON TO CHAPTER II**) to go on, or stay and wander: Rattlecart the carter and Mudbelly, his toad, wait in the court to take you.
+
+## Chapter II: the Drowned Fen
+
+When the Eye closed, the stars came home, all but five, which fell into Mother Murk's fen: black water, mud islands and rotten boardwalks, with a sunken chapel and its bell tower at the far end.
+
+1. **Talk to Mother Murk**, the bog witch, by her hut at the landing.
+2. **Find the five fallen stars.** Each has a shaft of light over it; walk into one to pick it up. Some are on islands, some out in the water.
+3. **Set them in the Star Font** in the Sunken Chapel. The Drowned Queen wakes, and the fen floods.
+4. **Climb the bell tower** before the water reaches you. The stair winds three times round it: hold forward and run, and it turns you as you climb. Get caught by the water and you're back at the font. Reach the top and the stars fly home.
+
+**Wading.** Off the islands and boardwalks the water is knee-deep: slow going, and you can't really run. Some boardwalks have fallen in, so you'll have to wade across the gaps.
+
+**The Drowned** wait under the water near their lairs, with only their eyes and hair showing. Wade within earshot (closer if you crouch, much further if you splash along at a run) and they rise and come for you, a little slower than you wade. They can't leave the water and can't grab you out of it: climb onto land or a boardwalk and they sink back. A bang in the water draws them off.
+
+**Witch-lights.** Green-gold lanterns on poles. Walk up to a dark one to light it: the Drowned won't come near a lit one, and it's where you wake if they get you. Mother Murk tops your bangers up to three.
+
+**Toads.** Five golden-eyed toads sit about the fen. Kiss them.
+
+## Chapter III: the Frostspire
+
+The stars are back, but the sun is not. A path of stone steps and snowy ledges zigzags up the Frostspire to the Monastery of Dawn and the summit.
+
+1. **Talk to Brannoc the hermit** by his fire at the foot of the mountain. He gives you his ember to carry up.
+2. **Climb to the monastery.** The gold arrow points to the next campfire on the way.
+3. **Light the three Braziers of Dawn** in the monastery courtyard.
+4. **Light the Dawn Beacon** on the summit. The sun rises for the first time in a hundred years.
+
+**Warmth.** The cold drains the WARMTH meter (faster on the windy ledges). Stand by a lit campfire to warm up; walk up to a cold one to light it, and it's where you wake. Let it run out and you freeze.
+
+**Wind.** On the narrow ledges the wind howls, and a moment later a gust shoves you towards the drop. Crouch (`C`, or SNEAK) and it can't move you. Otherwise it throws you off the mountain and you wake by the last campfire.
+
+**Boulders** thunder down the chute. There are three alcoves in its wall: wait in one while a boulder rolls past, then run for the next.
+
+**The stone monks** in the courtyard move only when you're not looking at them. Keep them on screen, back towards the braziers (they won't come near a lit one), and don't turn your back for long. They hold still while you're talking to something.
+
+**Climbers.** Four goblins of the Tankard Mountaineering Society are frozen in blocks of ice on the way up. Chip them out.
+
+## Coming home
+
+After the Beacon, ride home with Rattlecart. It's morning at the Grinning Tankard, and everyone has something to say about it. The final card lists each chapter's rank and time and gives the whole journey a rank.
+
+Pause at any time to pick any chapter you've reached from the title screen. Progress saves in the browser by itself; the title screen offers **Begin anew**.
 
 ## Run it
 
@@ -57,7 +101,7 @@ npm run build:pages   # build into ../docs/vigil/ for GitHub Pages
 
 The build uses relative paths, so `dist/` (or `docs/vigil/`) can be served from any folder.
 
-Start somewhere else with `?spawn=bridge`, `gate`, `bailey`, `nave`, `dais`, `tavern`, `yard` or `bar` (the castle ones only work once the gate is open in your save). In development builds, `window.__game` exposes the live game state. Add `&look=yaw,pitch` (in degrees) to set the starting view.
+Start somewhere else in the current chapter with `?spawn=`: in the Vigil `bridge`, `gate`, `bailey`, `nave`, `dais`, `tavern`, `yard` or `bar` (the castle ones only work once the gate is open in your save); in the fen `heron`, `willow`, `gallows`, `chapel`, `font`, `tower` or `top`; on the mountain `ledge`, `shelf`, `chute`, `crag`, `court` or `summit`. Add `&look=yaw,pitch` (in degrees) to set the starting view. In development builds, `?chapter=2` jumps straight to a chapter, and `window.__game` exposes the live game state (set `__game.live.teleport = { x, y, z }` to move).
 
 ## Controls
 
@@ -67,10 +111,10 @@ Start somewhere else with `?spawn=bridge`, `gate`, `bailey`, `nave`, `dais`, `ta
 | `Shift` | Run |
 | Mouse | Look (click the page to lock the pointer) |
 | `E` / left click | Talk to whoever you're facing; again to read on; again to close |
-| `F` or `Q` | Throw a banger |
-| `C` or `Ctrl` (hold) | Sneak |
+| `C` or `Ctrl` (hold) | Sneak; wade quietly; brace against the wind |
+| `F` or `Q` | Throw a banger (chapters I and II) |
 | `M` | Mute |
-| `Esc` | Pause and map |
+| `Esc` | Pause: quest journal, map and chapter select |
 
 If the browser won't lock the pointer (in some embedded frames, for example), the game falls back to dragging with the mouse to look.
 
@@ -89,8 +133,13 @@ All of it is tuned in `src/retro/config.js`.
 
 | File | What it does |
 |---|---|
-| `src/App.jsx` | Canvas, fog, keyboard map, and the whole scene |
-| `src/game/quest.js` | The story's stages, bells, torches, searchlight paths, saving, and who says what when |
+| `src/App.jsx` | Canvas, keyboard map, and whichever chapter's world you're in |
+| `src/chapters/registry.js` | Each chapter's per-frame rules (what the world does to you) |
+| `src/chapters/vigil/rules.js` | Chapter I's rules: the gaze, torches, bells, the Toast, the escape |
+| `src/chapters/fen/*` | Chapter II: map and floors (`layout.js`), story (`quest.js`), rules, the Drowned and the flood, world, map |
+| `src/chapters/peak/*` | Chapter III: the same, with warmth, wind, boulders, the stone monks and the sunrise |
+| `src/chapters/NightSky.jsx`, `Particles.jsx`, `Cart.jsx` | The later chapters' sky (moon, stars, aurora, dawn), fireflies and snow, and Rattlecart's cart |
+| `src/game/quest.js` | Chapter I's story, saving, travel between chapters, and the story questions the HUD asks of every chapter |
 | `src/game/live.js` | Per-frame values the HUD reads: dread, foam, the objective arrow |
 | `src/world/Gaze.jsx` | The Eye's searchlights: beam, pool of light and a real blue light |
 | `src/world/Watchers.jsx` | The Eyeless Watchers: patrol, sight cone, chase, investigate |
@@ -101,7 +150,7 @@ All of it is tuned in `src/retro/config.js`.
 | `src/game/audio.js` | Synthesised sound: the drone, the tavern reel, blips, chimes, the fanfare |
 | `src/world/Quest.jsx` | The golden bells, the Vigil Stone, and the Toast in your hand |
 | `src/retro/*` | The pipeline above, plus the cached material and geometry helpers |
-| `src/world/layout.js` | Map, walkable ground and step heights, colliders, area names, spawn points |
+| `src/world/layout.js` | Chapter I's map, walkable ground and step heights, colliders, area names, spawn points; and the per-chapter lookups |
 | `src/world/Sky.jsx` | Swirling cloud dome and the eye (both pure shaders) |
 | `src/world/Bridge.jsx` | The causeway, and how it falls apart during the escape |
 | `src/world/Castle.jsx`, `Terrain.jsx` | The castle (gatehouse, bailey, nave, Great Bell) and its crag; the court |
@@ -109,7 +158,7 @@ All of it is tuned in `src/retro/config.js`.
 | `src/world/Tavern.jsx`, `Goblin.jsx` | Tavern yard, props and the goblins with their poses |
 | `src/world/Lights.jsx` | Steady orange torches and braziers; flickering yellow lanterns and candles |
 | `src/world/npcs.js` | Who is where, and what they say |
-| `src/player/Player.jsx` | Pointer-lock look, WASD movement, collisions, the crosshair ray, bell pickups |
+| `src/player/Player.jsx` | Pointer-lock look, WASD movement, collisions, the crosshair ray, being caught and waking, for every chapter |
 | `src/player/input.js` | Stick and drag-look input shared with the touch controls |
 | `src/ui/Overlay.jsx` | Crosshair, objective, dialogue box, notices, title and ending screens |
 | `src/ui/TouchControls.jsx` | On-screen stick, look drag and TALK button |

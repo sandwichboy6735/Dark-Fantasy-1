@@ -18,6 +18,11 @@ import { useSyncExternalStore } from 'react';
 //   intro    the goal card is showing (new games)
 //   ending   the ending card is showing
 //   notice   { text, id } a short message flashed at the top of the screen
+//   chapter  which chapter you're playing: 1 the Vigil, 2 the Drowned Fen, 3 the Frostspire
+//   unlocked the furthest chapter you can travel to
+//   fen      progress in chapter II: { stage, stars, lit, toads, seen, start }
+//   peak     progress in chapter III: { stage, lit, braziers, goblins, seen, start }
+//   records  each finished chapter's result: { [chapter]: { time, seen, score, rank } }
 let state = {
   playing: false,
   mode: 'lock',
@@ -36,7 +41,15 @@ let state = {
   ending: false,
   intro: true,
   notice: null,
+  chapter: 1,
+  unlocked: 1,
+  fen: { stage: 0, stars: [], lit: [], toads: [], seen: 0, start: null },
+  peak: { stage: 0, lit: [], braziers: [], goblins: [], seen: 0, start: null },
+  records: {},
 };
+
+export const FRESH_FEN = state.fen;
+export const FRESH_PEAK = state.peak;
 const listeners = new Set();
 
 export const store = {

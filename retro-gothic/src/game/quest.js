@@ -1,5 +1,5 @@
-import { store } from '../store.js';
-import { bridgeHeight } from '../world/layout.js';
+import { FRESH_FEN, FRESH_PEAK, store } from '../store.js';
+import { bridgeHeight, setActiveChapter } from '../world/layout.js';
 import { sfx } from './audio.js';
 import { live } from './live.js';
 
@@ -33,6 +33,8 @@ export const BELLS = [
 export const VIGIL_STONE = { x: 0, z: -106, y: Y_CASTLE };
 export const GREAT_BELL = { x: 0, z: -147, y: Y_CASTLE };
 export const GRUBNIK_SPOT = { x: 37, z: 10 };
+// Rattlecart and the goblin cart that runs to the next chapter, in the court.
+export const CART_SPOT = { x: -6, z: 17.2 };
 
 // Six black cats sleep in odd corners. Pet them all.
 export const CATS = [
@@ -54,9 +56,12 @@ export const PAGES = [
 ];
 
 // How forgiving the game is. Chosen when you begin a new journey.
+// Chapter II and III use `drowned` (how fast the Drowned swim), `flood` (how fast
+// the water rises), `cold` (how fast you lose warmth) and `monk` (how fast the
+// stone monks move).
 export const DIFFICULTY = {
-  easy: { label: 'Pilgrim', dread: 0.6, watcherSpeed: 0.8, notice: 1.7, foam: 0.6, collapse: 0.8, head: 12 },
-  normal: { label: 'Vigil', dread: 1, watcherSpeed: 1, notice: 1, foam: 1, collapse: 1, head: 9 },
+  easy: { label: 'Pilgrim', dread: 0.6, watcherSpeed: 0.8, notice: 1.7, foam: 0.6, collapse: 0.8, head: 12, drowned: 0.8, flood: 0.8, cold: 0.65, monk: 0.75, boulder: 0.8 },
+  normal: { label: 'Vigil', dread: 1, watcherSpeed: 1, notice: 1, foam: 1, collapse: 1, head: 9, drowned: 1, flood: 1, cold: 1, monk: 1, boulder: 1 },
 };
 export const difficulty = () => DIFFICULTY[store.get().difficulty] ?? DIFFICULTY.normal;
 
@@ -138,8 +143,77 @@ export function gazePositions(time, stage, lure, now) {
   });
 }
 
+// ---- Chapters ----------------------------------------------------------------
+// The Vigil's story lives in this file. Chapters II and III register their own
+// quest objects (see chapters/*/quest.js), and everything the HUD asks about the
+// story goes through the dispatchers below.
+export const CHAPTER_TITLES = { 1: 'The Vigil', 2: 'The Drowned Fen', 3: 'The Frostspire' };
+export const ROMAN = { 1: 'I', 2: 'II', 3: 'III' };
+export const LAST_CHAPTER = 3;
+const chapterQuests = {};
+export const registerQuest = (n, quest) => {
+  chapterQuests[n] = quest;
+};
+const questOf = (state) => (state.chapter > 1 ? chapterQuests[state.chapter] ?? null : null);
+export const chapterQuest = (n) => chapterQuests[n] ?? null;
+
+// Once the Eye is closed, the next chapter you haven't finished (where Rattlecart's
+// cart goes from the court), or null when the whole journey is done. The fen is
+// done at its stage 3, the mountain at its stage 4 (see chapters/*/quest.js).
+export function unfinishedChapter(state) {
+  if (state.stage < STAGE.DONE) return null;
+  if (state.fen.stage < 3) return 2;
+  if (state.peak.stage < 4) return 3;
+  return null;
+}
+// The sun is back: every chapter finished.
+export const morning = (state) => state.peak.stage >= 4;
+
+// Whether goblin bangers are any use right now (they are no help on the mountain).
+export const bangAvailable = (state) => {
+  const quest = questOf(state);
+  return quest ? Boolean(quest.bangs?.(state)) : state.stage >= STAGE.BELLS;
+};
+
+// The current chapter's stage number: what `verbs` on interactables are keyed by.
+export const chapterStage = (state) => questOf(state)?.stage(state) ?? state.stage;
+
+// Take the cart (or the pause menu) to another chapter you've unlocked.
+export function travelTo(n) {
+  const state = store.get();
+  if (!CHAPTER_TITLES[n] || n > state.unlocked) return;
+  const patch = { chapter: n, talking: null, target: null, ending: false, intro: false };
+  const key = n === 2 ? 'fen' : n === 3 ? 'peak' : null;
+  // First visit: start the chapter's clock and show its goal card.
+  if (key && state[key].start === null) {
+    patch[key] = { ...state[key], start: live.playTime };
+    patch.intro = true;
+  }
+  // Leaving mid-escape puts you back at the Great Bell next time.
+  if (state.stage === STAGE.ESCAPE) patch.stage = STAGE.CASTLE;
+  live.escape = null;
+  live.dread = 0;
+  live.caughtBy = null;
+  live.fade = 1;
+  setActiveChapter(n);
+  store.set(patch);
+  chapterQuests[n]?.enter?.();
+  saveGame();
+}
+
+// The rank for one chapter, and the unlocking of the next.
+export function recordChapter(n, result, seconds, seen) {
+  const state = store.get();
+  store.set({
+    records: { ...state.records, [n]: { time: Math.round(seconds), seen, score: result.score, rank: result.rank } },
+    unlocked: Math.max(state.unlocked, Math.min(LAST_CHAPTER, n + 1)),
+  });
+}
+
+export const rankFor = (score) => (score >= 125 ? 'S' : score >= 105 ? 'A' : score >= 85 ? 'B' : 'C');
+
 const SAVE_KEY = 'vigil-and-tankard-save';
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
 export function loadGame() {
   try {
@@ -162,6 +236,23 @@ export function loadGame() {
         intro: false,
       });
       live.playTime = Number.isFinite(saved.time) ? saved.time : 0;
+      // Version 4 added chapters II and III.
+      const unlocked = Math.min(LAST_CHAPTER, Math.max(1, Number.isInteger(saved.unlocked) ? saved.unlocked : stage >= STAGE.DONE ? 2 : 1));
+      const chapter = Number.isInteger(saved.chapter) && saved.chapter >= 1 && saved.chapter <= unlocked ? saved.chapter : 1;
+      const records = saved.records && typeof saved.records === 'object' ? { ...saved.records } : {};
+      // Saves from before chapters finished the Vigil without recording it.
+      if (stage >= STAGE.DONE && !records[1]) {
+        const result = scoreRun(store.get(), live.playTime);
+        records[1] = { time: Math.round(live.playTime), seen: store.get().seen, score: result.score, rank: result.rank };
+      }
+      const fen = chapterQuests[2]?.load?.(saved.fen) ?? FRESH_FEN;
+      const peak = chapterQuests[3]?.load?.(saved.peak) ?? FRESH_PEAK;
+      store.set({ unlocked, chapter, records, fen, peak });
+      setActiveChapter(chapter);
+      // Saved in a chapter that never started its clock: start it, with its goal card.
+      const key = chapter === 2 ? 'fen' : chapter === 3 ? 'peak' : null;
+      if (key && store.get()[key].start === null) store.set({ [key]: { ...store.get()[key], start: live.playTime }, intro: true });
+      chapterQuests[chapter]?.enter?.();
     }
   } catch {
     // No save, or storage is blocked: start fresh.
@@ -170,18 +261,54 @@ export function loadGame() {
 
 export function saveGame() {
   try {
-    const { stage, bells, lit, seen, cats, pages, bangers, difficulty: level } = store.get();
-    const data = { v: SAVE_VERSION, stage, bells, lit, seen, cats, pages, bangers, difficulty: level, time: Math.round(live.playTime) };
+    const { stage, bells, lit, seen, cats, pages, bangers, difficulty: level, chapter, unlocked, fen, peak, records } = store.get();
+    const data = {
+      v: SAVE_VERSION,
+      stage,
+      bells,
+      lit,
+      seen,
+      cats,
+      pages,
+      bangers,
+      difficulty: level,
+      time: Math.round(live.playTime),
+      chapter,
+      unlocked,
+      fen,
+      peak,
+      records,
+    };
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch {
     // Progress just won't survive a reload.
   }
 }
 
-export const hasProgress = () => store.get().stage > 0 || store.get().bells.length > 0;
+export const hasProgress = () => store.get().stage > 0 || store.get().bells.length > 0 || store.get().unlocked > 1;
 
 export function newGame() {
-  store.set({ stage: STAGE.ARRIVED, bells: [], lit: [], cats: [], pages: [], seen: 0, bangers: 0, spilled: false, ending: false, intro: true });
+  store.set({
+    stage: STAGE.ARRIVED,
+    bells: [],
+    lit: [],
+    cats: [],
+    pages: [],
+    seen: 0,
+    bangers: 0,
+    spilled: false,
+    ending: false,
+    intro: true,
+    chapter: 1,
+    unlocked: 1,
+    fen: FRESH_FEN,
+    peak: FRESH_PEAK,
+    records: {},
+    talking: null,
+    target: null,
+  });
+  setActiveChapter(1);
+  live.escape = null;
   live.playTime = 0;
   live.foam = 1;
   live.dread = 0;
@@ -215,6 +342,14 @@ export function lightTorch(id) {
 
 // Called by the player when the gaze or a Watcher gets you; they then wake you by `wake`.
 export function caught(by) {
+  const quest = questOf(store.get());
+  if (quest) {
+    sfx.rumble();
+    live.shake = 1;
+    quest.caught(by);
+    saveGame();
+    return;
+  }
   const { seen, stage, spilled } = store.get();
   store.set({ seen: seen + 1 });
   sfx.rumble();
@@ -239,7 +374,8 @@ export function spillToast() {
 export function spendBanger() {
   const { bangers } = store.get();
   if (bangers <= 0) {
-    notify(store.get().stage >= STAGE.BELLS ? 'Out of bangers: Grubnik has more' : 'You have no bangers yet');
+    const quest = questOf(store.get());
+    notify(quest ? quest.outOfBangers() : store.get().stage >= STAGE.BELLS ? 'Out of bangers: Grubnik has more' : 'You have no bangers yet');
     return false;
   }
   store.set({ bangers: bangers - 1 });
@@ -253,11 +389,17 @@ const stageKey = ({ stage, bells, spilled }) => {
   return stage;
 };
 
-// What a character says right now. Lines can mention {bells} and {cats}.
+// What a character says right now. Lines can mention {bells} and {cats} (and each
+// chapter's own counts).
 export function linesFor(interact) {
   const state = store.get();
-  const lines = interact.stages?.[stageKey(state)] ?? interact.lines;
-  return lines.map((l) => l.replaceAll('{bells}', String(state.bells.length)).replaceAll('{cats}', String(state.cats.length)));
+  const quest = questOf(state);
+  const key = quest ? quest.key(state) : stageKey(state);
+  // Home again after the sunrise, the Vigil's folk have new things to say.
+  const homecoming = !quest && morning(state) && interact.morning;
+  const lines = homecoming || ((typeof interact.stages === 'function' ? interact.stages(state) : interact.stages?.[key]) ?? interact.lines);
+  const filled = lines.map((l) => l.replaceAll('{bells}', String(state.bells.length)).replaceAll('{cats}', String(state.cats.length)));
+  return quest?.fill ? filled.map((l) => quest.fill(l, state)) : filled;
 }
 
 // A conversation ends (you closed it, or walked away): the story moves on only
@@ -274,6 +416,20 @@ export function endConversation() {
 export function advanceQuest(id) {
   if (!id) return;
   const state = store.get();
+  // Rattlecart's cart runs between the chapters.
+  if (id === 'rattlecart') {
+    const to = state.chapter === 1 ? unfinishedChapter(state) : chapterQuests[state.chapter]?.cartTo?.(state);
+    if (to && to <= state.unlocked) {
+      sfx.whoosh();
+      setTimeout(() => travelTo(to), 400);
+    }
+    return;
+  }
+  const quest = questOf(state);
+  if (quest) {
+    if (quest.advance(id, state)) saveGame();
+    return;
+  }
   const key = stageKey(state);
   if (id.startsWith('page-')) {
     if (state.pages.includes(id)) return;
@@ -347,6 +503,8 @@ export function finishEscape() {
   store.set({ stage: STAGE.DONE });
   live.escape = null;
   live.escapeTime = live.gameTime - (live.escapeStart ?? live.gameTime);
+  const state = store.get();
+  recordChapter(1, scoreRun(state, live.playTime), live.playTime, state.seen);
   sfx.fanfare();
   notify('You made it! Listen to them cheer!');
   saveGame();
@@ -354,6 +512,8 @@ export function finishEscape() {
 }
 
 export function objective(state) {
+  const quest = questOf(state);
+  if (quest) return quest.objective(state);
   const { stage, bells } = state;
   const key = stageKey(state);
   if (stage === STAGE.ARRIVED) return 'Talk to Grubnik, the goblin at the tavern bar';
@@ -363,11 +523,17 @@ export function objective(state) {
   if (stage === STAGE.TOAST) return 'Carry the Toast to the Vigil Stone at the castle gate';
   if (stage === STAGE.CASTLE) return 'Enter the castle and ring the Great Bell';
   if (stage === STAGE.ESCAPE) return 'ESCAPE! Run back down the causeway to the court';
+  if (morning(state)) return 'The sun is up! Party with the goblins at the Grinning Tankard';
+  const next = unfinishedChapter(state);
+  if (next === 2 && state.unlocked >= 2) return 'Chapter II awaits: ride Rattlecart\'s cart to the Drowned Fen';
+  if (next === 3 && state.unlocked >= 3) return 'Chapter III awaits: ride Rattlecart\'s cart to the Frostspire';
   return 'The Eye is closed. Celebrate at the Grinning Tankard!';
 }
 
 // One line on exactly how to do the current objective. `button` is 'E' or 'TALK'.
 export function objectiveHint(state, button) {
+  const quest = questOf(state);
+  if (quest) return quest.hint(state, button);
   const key = stageKey(state);
   if (key === STAGE.ARRIVED) return `Follow the gold arrow east to the tavern. Grubnik has the big ! over his head: walk up to him and press ${button}.`;
   if (key === STAGE.BELLS) return 'Walk into a bell to pick it up. Hide in torchlight when a blue searchlight comes close.';
@@ -376,11 +542,15 @@ export function objectiveHint(state, button) {
   if (key === STAGE.TOAST) return `WALK, don't run. At the castle gate, go up to the stone with the ! and press ${button}.`;
   if (key === STAGE.CASTLE) return `Go through the open gate. Keep out of the Watchers' blue cones. At the bell with the !, press ${button}.`;
   if (key === STAGE.ESCAPE) return 'Turn around and sprint back the way you came, all the way to the court!';
+  if (morning(state)) return 'Everyone has something to say about the sunrise: talk to them all. Pause to visit any chapter again.';
+  if (state.unlocked >= 2) return `The goblin cart waits in the court, by the ! . Walk up to Rattlecart and press ${button}. (Or pause and pick a chapter.)`;
   return 'Talk to everyone at the tavern. Pause to see what you missed.';
 }
 
 // Every step of the story for the journal on the pause screen.
 export function questSteps(state) {
+  const quest = questOf(state);
+  if (quest) return quest.steps(state);
   const { stage, bells } = state;
   const at = (s) => (stage > s ? 'done' : stage === s ? 'now' : 'later');
   const bellsDone = stage > STAGE.BELLS || bells.length === BELLS.length;
@@ -396,6 +566,8 @@ export function questSteps(state) {
 
 // Where the big floating ! goes: over whoever or whatever you need next.
 export function questMarker(state, x, z) {
+  const quest = questOf(state);
+  if (quest) return quest.marker(state, x, z);
   const key = stageKey(state);
   // In front of the bar: the inn's overhanging upper floor would hide it right above Grubnik.
   if (key === STAGE.ARRIVED || key === 'ready' || key === 'spilled') return { x: 37.8, y: 3.9, z: 10 };
@@ -405,11 +577,14 @@ export function questMarker(state, x, z) {
   }
   if (key === STAGE.TOAST) return { x: VIGIL_STONE.x, y: VIGIL_STONE.y + 3, z: VIGIL_STONE.z };
   if (key === STAGE.CASTLE) return { x: GREAT_BELL.x, y: GREAT_BELL.y + 8.6, z: GREAT_BELL.z };
+  if (key === STAGE.DONE && unfinishedChapter(state) && state.unlocked >= 2) return { x: CART_SPOT.x, y: 3.6, z: CART_SPOT.z };
   return null;
 }
 
 // Where the objective arrow points from (x, z), or null.
 export function objectiveTarget(state, x, z) {
+  const quest = questOf(state);
+  if (quest) return quest.target(state, x, z);
   const key = stageKey(state);
   if (key === STAGE.ARRIVED || key === 'ready' || key === 'spilled') return GRUBNIK_SPOT;
   if (key === STAGE.BELLS) {
@@ -424,6 +599,7 @@ export function objectiveTarget(state, x, z) {
   if (key === STAGE.TOAST) return VIGIL_STONE;
   if (key === STAGE.CASTLE) return GREAT_BELL;
   if (key === STAGE.ESCAPE) return { x: 0, z: 2 };
+  if (key === STAGE.DONE && unfinishedChapter(state) && state.unlocked >= 2) return CART_SPOT;
   return null;
 }
 
@@ -433,7 +609,7 @@ export function scoreRun({ seen, cats, lit, pages, difficulty: level }, seconds)
   const minutes = seconds / 60;
   const easy = level === 'easy' ? 15 : 0;
   const score = Math.round(100 - seen * 6 + cats.length * 5 + pages.length * 4 + relit * 3 - Math.max(0, minutes - 15) * 2 - easy);
-  const rank = score >= 125 ? 'S' : score >= 105 ? 'A' : score >= 85 ? 'B' : 'C';
+  const rank = rankFor(score);
   const title = { S: 'Legend of the Tankard', A: 'Hero of the Causeway', B: 'Stout-Hearted Pilgrim', C: 'Lucky Wanderer' }[rank];
   return { score, rank, title };
 }

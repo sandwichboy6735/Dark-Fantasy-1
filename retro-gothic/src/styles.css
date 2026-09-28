@@ -506,7 +506,8 @@ canvas {
 @media (max-width: 700px) {
   .meters {
     top: auto;
-    bottom: 42%;
+    /* Just above the SNEAK button. */
+    bottom: calc(40% + 44px);
     transform: none;
   }
   .gaze-status {
@@ -884,4 +885,167 @@ canvas {
   /* On phones the pockets live on the buttons and the pause journal instead. */
   .pockets { display: none; }
   .objective .hint { font-size: calc(var(--small) * 0.9); }
+}
+
+/* Chapters. */
+.chapter-number {
+  margin: 0 0 10px !important;
+  font-size: var(--small) !important;
+  letter-spacing: 3px;
+  color: #a89cc8;
+}
+.chapter-card .panel {
+  cursor: pointer;
+}
+.chapter-line {
+  margin: -8px 0 18px;
+  font-size: var(--small);
+  color: #9be05a;
+}
+.chapters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: -6px 0 22px;
+}
+.chapters button {
+  padding: 8px 10px;
+  font: inherit;
+  font-size: calc(var(--small) * 0.9);
+  color: #b8accf;
+  background: #14102a;
+  border: 2px solid #5a5078;
+  cursor: pointer;
+}
+.chapters button b {
+  color: var(--gold);
+  font-weight: normal;
+}
+.chapters button.here {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+.chapters button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* After a chapter: go on, or stay and wander. */
+.ending .panel {
+  padding-top: clamp(16px, 3vw, 30px);
+}
+.ending p {
+  font-size: var(--small);
+}
+.ending h2 {
+  margin-bottom: 14px;
+}
+.ending-buttons {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ending-buttons button {
+  display: grid;
+  gap: 6px;
+  padding: 12px 10px;
+  font: inherit;
+  font-size: var(--small);
+  color: #b8accf;
+  background: #14102a;
+  border: 3px solid #5a5078;
+  cursor: pointer;
+}
+.ending-buttons button.main {
+  color: #000;
+  background: var(--gold);
+  border-color: #000;
+  box-shadow: 0 0 0 3px var(--gold);
+  animation: pulse 0.9s steps(2) infinite;
+}
+.ending-buttons small {
+  font-size: calc(var(--small) * 0.75);
+  opacity: 0.7;
+}
+@media (max-width: 480px) {
+  .ending-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+.mini-rank {
+  display: inline-block;
+  width: 1.6em;
+  margin-right: 6px;
+  color: #000;
+  text-align: center;
+}
+.ending.final h2 {
+  color: #ffb060;
+  text-shadow: 3px 3px 0 #3a1400;
+}
+
+/* Warmth on the Frostspire, and frost creeping in as you freeze. */
+.meter.warmth span {
+  color: #ffb060;
+}
+.meter.warmth .bar > div {
+  background: #ff8a3a;
+}
+.meter.warmth.warn .bar {
+  border-color: #9ad8ff;
+  animation: blink 0.5s steps(2) infinite;
+}
+.frost {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(200, 230, 255, 0.75) 100%);
+}
+
+/* The fen and mountain maps. */
+.map-water { fill: #0c1614; }
+.map-boardwalk { stroke: #8a7058; stroke-width: 1.8; }
+.map-witchlight { fill: #c8ff6a; }
+.map-toad { fill: #6a7a30; stroke: #ffcc30; stroke-width: 0.6; }
+.map-snow { fill: #6a7488; }
+.map-path { stroke: #6a7488; stroke-linecap: square; }
+.map-path-closed { stroke: #2a2e3a; stroke-dasharray: 2 2; }
+.dot.witchlight { background: #c8ff6a; border-radius: 50%; }
+.dot.toad { background: #6a7a30; border: 2px solid #ffcc30; border-radius: 50%; }
+
+/* The rank and the stats side by side, so the ending cards fit the screen. */
+.ending .panel {
+  width: min(900px, 100%);
+}
+.ending .result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 28px;
+  margin-bottom: 14px;
+}
+.ending .result .rank {
+  margin: 0;
+}
+.ending .result .stats {
+  margin: 0;
+}
+
+/* Chapter cards: a little smaller than the first goal card, so they fit a laptop screen. */
+.chapter-card p,
+.chapter-card li {
+  font-size: var(--small);
+  line-height: 1.7;
+}
+.chapter-card h2 {
+  margin-bottom: 12px;
+}
+.chapter-card ol {
+  margin-bottom: 12px;
+}
+.chapter-card .danger {
+  margin-bottom: 14px;
 }

@@ -1,20 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { pressBang, pressTalk, store, talkButton, useStore } from '../store.js';
 import {
   CATS,
+  CHAPTER_TITLES,
   DIFFICULTY,
+  LAST_CHAPTER,
   PAGES,
+  ROMAN,
   TORCHES,
+  bangAvailable,
+  chapterQuest,
   endConversation,
   hasProgress,
   linesFor,
-  loadGame,
   newGame,
   objective,
   objectiveHint,
   questSteps,
+  rankFor,
   saveGame,
   scoreRun,
+  travelTo,
   STAGE,
 } from '../game/quest.js';
 import { MapView } from './MapView.jsx';
@@ -26,10 +32,6 @@ import { verbFor } from './verbs.js';
 
 const TYPE_SPEED_MS = 28;
 const BUTTON = IS_TOUCH ? 'TALK' : 'E';
-
-loadGame();
-
-
 
 // Retro text box: the speaker's name on a tab, text typed out a letter at a
 // time. E / TALK finishes the line, then shows the next one, and after the last
@@ -83,10 +85,10 @@ function Dialogue({ target }) {
 
 // "E  TALK TO GRUBNIK": what you can do with whatever you're facing right now.
 function Prompt({ target }) {
-  const stage = useStore((s) => s.stage);
+  const verb = useStore((s) => verbFor(target, s));
   return (
     <div className="prompt">
-      <span className="key">{BUTTON}</span> {verbFor(target, stage)}
+      <span className="key">{BUTTON}</span> {verb}
     </div>
   );
 }
@@ -118,7 +120,9 @@ function Journal() {
   const state = useStore((s) => s);
   return (
     <div className="journal">
-      <h3>QUEST</h3>
+      <h3>
+        CHAPTER {ROMAN[state.chapter]}: {CHAPTER_TITLES[state.chapter].toUpperCase()}
+      </h3>
       <ol>
         {questSteps(state).map((step) => (
           <li key={step.text} className={step.state}>
@@ -129,8 +133,10 @@ function Journal() {
       </ol>
       <p className="now-hint">{objectiveHint(state, BUTTON)}</p>
       <p className="extras">
-        EXTRAS: torches {state.lit.length}/{TORCHES.filter((t) => !t.startsLit).length} · cats {state.cats.length}/{CATS.length} · pages{' '}
-        {state.pages.length}/{PAGES.length}
+        EXTRAS:{' '}
+        {state.chapter > 1
+          ? chapterQuest(state.chapter).extras(state)
+          : `torches ${state.lit.length}/${TORCHES.filter((t) => !t.startsLit).length} · cats ${state.cats.length}/${CATS.length} · pages ${state.pages.length}/${PAGES.length}`}
       </p>
     </div>
   );
@@ -150,6 +156,37 @@ const chooseDifficulty = (difficulty) => {
   store.set({ difficulty, intro: false });
   saveGame();
 };
+
+// Arriving in chapter II or III: what the chapter is about and what can hurt you.
+// Any press of E / TALK (or a tap) starts it.
+function ChapterCard({ chapter }) {
+  const intro = chapterQuest(chapter).intro;
+  useEffect(() => {
+    const close = () => store.set({ intro: false });
+    const timer = setTimeout(() => talkButton.addEventListener('press', close), 600);
+    return () => {
+      clearTimeout(timer);
+      talkButton.removeEventListener('press', close);
+    };
+  }, []);
+  const words = (parts) => parts.map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part));
+  return (
+    <div className="goal-card chapter-card" onPointerDown={() => store.set({ intro: false })}>
+      <div className="panel">
+        <p className="chapter-number">CHAPTER {ROMAN[chapter]}</p>
+        <h2>{intro.title}</h2>
+        <p className="lead">{intro.lead}</p>
+        <ol>
+          {intro.steps.map((step, i) => (
+            <li key={i}>{words(step)}</li>
+          ))}
+        </ol>
+        <p className="danger">{words(intro.danger)}</p>
+        <p className="blink">{IS_TOUCH ? 'TAP' : 'PRESS E'} TO BEGIN</p>
+      </div>
+    </div>
+  );
+}
 
 // Shown when a new game starts: what you're here to do, what can hurt you, and
 // how forgiving you'd like it to be.
@@ -215,7 +252,9 @@ function LiveHud() {
   };
   const stage = useStore((s) => s.stage);
   const spilled = useStore((s) => s.spilled);
-  const showFoam = stage === STAGE.TOAST && !spilled;
+  const chapter = useStore((s) => s.chapter);
+  const showFoam = chapter === 1 && stage === STAGE.TOAST && !spilled;
+  const showWarmth = chapter === 3;
 
   useEffect(() => {
     let frame;
@@ -235,14 +274,26 @@ function LiveHud() {
       }
       if (r.foamFill) r.foamFill.style.width = `${live.foam * 100}%`;
       if (r.foam) r.foam.classList.toggle('warn', live.running);
-      const escaping = Boolean(live.escape) && store.get().stage === STAGE.ESCAPE;
+      if (r.warmthFill) r.warmthFill.style.width = `${live.warmth * 100}%`;
+      if (r.warmth) r.warmth.classList.toggle('warn', live.warmth < 0.3);
+      if (r.frost) r.frost.style.opacity = store.get().chapter === 3 ? String(Math.max(0, 0.6 - live.warmth) * 1.4) : '0';
+      const other = store.get().chapter > 1;
+      const escaping = Boolean(live.escape) && store.get().stage === STAGE.ESCAPE && !other;
       if (r.vignette) {
         r.vignette.style.opacity = String(live.hunted > 0 || escaping ? 0.8 : Math.min(1, live.dread * 1.2));
         r.vignette.classList.toggle('hunted', live.hunted > 0 || escaping);
       }
       if (r.sneak) r.sneak.style.visibility = live.sneaking ? 'visible' : 'hidden';
       if (r.fade) r.fade.style.opacity = String(live.fade);
-      if (r.status) {
+      if (r.status && other) {
+        const st = live.status;
+        r.status.textContent = st?.text ?? '';
+        r.status.className = `gaze-status${st?.alarm ? ' alarm' : ''}${st?.hunted ? ' hunted' : ''}`;
+        if (r.vignette) {
+          r.vignette.style.opacity = st?.hunted ? '0.8' : '0';
+          r.vignette.classList.toggle('hunted', Boolean(st?.hunted));
+        }
+      } else if (r.status) {
         const hunted = live.hunted > 0 || escaping;
         const exposed = live.inGaze && !live.safe;
         const fallsIn = escaping ? Math.ceil(live.escape.fallAt - live.gameTime) : 0;
@@ -271,6 +322,7 @@ function LiveHud() {
   return (
     <>
       <div className="vignette" ref={bind('vignette')} />
+      <div className="frost" ref={bind('frost')} />
       <div className="fade" ref={bind('fade')} />
       <div className="marker" ref={bind('marker')}>
         <div className="arrow-up" ref={bind('arrow')} />
@@ -283,6 +335,14 @@ function LiveHud() {
             <div ref={bind('dreadFill')} />
           </div>
         </div>
+        {showWarmth && (
+          <div className="meter warmth" ref={bind('warmth')}>
+            <span>WARMTH</span>
+            <div className="bar">
+              <div ref={bind('warmthFill')} />
+            </div>
+          </div>
+        )}
         {showFoam && (
           <div className="meter foam" ref={bind('foam')}>
             <span>FOAM</span>
@@ -299,16 +359,18 @@ function LiveHud() {
   );
 }
 
-// Bottom right: bangers left, and cats petted once you've found one.
+// Bottom right: bangers left, and whatever you've been collecting in this chapter.
 function Pockets() {
   const bangers = useStore((s) => s.bangers);
-  const stage = useStore((s) => s.stage);
-  const cats = useStore((s) => s.cats.length);
-  const pages = useStore((s) => s.pages.length);
+  const showBangers = useStore(bangAvailable);
+  const chapter = useStore((s) => s.chapter);
+  const cats = useStore((s) => (s.chapter === 1 ? s.cats.length : 0));
+  const pages = useStore((s) => (s.chapter === 1 ? s.pages.length : 0));
+  const extras = useStore((s) => (s.chapter > 1 ? chapterQuest(s.chapter).pockets(s) : null));
   const mode = useStore((s) => s.mode);
   return (
     <div className="pockets">
-      {stage >= STAGE.BELLS && (
+      {showBangers && (
         <div className={`pocket${bangers === 0 ? ' empty' : ''}`}>
           <span className="banger-icon" /> BANGERS x{bangers}
           {mode !== 'touch' && <span className="key">F</span>}
@@ -324,50 +386,185 @@ function Pockets() {
           <span className="page-icon" /> PAGES {pages}/{PAGES.length}
         </div>
       )}
+      {chapter > 1 &&
+        extras
+          .split('|')
+          .filter(Boolean)
+          .map((text) => (
+            <div key={text} className="pocket">
+              {text}
+            </div>
+          ))}
+    </div>
+  );
+}
+
+// After a chapter: E (or the button) goes on to the next one, 2 stays to wander.
+function useEndingInput(next, stay) {
+  useEffect(() => {
+    const onKey = (e) => e.code === 'Digit2' && stay();
+    // Ignore the press that finished the chapter; let the card sit for a moment.
+    const timer = setTimeout(() => {
+      talkButton.addEventListener('press', next);
+      window.addEventListener('keydown', onKey);
+    }, 1500);
+    return () => {
+      clearTimeout(timer);
+      talkButton.removeEventListener('press', next);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [next, stay]);
+}
+
+function Rank({ result }) {
+  return (
+    <div className="rank">
+      <span className={`letter rank-${result.rank}`}>{result.rank}</span>
+      <span className="rank-title">
+        {result.title}
+        <br />
+        <small>{(DIFFICULTY[store.get().difficulty] ?? DIFFICULTY.normal).label.toUpperCase()} DIFFICULTY</small>
+      </span>
+    </div>
+  );
+}
+
+function EndingButtons({ nextLabel, next, stay, stayLabel = 'STAY A WHILE' }) {
+  const act = (fn) => (e) => {
+    e.stopPropagation();
+    fn();
+  };
+  return (
+    <div className="ending-buttons">
+      <button type="button" className="main" onPointerDown={act(next)}>
+        {nextLabel}
+        {!IS_TOUCH && <small>E</small>}
+      </button>
+      <button type="button" onPointerDown={act(stay)}>
+        {stayLabel}
+        {!IS_TOUCH && <small>2</small>}
+      </button>
+    </div>
+  );
+}
+
+const stayHere = () => store.set({ ending: false });
+
+// Chapter I, the Vigil.
+function VigilEnding() {
+  const [result] = useState(() => scoreRun(store.get(), store.get().records[1]?.time ?? live.playTime));
+  const next = useCallback(() => travelTo(2), []);
+  useEndingInput(next, stayHere);
+  const state = store.get();
+  return (
+    <div className="ending">
+      <div className="panel">
+        <p className="chapter-number">CHAPTER I COMPLETE</p>
+        <h2>THE EYE CLOSES</h2>
+        <p>The Great Bell rang, the Eye slept, and the causeway fell into the abyss a heartbeat behind you. The stars are back. The goblins will sing about you until at least Tuesday.</p>
+        <div className="result">
+          <Rank result={result} />
+          <table className="stats">
+            <tbody>
+              <tr><td>TIME</td><td>{formatTime(state.records[1]?.time ?? live.playTime)}</td></tr>
+              <tr><td>TIMES CAUGHT</td><td>{state.seen}</td></tr>
+              <tr><td>TORCHES RELIT</td><td>{state.lit.length} / {TORCHES.filter((t) => !t.startsLit).length}</td></tr>
+              <tr><td>ESCAPE</td><td>{formatTime(live.escapeTime)}</td></tr>
+              <tr><td>CATS PETTED</td><td>{state.cats.length} / {CATS.length}</td></tr>
+              <tr><td>DIARY PAGES</td><td>{state.pages.length} / {PAGES.length}</td></tr>
+              <tr><td>SCORE</td><td>{result.score}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="thanks">But not every star made it home...</p>
+        <EndingButtons nextLabel="ON TO CHAPTER II" next={next} stay={stayHere} />
+      </div>
+    </div>
+  );
+}
+
+// Chapter II (and any other middle chapter): its own story, rank and stats.
+function ChapterEnding({ chapter }) {
+  const quest = chapterQuest(chapter);
+  const [result] = useState(() => quest.score(store.get(), store.get().records[chapter]?.time ?? 0));
+  const next = useCallback(() => travelTo(chapter + 1), [chapter]);
+  useEndingInput(next, stayHere);
+  const state = store.get();
+  const ending = quest.ending;
+  return (
+    <div className="ending">
+      <div className="panel">
+        <p className="chapter-number">CHAPTER {ROMAN[chapter]} COMPLETE</p>
+        <h2>{ending.title}</h2>
+        <p>{ending.text}</p>
+        <div className="result">
+          <Rank result={result} />
+          <table className="stats">
+            <tbody>
+              <tr><td>TIME</td><td>{formatTime(state.records[chapter]?.time ?? 0)}</td></tr>
+              {ending.rows(state).map(([label, value]) => (
+                <tr key={label}><td>{label}</td><td>{value}</td></tr>
+              ))}
+              <tr><td>SCORE</td><td>{result.score}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="thanks">{ending.teaser}</p>
+        <EndingButtons nextLabel={`ON TO CHAPTER ${ROMAN[chapter + 1]}`} next={next} stay={stayHere} />
+      </div>
+    </div>
+  );
+}
+
+// The last chapter: the sun comes up, and every chapter's rank together.
+function FinalEnding() {
+  const quest = chapterQuest(LAST_CHAPTER);
+  const state = store.get();
+  const records = state.records;
+  const [result] = useState(() => quest.score(state, records[LAST_CHAPTER]?.time ?? 0));
+  const home = useCallback(() => travelTo(1), []);
+  useEndingInput(home, stayHere);
+  const chapters = [1, 2, 3].filter((n) => records[n]);
+  const total = chapters.reduce((sum, n) => sum + records[n].score, 0);
+  const overall = chapters.length === 3 ? rankFor(total / 3) : null;
+  return (
+    <div className="ending final">
+      <div className="panel">
+        <p className="chapter-number">THE END</p>
+        <h2>{quest.ending.title}</h2>
+        <p>{quest.ending.text}</p>
+        <div className="result">
+          <Rank result={result} />
+          <table className="stats">
+            <tbody>
+              {chapters.map((n) => (
+                <tr key={n}>
+                  <td>{ROMAN[n]}. {CHAPTER_TITLES[n].toUpperCase()}</td>
+                  <td>
+                    <span className={`mini-rank rank-${records[n].rank}`}>{records[n].rank}</span> {formatTime(records[n].time)}
+                  </td>
+                </tr>
+              ))}
+              <tr><td>TOTAL TIME</td><td>{formatTime(chapters.reduce((sum, n) => sum + records[n].time, 0))}</td></tr>
+              <tr><td>TIMES CAUGHT</td><td>{chapters.reduce((sum, n) => sum + records[n].seen, 0)}</td></tr>
+              {overall && (
+                <tr><td>JOURNEY</td><td><span className={`mini-rank rank-${overall}`}>{overall}</span></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="thanks">Thank you for playing The Vigil &amp; the Tankard.</p>
+        <EndingButtons nextLabel="HOME TO THE TANKARD" next={home} stay={stayHere} stayLabel="WATCH THE SUNRISE" />
+      </div>
     </div>
   );
 }
 
 function Ending() {
-  const [result] = useState(() => scoreRun(store.get(), live.playTime));
-  useEffect(() => {
-    const close = () => store.set({ ending: false });
-    // Ignore the press that raised the Toast; let the card sit for a moment.
-    const timer = setTimeout(() => talkButton.addEventListener('press', close), 1500);
-    return () => {
-      clearTimeout(timer);
-      talkButton.removeEventListener('press', close);
-    };
-  }, []);
-  return (
-    <div className="ending">
-      <div className="panel">
-        <h2>THE EYE CLOSES</h2>
-        <p>The Great Bell rang, the Eye slept, and the causeway fell into the abyss a heartbeat behind you. The stars are back. The goblins will sing about you until at least Tuesday.</p>
-        <div className="rank">
-          <span className={`letter rank-${result.rank}`}>{result.rank}</span>
-          <span className="rank-title">
-            {result.title}
-            <br />
-            <small>{(DIFFICULTY[store.get().difficulty] ?? DIFFICULTY.normal).label.toUpperCase()} DIFFICULTY</small>
-          </span>
-        </div>
-        <table className="stats">
-          <tbody>
-            <tr><td>TIME</td><td>{formatTime(live.playTime)}</td></tr>
-            <tr><td>TIMES CAUGHT</td><td>{store.get().seen}</td></tr>
-            <tr><td>TORCHES RELIT</td><td>{store.get().lit.length} / {TORCHES.filter((t) => !t.startsLit).length}</td></tr>
-            <tr><td>ESCAPE</td><td>{formatTime(live.escapeTime)}</td></tr>
-            <tr><td>CATS PETTED</td><td>{store.get().cats.length} / {CATS.length}</td></tr>
-            <tr><td>DIARY PAGES</td><td>{store.get().pages.length} / {PAGES.length}</td></tr>
-            <tr><td>SCORE</td><td>{result.score}</td></tr>
-          </tbody>
-        </table>
-        <p className="thanks">Thank you for playing. Wander as long as you like.</p>
-        <p className="blink">{IS_TOUCH ? 'TAP TALK' : 'PRESS E'} TO CONTINUE</p>
-      </div>
-    </div>
-  );
+  const chapter = useStore((s) => s.chapter);
+  if (chapter === 1) return <VigilEnding />;
+  if (chapter === LAST_CHAPTER) return <FinalEnding />;
+  return <ChapterEnding chapter={chapter} />;
 }
 
 // Keyboard and mouse bindings that aren't movement.
@@ -444,6 +641,12 @@ function TitleScreen({ playing }) {
   };
 
   const prompt = started ? 'PAUSED - CLICK TO RESUME' : saved ? 'CLICK TO CONTINUE' : 'CLICK TO BEGIN';
+  const chapter = useStore((s) => s.chapter);
+  const unlocked = useStore((s) => s.unlocked);
+  // Pick a chapter you've reached; the click goes on to start the game.
+  const pickChapter = (n) => () => {
+    if (n !== store.get().chapter) travelTo(n);
+  };
   return (
     <div id="enter" className={playing ? 'hidden' : ''} onClick={start}>
       <div className="panel">
@@ -454,7 +657,27 @@ function TitleScreen({ playing }) {
           <br />
           THE TANKARD
         </h1>
+        {(started || saved) && (
+          <p className="chapter-line">
+            CHAPTER {ROMAN[chapter]}: {CHAPTER_TITLES[chapter].toUpperCase()}
+          </p>
+        )}
         <p className="blink">{IS_TOUCH ? prompt.replace('CLICK', 'TAP') : prompt}</p>
+        {unlocked > 1 && (
+          <div className="chapters">
+            {[1, 2, 3].map((n) =>
+              n <= unlocked ? (
+                <button key={n} type="button" className={n === chapter ? 'here' : ''} onClick={pickChapter(n)}>
+                  <b>{ROMAN[n]}</b> {CHAPTER_TITLES[n].toUpperCase()}
+                </button>
+              ) : (
+                <button key={n} type="button" disabled>
+                  <b>{ROMAN[n]}</b> ???
+                </button>
+              ),
+            )}
+          </div>
+        )}
         {started && <Journal />}
         {started && <MapView />}
         {saved && !started && (
@@ -502,6 +725,7 @@ export function Overlay() {
   const hint = useStore((s) => objectiveHint(s, BUTTON));
   const intro = useStore((s) => s.intro);
   const talking = useStore((s) => s.talking);
+  const chapter = useStore((s) => s.chapter);
   useGlobalInput();
 
   // E / TALK on whatever you're facing opens a conversation (the open one handles its own presses).
@@ -537,7 +761,7 @@ export function Overlay() {
       <ObjectiveBanner goal={goal} />
       {talking && !ending && !intro && <Dialogue key={talking.id ?? talking.name} target={talking} />}
       {target && !talking && !ending && !intro && playing && mode !== 'touch' && <Prompt target={target} />}
-      {playing && intro && !ending && <GoalCard />}
+      {playing && intro && !ending && (chapter > 1 ? <ChapterCard chapter={chapter} /> : <GoalCard />)}
       {ending && <Ending />}
       <TitleScreen playing={playing} />
     </div>

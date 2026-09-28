@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { pressBang, pressTalk, store, useStore } from '../store.js';
-import { STAGE } from '../game/quest.js';
+import { bangAvailable } from '../game/quest.js';
 import { verbFor } from './verbs.js';
 import { addLook, input } from '../player/input.js';
 
@@ -12,7 +12,8 @@ export function TouchControls() {
   const target = useStore((s) => s.target);
   const talking = useStore((s) => s.talking);
   const bangers = useStore((s) => s.bangers);
-  const stage = useStore((s) => s.stage);
+  const verb = useStore((s) => (target ? verbFor(target, s) : ''));
+  const showBang = useStore(bangAvailable);
   const stickPointer = useRef(null);
   const lookPointers = useRef(new Map());
   const [stick, setStick] = useState(null); // { x, y, dx, dy } in screen pixels
@@ -86,13 +87,13 @@ export function TouchControls() {
             'NEXT'
           ) : (
             <>
-              {verbFor(target, stage).split(' ')[0]}
+              {verb.split(' ')[0]}
               <small>{target.name.split(',')[0]}</small>
             </>
           )}
         </button>
       )}
-      {stage >= STAGE.BELLS && (
+      {showBang && (
         <button type="button" className="touch-button bang" onPointerDown={tap(pressBang)}>
           BANG x{bangers}
         </button>

@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react';
 import { useStore } from '../store.js';
 import { BELLS, CATS, PAGES, STAGE, TORCHES, isLit, objectiveTarget } from '../game/quest.js';
-import { live } from '../game/live.js';
+import { FenMap } from '../chapters/fen/FenMap.jsx';
+import { PeakMap } from '../chapters/peak/PeakMap.jsx';
+import { usePausedPlayer } from './usePausedPlayer.js';
+
+export function MapView() {
+  const chapter = useStore((s) => s.chapter);
+  if (chapter === 2) return <FenMap />;
+  if (chapter === 3) return <PeakMap />;
+  return <VigilMap />;
+}
 
 // The pause-screen map, drawn in world metres with north up: the court and tavern
 // at the bottom, the causeway climbing to the castle at the top.
-export function MapView() {
+function VigilMap() {
   const state = useStore((s) => s);
-  const [player, setPlayer] = useState(() => ({ ...live.player }));
-  useEffect(() => {
-    // The map is shown while paused, so one read on open is enough.
-    setPlayer({ ...live.player });
-  }, []);
+  const player = usePausedPlayer();
   const goal = objectiveTarget(state, player.x, player.z);
   const open = state.stage >= STAGE.CASTLE;
   const yawDeg = (-(player.yaw ?? 0) * 180) / Math.PI;

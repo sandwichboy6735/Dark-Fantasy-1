@@ -103,7 +103,17 @@ function Arm({ side, skin, rig, holds }) {
   );
 }
 
-const POSES = {
+export const POSES = {
+  // Frozen mid-climb in a block of ice, arms flung up in surprise.
+  frozen(r) {
+    r.body.position.y = 0;
+    r.body.rotation.set(-0.15, 0, 0.05);
+    r.armR.rotation.set(0, 0, 2.5);
+    r.armL.rotation.set(0.3, 0, -2.2);
+    r.head.rotation.set(-0.3, 0.2, 0);
+    r.legL.rotation.x = 0.35;
+    r.legR.rotation.x = -0.45;
+  },
   // Tankard thrust at the sky, the other fist pumping, bouncing on the spot.
   cheer(r, t) {
     r.body.position.y = Math.abs(Math.sin(t * 2.2)) * 0.12;
@@ -167,7 +177,7 @@ const POSES = {
   },
 };
 
-function Goblin({ id, name, lines, stages, position, rotation = 0, pose, skin = '#5f8f2e', tunic = '#5a3a20', onTable = false, phase = 0 }) {
+export function Goblin({ id, name, lines, stages, verbs, verb, verbFor, morning, position, rotation = 0, pose, skin = '#5f8f2e', tunic = '#5a3a20', onTable = false, phase = 0 }) {
   const root = useRef();
   const rig = useRef({});
   const heading = useRef(rotation);
@@ -187,13 +197,13 @@ function Goblin({ id, name, lines, stages, position, rotation = 0, pose, skin = 
       mug.rotation.set(-a.x + (pose === 'lean' ? -a.x * 0.15 - 0.2 : 0), 0, -a.z + Math.sin(t * 5) * 0.12, 'ZYX');
     }
     // Look at whoever is looking at them.
-    const wanted = isTalkingTo(id) ? Math.atan2(camera.position.x - position[0], camera.position.z - position[2]) : rotation;
+    const wanted = isTalkingTo(id) && pose !== 'frozen' ? Math.atan2(camera.position.x - position[0], camera.position.z - position[2]) : rotation;
     heading.current = turnTowards(heading.current, wanted, 3, Math.min(delta, 0.05));
     root.current.rotation.y = pose === 'dance' && !isTalkingTo(id) ? clock.elapsedTime * 1.3 : heading.current;
   });
 
   return (
-    <group ref={root} position={position} scale={GOBLIN_SCALE} userData={{ interact: { id, name, lines, stages, accent: '#9be05a' } }}>
+    <group ref={root} position={position} scale={GOBLIN_SCALE} userData={{ interact: { id, name, lines, stages, verbs, verb, verbFor, morning, accent: '#9be05a' } }}>
       <group ref={bind(rig, 'body')}>
         {[-1, 1].map((s) => (
           <group key={s} ref={bind(rig, s < 0 ? 'legL' : 'legR')} position={[0.12 * s, 0.42, 0]}>

@@ -206,9 +206,107 @@ const painters = {
     ctx.fillRect(13, 7, 1, 6);
     ctx.fillRect(16, 7, 1, 6);
   },
+
+  // Black-green fen mud with a few pale stones and roots.
+  mud(ctx, rand) {
+    ctx.fillStyle = '#1e2116';
+    ctx.fillRect(0, 0, 32, 32);
+    for (let i = 0; i < 60; i++) {
+      ctx.fillStyle = shade('#2a2e1c', (rand() - 0.5) * 0.12);
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1 + Math.floor(rand() * 4), 1 + Math.floor(rand() * 2));
+    }
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = '#3c3a2a';
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 2, 1);
+    }
+    for (let i = 0; i < 12; i++) {
+      ctx.fillStyle = '#2f4a1e';
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1, 2);
+    }
+    speckle(ctx, 32, 32, rand, 0.12);
+  },
+
+  // Still black water with pale ripple lines; scrolled slowly to make it drift.
+  water(ctx, rand) {
+    ctx.fillStyle = '#0d1a17';
+    ctx.fillRect(0, 0, 32, 32);
+    for (let i = 0; i < 26; i++) {
+      ctx.fillStyle = rand() < 0.5 ? '#1c3530' : '#12241f';
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 3 + Math.floor(rand() * 7), 1);
+    }
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = '#3a6458';
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 2 + Math.floor(rand() * 3), 1);
+    }
+  },
+
+  // Old chapel stone, furred with moss.
+  moss(ctx, rand) {
+    painters.castle(ctx, rand);
+    for (let i = 0; i < 70; i++) {
+      ctx.fillStyle = rand() < 0.5 ? 'rgba(60,96,40,0.7)' : 'rgba(40,70,30,0.6)';
+      const x = Math.floor(rand() * 32);
+      const y = Math.floor(rand() * 32);
+      ctx.fillRect(x, y, 1 + Math.floor(rand() * 3), 1 + Math.floor(rand() * 2));
+    }
+  },
+
+  // Packed snow: blue-white with faint drifts and glints.
+  snow(ctx, rand) {
+    ctx.fillStyle = '#b8c4d8';
+    ctx.fillRect(0, 0, 32, 32);
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = shade('#a8b6cc', (rand() - 0.5) * 0.08);
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 3 + Math.floor(rand() * 8), 1);
+    }
+    for (let i = 0; i < 14; i++) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1, 1);
+    }
+  },
+
+  // Blue ice with white cracks.
+  ice(ctx, rand) {
+    ctx.fillStyle = '#6a9ac8';
+    ctx.fillRect(0, 0, 32, 32);
+    for (let i = 0; i < 20; i++) {
+      ctx.fillStyle = shade('#7aaad8', (rand() - 0.5) * 0.12);
+      ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 2 + Math.floor(rand() * 6), 2 + Math.floor(rand() * 4));
+    }
+    ctx.fillStyle = '#e8f4ff';
+    for (let c = 0; c < 4; c++) {
+      let x = Math.floor(rand() * 32);
+      let y = Math.floor(rand() * 32);
+      for (let i = 0; i < 8; i++) {
+        ctx.fillRect(x & 31, y & 31, 1, 1);
+        x += Math.floor(rand() * 3) - 1;
+        y += 1;
+      }
+    }
+  },
+
+  // Dark pine needles in layers.
+  pine(ctx, rand) {
+    ctx.fillStyle = '#0e1e16';
+    ctx.fillRect(0, 0, 16, 16);
+    for (let i = 0; i < 30; i++) {
+      ctx.fillStyle = rand() < 0.5 ? '#1a3424' : '#23402c';
+      ctx.fillRect(Math.floor(rand() * 16), Math.floor(rand() * 16), 2 + Math.floor(rand() * 3), 1);
+    }
+  },
+
+  // Shaggy brown fur for the hermit's coat.
+  fur(ctx, rand) {
+    ctx.fillStyle = '#4a3422';
+    ctx.fillRect(0, 0, 16, 16);
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = rand() < 0.5 ? '#5e4430' : '#34241a';
+      ctx.fillRect(Math.floor(rand() * 16), Math.floor(rand() * 16), 1, 2 + Math.floor(rand() * 2));
+    }
+  },
 };
 
-const sizes = { tabard: [16, 16], checker: [16, 16], darkwood: [16, 16], sign: [32, 16] };
+const sizes = { tabard: [16, 16], checker: [16, 16], darkwood: [16, 16], sign: [32, 16], pine: [16, 16], fur: [16, 16] };
 const cache = new Map();
 
 export function getTexture(name) {

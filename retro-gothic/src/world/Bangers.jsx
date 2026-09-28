@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Box, cylGeo, glow, mat } from '../retro/materials.jsx';
 import { bangButton, store } from '../store.js';
-import { spendBanger } from '../game/quest.js';
+import { bangAvailable, spendBanger } from '../game/quest.js';
 import { live } from '../game/live.js';
 import { sfx } from '../game/audio.js';
 import { groundAt } from './layout.js';
@@ -31,7 +31,7 @@ export function Bangers() {
   useEffect(() => {
     const onThrow = () => {
       const s = state.current;
-      if (!store.get().playing || s.flying) return;
+      if (!store.get().playing || s.flying || !bangAvailable(store.get())) return;
       if (!spendBanger()) return;
       camera.getWorldDirection(dir);
       s.pos.copy(camera.position).addScaledVector(dir, 0.6);
@@ -55,7 +55,7 @@ export function Bangers() {
       if (s.landed === 0) {
         s.vel.y -= GRAVITY * dt;
         s.pos.addScaledVector(s.vel, dt);
-        const ground = groundAt(s.pos.x, s.pos.z);
+        const ground = groundAt(s.pos.x, s.pos.z, s.pos.y);
         if (ground !== null && s.pos.y <= ground + 0.08) {
           s.pos.y = ground + 0.08;
           s.landed = now;

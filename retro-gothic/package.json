@@ -1,7 +1,7 @@
 {
   "name": "retro-gothic",
   "version": "0.1.0",
-  "description": "A PS1-style first-person adventure: find the bells, carry the Toast, close the Eye. Built with React Three Fiber.",
+  "description": "A PS1-style first-person adventure in three chapters: close the Eye, bring the stars home, bring back the sun. Built with React Three Fiber.",
   "private": true,
   "type": "module",
   "scripts": {

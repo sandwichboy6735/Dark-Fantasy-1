@@ -91,7 +91,7 @@ function HoodedBody({ rig }) {
 
 // Walks back and forth along `path` (or stands at a post), following the steps.
 // When you look at one it stops and turns to face you.
-function Guard({ id, kind, name, lines, stages, path, facing = 0, speed = 1, phase = 0 }) {
+function Guard({ id, kind, name, lines, stages, morning, path, facing = 0, speed = 1, phase = 0 }) {
   const root = useRef();
   const rig = useRef({});
   const walk = useRef({ s: 0, dir: 1, pause: 0, heading: facing * Math.PI, cycle: phase, y: null });
@@ -154,7 +154,7 @@ function Guard({ id, kind, name, lines, stages, path, facing = 0, speed = 1, pha
   });
 
   return (
-    <group ref={root} userData={{ interact: { id, name, lines, stages, accent: kind === 'knight' ? '#ff9a3a' : '#8fb0ff' } }}>
+    <group ref={root} userData={{ interact: { id, name, lines, stages, morning, accent: kind === 'knight' ? '#ff9a3a' : '#8fb0ff' } }}>
       {kind === 'knight' ? <KnightBody rig={rig} /> : <HoodedBody rig={rig} />}
     </group>
   );

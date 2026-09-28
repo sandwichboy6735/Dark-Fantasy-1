@@ -3,33 +3,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls, useKeyboardControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { store } from '../store.js';
-import {
-  BELLS,
-  GAZE_RADIUS,
-  SAFE_RADIUS,
-  STAGE,
-  TORCHES,
-  collectBell,
-  gazePositions,
-  isLit,
-  lightTorch,
-  objectiveTarget,
-  safeLights,
-  saveGame,
-  caught,
-  spillToast,
-  COLLAPSE_SPEED,
-  COLLAPSE_START_Z,
-  DAIS_WAKE,
-  difficulty,
-  failEscape,
-  finishEscape,
-  endConversation,
-} from '../game/quest.js';
-import { setAmbience, setDanger, setQuake, sfx } from '../game/audio.js';
+import { objectiveTarget, saveGame, caught, difficulty, endConversation } from '../game/quest.js';
+import { setDanger, sfx } from '../game/audio.js';
 import { live } from '../game/live.js';
 import { IS_TOUCH, input } from './input.js';
-import { COURT, SPAWNS, boxColliders, circleColliders, dynamicColliders, groundAt, setCastleOpen, setCollapse, zoneAt } from '../world/layout.js';
+import { activeColliders, dynamicColliders, groundAt, setActiveChapter, spawnsOf, zoneAt } from '../world/layout.js';
+import { rulesFor } from '../chapters/registry.js';
 
 const EYE_HEIGHT = 1.62;
 const SNEAK_EYE_HEIGHT = 1.1;
@@ -42,21 +21,18 @@ const TALK_RANGE = 9;
 const CENTER = new THREE.Vector2(0, 0);
 const LOOK_SPEED = 0.0022; // radians per pixel of mouse or drag
 const MAX_PITCH = Math.PI / 2 - 0.05;
-const DREAD_RISE = 0.6; // per second in the gaze: about 1.7 s until you're seen
-const DREAD_FALL = 0.35;
-const FOAM_SPILL = 0.16; // per second of running with the Toast
-const TORCH_REACH = 2.6;
 const PROXIMITY_REACH = 4;
 const PROXIMITY_ANGLE = (55 * Math.PI) / 180;
+const FALL_SECONDS = 1.4;
 const spot = new THREE.Vector3();
-const CHECKPOINTS = [
-  { x: 0, z: -99, y: 13 },
-  { x: 0, z: -130.5, y: 13 },
-];
 
-function readSpawn() {
-  const params = new URLSearchParams(window.location.search);
-  const spawn = SPAWNS[params.get('spawn')] ?? SPAWNS.court;
+// Where to start in a chapter: its default spawn, or `?spawn=name&look=yaw,pitch`
+// the first time the game loads.
+function readSpawn(chapter, fromUrl) {
+  const spawns = spawnsOf(chapter);
+  const rules = rulesFor(chapter);
+  const params = new URLSearchParams(fromUrl ? window.location.search : '');
+  const spawn = spawns[params.get('spawn')] ?? spawns[rules.defaultSpawn];
   const look = params.get('look')?.split(',').map(Number);
   const [yaw, pitch] = look?.length === 2 && look.every(Number.isFinite) ? look : [spawn.yaw, spawn.pitch];
   return { position: spawn.position, yaw: THREE.MathUtils.degToRad(yaw), pitch: THREE.MathUtils.degToRad(pitch) };
@@ -64,12 +40,15 @@ function readSpawn() {
 
 // True if the player can't stand at (x, z) coming from (fromX, fromZ) at height fromY.
 function blocked(x, z, fromX, fromZ, fromY) {
-  const ground = groundAt(x, z);
+  const ground = groundAt(x, z, fromY);
   if (ground === null || Math.abs(ground - fromY) > MAX_STEP) return true;
-  for (const b of boxColliders) {
+  const { boxes, circles } = activeColliders();
+  for (const b of boxes) {
+    if (b.y1 !== undefined && (fromY < b.y0 || fromY > b.y1)) continue;
     if (x > b.minX - RADIUS && x < b.maxX + RADIUS && z > b.minZ - RADIUS && z < b.maxZ + RADIUS) return true;
   }
-  for (const c of circleColliders) {
+  for (const c of circles) {
+    if (c.y1 !== undefined && (fromY < c.y0 || fromY > c.y1)) continue;
     if (Math.hypot(x - c.x, z - c.z) < c.r + RADIUS) return true;
   }
   for (const { object, radius } of dynamicColliders) {
@@ -88,19 +67,23 @@ function interactableOf(object) {
   return null;
 }
 
+// First-person body shared by every chapter: looking, walking, climbing steps,
+// talking, being caught and waking up. What the world does to you (gazes, floods,
+// cold, wind) comes from the current chapter's rules in chapters/*/rules.js.
 export function Player() {
   const camera = useThree((s) => s.camera);
   const scene = useThree((s) => s.scene);
   const [, getKeys] = useKeyboardControls();
-  const spawn = useMemo(readSpawn, []);
+  const spawn = useMemo(() => readSpawn(store.get().chapter, true), []);
   const body = useRef({
+    chapter: store.get().chapter,
     x: spawn.position[0],
     z: spawn.position[2],
     ground: spawn.position[1],
     y: spawn.position[1] + EYE_HEIGHT,
     bob: 0,
     lastHit: 0,
-    wake: { x: 0, z: 0, y: 0 },
+    wake: rulesFor(store.get().chapter).wake,
     heartbeat: 0,
     saveTimer: 0,
     stride: 0,
@@ -126,12 +109,11 @@ export function Player() {
     const dt = Math.min(delta, 0.05);
     const b = body.current;
 
-    const { playing, stage } = store.get();
+    const { playing, chapter } = store.get();
     live.now = clock.elapsedTime;
     if (playing) live.gameTime += dt;
-    setCastleOpen(stage >= STAGE.CASTLE);
+    setActiveChapter(chapter);
     const level = difficulty();
-    const escaping = stage === STAGE.ESCAPE && live.escape;
 
     // Wake somewhere, facing `yaw`, after being caught or falling.
     const wakeAt = (point, yaw = 0) => {
@@ -144,42 +126,34 @@ export function Player() {
       camera.quaternion.setFromEuler(look.set(0, yaw, 0, 'YXZ'));
     };
 
-    // The escape: the causeway crumbles from the castle end towards the court.
-    if (escaping) {
-      const e = live.escape;
-      live.collapseSpeed = COLLAPSE_SPEED * level.collapse;
-      live.collapseZ = live.gameTime < e.fallAt ? -Infinity : COLLAPSE_START_Z + (live.gameTime - e.fallAt) * live.collapseSpeed;
-      setCollapse(live.collapseZ, false);
-      live.shake = Math.max(live.shake, 0.12);
-      setQuake(playing ? 1 : 0.3);
-      if (!b.falling && live.collapseZ > COLLAPSE_START_Z + 1 && b.z < COLLAPSE_START_Z - 0.5) {
-        wakeAt(DAIS_WAKE, Math.PI);
-        failEscape('The causeway fell before you got out! Back to the bell: try again.');
-      }
-      if (!b.falling && b.z < COURT.minZ && b.z > COLLAPSE_START_Z && groundAt(b.x, b.z) === null) {
-        b.falling = live.gameTime;
-        b.fallSpeed = 0;
-        sfx.scream();
-      }
-      if (b.z > COURT.minZ + 0.5 && !b.falling) finishEscape();
-    } else if (stage >= STAGE.DONE) {
-      live.collapseZ = 1000;
-      live.collapseSpeed = COLLAPSE_SPEED;
-      setCollapse(1000, true);
-      setQuake(0);
-    } else {
-      live.collapseZ = -Infinity;
-      setCollapse(-Infinity, false);
-      setQuake(0);
+    // Off to another chapter: start at its landing.
+    if (b.chapter !== chapter) {
+      rulesFor(b.chapter).leave?.();
+      b.chapter = chapter;
+      const start = readSpawn(chapter, false);
+      wakeAt({ x: start.position[0], z: start.position[2], y: start.position[1] }, start.yaw);
+      b.wake = rulesFor(chapter).wake;
+      b.scanAt = -10;
+      live.push = null;
+      live.dread = 0;
+      live.hunted = 0;
+      live.huntersThisFrame = 0;
+      live.status = null;
     }
+    // Tests (and the console in development) can move you: live.teleport = { x, y, z, yaw }.
+    if (live.teleport) {
+      wakeAt(live.teleport, live.teleport.yaw ?? 0);
+      live.teleport = null;
+    }
+    const rules = rulesFor(chapter);
+    const ctx = { b, dt, playing, level, camera, wakeAt, running: false, moving: false };
+
+    rules.before?.(ctx);
     if (b.falling) {
       b.fallSpeed += 22 * dt;
       b.y -= b.fallSpeed * dt;
       camera.position.set(b.x, b.y, b.z);
-      if (live.gameTime - b.falling > 1.4) {
-        wakeAt(DAIS_WAKE, Math.PI);
-        failEscape('The causeway gave way beneath you! Back to the bell: try again.');
-      }
+      if (live.gameTime - b.falling > FALL_SECONDS) rules.fell(ctx);
       return;
     }
 
@@ -198,7 +172,7 @@ export function Player() {
     let moving = false;
     let running = false;
     const keys = getKeys();
-    live.sneaking = playing && !escaping && (keys.sneak || input.sneak);
+    live.sneaking = playing && rules.canSneak(ctx) && (keys.sneak || input.sneak);
     live.touch = store.get().mode === 'touch';
     if (playing) {
       const { forward: f, back, left, right, run: shift } = keys;
@@ -212,24 +186,58 @@ export function Player() {
         const fz = -Math.cos(yaw);
         const len = Math.hypot(ahead, side);
         const stunned = live.gameTime < live.stunUntil ? 0.35 : 1;
-        const pace = live.sneaking ? SNEAK_SPEED : run ? RUN_SPEED : WALK_SPEED;
+        const speeds = rules.pace(ctx) ?? {};
+        const pace = live.sneaking ? speeds.sneak ?? SNEAK_SPEED : run ? speeds.run ?? RUN_SPEED : speeds.walk ?? WALK_SPEED;
         const step = (pace * stunned * dt * Math.min(1, len)) / len;
-        const dx = (fx * ahead - fz * side) * step;
-        const dz = (fz * ahead + fx * side) * step;
+        let dx = (fx * ahead - fz * side) * step;
+        let dz = (fz * ahead + fx * side) * step;
+        // Some ground (a winding stair) bends your path to follow it, and when you're
+        // heading forwards the view turns with it.
+        if (rules.steer) {
+          const [sx, sz] = rules.steer(b, dx, dz);
+          if (ahead > 0.3 && (sx !== dx || sz !== dz)) {
+            const turn = Math.atan2(-sx, -sz) - Math.atan2(-dx, -dz);
+            look.setFromQuaternion(camera.quaternion, 'YXZ');
+            look.y += THREE.MathUtils.clamp(Math.atan2(Math.sin(turn), Math.cos(turn)), -2.4 * dt, 2.4 * dt);
+            camera.quaternion.setFromEuler(look);
+          }
+          dx = sx;
+          dz = sz;
+        }
         // Try each axis separately so you slide along walls instead of sticking.
         if (!blocked(b.x + dx, b.z, b.x, b.z, b.ground)) b.x += dx;
         if (!blocked(b.x, b.z + dz, b.x, b.z, b.ground)) b.z += dz;
-        b.ground = groundAt(b.x, b.z) ?? b.ground;
+        b.ground = groundAt(b.x, b.z, b.ground) ?? b.ground;
         b.bob += dt * (run ? 13 : 9);
         moving = true;
         running = run;
       }
     }
 
-    // Footsteps on every stride: soft thuds on dirt, clicks on stone.
+    // Something shoving you (a gust of wind). Pushed over an edge, you fall.
+    if (playing && live.push) {
+      const nx = b.x + live.push.x * dt;
+      const nz = b.z + live.push.z * dt;
+      if (groundAt(nx, nz, b.ground) === null && rules.canFall) {
+        b.x = nx;
+        b.z = nz;
+        b.falling = live.gameTime;
+        b.fallSpeed = 2;
+        live.push = null;
+        sfx.scream();
+        return;
+      }
+      if (!blocked(nx, b.z, b.x, b.z, b.ground)) b.x = nx;
+      if (!blocked(b.x, nz, b.x, b.z, b.ground)) b.z = nz;
+      b.ground = groundAt(b.x, b.z, b.ground) ?? b.ground;
+    }
+    ctx.moving = moving;
+    ctx.running = running;
+
+    // Footsteps on every stride: soft thuds on dirt, clicks on stone, splashes in water.
     if (moving && Math.floor(b.bob / Math.PI) !== b.stride) {
       b.stride = Math.floor(b.bob / Math.PI);
-      if (!live.sneaking) sfx.step(b.x > 14 ? 'dirt' : 'stone');
+      if (!live.sneaking) sfx.step(rules.surface(b));
     }
 
     // Ease up and down the steps (and down into a crouch), with a small head bob and any shake.
@@ -286,13 +294,6 @@ export function Player() {
     const zone = zoneAt(b.x, b.z);
     if (zone !== store.get().zone) store.set({ zone });
 
-    // Walk through a golden bell to pick it up.
-    const { bells } = store.get();
-    for (const bell of stage < STAGE.ESCAPE ? BELLS : []) {
-      if (!bells.includes(bell.id) && Math.hypot(bell.x - b.x, bell.z - b.z) < 1.3 && Math.abs(bell.y - 0.9 - b.ground) < 1.5) collectBell(bell.id);
-    }
-
-    const state = store.get();
     if (playing) {
       live.playTime += dt;
       b.saveTimer += dt;
@@ -302,35 +303,8 @@ export function Player() {
       }
     }
 
-    // Walk up to a cold torch to relight it.
-    for (const torch of stage < STAGE.ESCAPE ? TORCHES : []) {
-      if (!isLit(torch, state.lit) && Math.abs(torch.z - b.z) < TORCH_REACH && Math.abs(torch.y - b.ground) < 1) lightTorch(torch.id);
-    }
+    rules.after(ctx);
 
-    // The Eye's gaze: searchlights sweep the causeway. Torchlight keeps you hidden.
-    if (playing && state.stage < STAGE.ESCAPE) live.gazeTime += dt * (state.stage >= STAGE.TOAST ? 1.3 : 1);
-    live.gazes = gazePositions(live.gazeTime, state.stage, live.lure, live.now);
-    const lights = safeLights(state.lit, state.stage);
-    const shelter = lights.find((l) => Math.hypot(l.x - b.x, l.z - b.z) < SAFE_RADIUS);
-    if (shelter) b.wake = shelter.wake;
-    // Reaching the gate forecourt, and later the keep's door, are checkpoints too:
-    // you never wake further back than the furthest of these you've reached.
-    for (const point of CHECKPOINTS) {
-      if (b.z < point.z + 1 && b.wake.z > point.z) b.wake = point;
-    }
-    live.safe = Boolean(shelter);
-    live.inGaze = live.gazes.some((g) => g.active && Math.hypot(g.x - b.x, g.z - b.z) < GAZE_RADIUS && Math.abs(g.y - b.ground) < 3);
-    if (playing && live.inGaze && !live.safe) {
-      live.dread = Math.min(1, live.dread + dt * DREAD_RISE * level.dread);
-      b.heartbeat -= dt;
-      if (b.heartbeat <= 0) {
-        sfx.heartbeat();
-        b.heartbeat = 0.75 - live.dread * 0.35;
-      }
-    } else {
-      live.dread = Math.max(0, live.dread - dt * DREAD_FALL);
-      b.heartbeat = 0;
-    }
     live.player.x = b.x;
     live.player.y = b.ground;
     live.player.z = b.z;
@@ -341,53 +315,16 @@ export function Player() {
       const by = live.caughtBy ?? 'gaze';
       live.dread = 0;
       live.caughtBy = null;
-      live.fade = 1;
       live.resetWatchers += 1;
-      b.x = b.wake.x;
-      b.z = b.wake.z;
-      b.ground = b.wake.y;
-      b.y = b.wake.y + EYE_HEIGHT;
-      camera.quaternion.setFromEuler(look.set(0, 0, 0, 'YXZ'));
+      wakeAt(b.wake, b.wake.yaw ?? 0);
       caught(by);
     }
-    setDanger(playing ? Math.max(live.hunted > 0 || escaping ? 1 : 0, live.dread) : 0);
-    live.rage = Math.max(live.dread, live.hunted > 0 ? 0.8 : 0);
-
-    // Falling masonry while you flee: a red ring marks where each block will land.
-    if (escaping && playing) {
-      b.debrisTimer -= dt;
-      if (b.debrisTimer <= 0 && live.gameTime > live.escape.ringAt + 2) {
-        b.debrisTimer = 0.8 + Math.random() * 0.6;
-        const x = b.x + (Math.random() - 0.5) * 3;
-        const z = b.z + 4 + Math.random() * 7;
-        const ground = groundAt(x, z);
-        if (ground !== null) live.debris.push({ x, z, y: ground, landAt: live.gameTime + 1.1, hit: false });
-      }
-      for (const d of live.debris) {
-        if (!d.hit && live.gameTime >= d.landAt) {
-          d.hit = true;
-          sfx.crash();
-          if (Math.hypot(d.x - b.x, d.z - b.z) < 1.4 && Math.abs(d.y - b.ground) < 2) {
-            live.stunUntil = live.gameTime + 1.1;
-            live.shake = 1;
-          }
-        }
-      }
-      live.debris = live.debris.filter((d) => live.gameTime < d.landAt + 1.5);
-    } else if (live.debris.length) {
-      live.debris = [];
-    }
+    setDanger(playing ? Math.max(live.hunted > 0 ? 1 : 0, rules.danger(ctx), live.dread) : 0);
     live.fade = Math.max(0, live.fade - dt * 0.8);
-
-    // Carrying the Toast: running sloshes the foam out.
     live.running = running;
-    if (state.stage === STAGE.TOAST && !state.spilled && running && playing) {
-      live.foam = Math.max(0, live.foam - dt * FOAM_SPILL * level.foam);
-      if (live.foam <= 0) spillToast();
-    }
 
     // The objective arrow: where the next goal is, relative to where you face.
-    const goal = objectiveTarget(state, b.x, b.z);
+    const goal = objectiveTarget(store.get(), b.x, b.z);
     if (goal) {
       const yaw = look.setFromQuaternion(camera.quaternion, 'YXZ').y;
       const toward = Math.atan2(-(goal.x - b.x), -(goal.z - b.z));
@@ -396,8 +333,7 @@ export function Player() {
       live.marker = null;
     }
 
-    // The drone fades into the goblins' jig as you cross into the tavern yard.
-    setAmbience(THREE.MathUtils.clamp((b.x - 8) / 10, 0, 1), playing);
+    rules.ambience(b, playing);
   });
 
   // PointerLockControls only locks the pointer: pointerSpeed 0 leaves turning to the

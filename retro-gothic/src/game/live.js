@@ -31,4 +31,13 @@ export const live = {
   rage: 0, // how angry the Eye looks, 0..1
   talkClosedAt: 0, // when the last conversation ended, so one press doesn't reopen it
   touch: false, // playing with touch controls
+  push: null, // { x, z } metres per second something (the wind) is shoving you
+  status: null, // { text, alarm } a chapter's own warning line under the crosshair
+  wading: false, // up to your knees in the fen
+  waterY: -0.08, // the fen's water surface; it rises in the flood
+  flood: null, // { startAt, riseAt } while the fen floods
+  warmth: 1, // 0..1 on the Frostspire; at 0 you freeze
+  gust: null, // { warnAt, from, until, x, z } the next gust of wind
+  boulders: [], // rolling down the chute: { x, z, y, spin }
+  monksMoving: false, // any stone monk moved this frame
 };

@@ -296,23 +296,27 @@ function GreatBell() {
     swing.current.rotation.x = Math.sin(t * 2.2) * 0.35 * Math.exp(-t * 0.12);
   });
   const top = Y + DAIS_HEIGHT + 6.2;
+  // The interactable sits on the dais (so walking up to the bell finds it); the
+  // parts inside are placed from the ground.
   return (
-    <group position={[GREAT_BELL.x, 0, GREAT_BELL.z]} userData={{ interact: GREAT_BELL_INFO }}>
-      {[-2.4, 2.4].map((x) => (
-        <Box key={x} size={[0.5, 6.4, 0.5]} m={frameWood} position={[x, Y + DAIS_HEIGHT + 3.2, 0]} />
-      ))}
-      <Box size={[5.4, 0.5, 0.6]} m={frameWood} position={[0, top + 0.2, 0]} />
-      <group ref={swing} position={[0, top, 0]}>
-        <mesh geometry={cylGeo(0.7, 1.55, 2.4, 10)} material={bronze} position={[0, -1.6, 0]} />
-        <mesh geometry={cylGeo(0.7, 0.7, 0.4, 10)} material={verdigris} position={[0, -0.3, 0]} />
-        <mesh geometry={cylGeo(1.62, 1.62, 0.2, 10)} material={verdigris} position={[0, -2.75, 0]} />
-        <mesh geometry={cylGeo(0.18, 0.28, 0.5, 6)} material={iron} position={[0, -2.9, 0]} />
-        <Box size={[0.06, 3.2, 0.06]} m={rope} position={[0.2, -3.9, 0.3]} />
+    <group position={[GREAT_BELL.x, Y + DAIS_HEIGHT, GREAT_BELL.z]} userData={{ interact: GREAT_BELL_INFO }}>
+      <group position={[0, -(Y + DAIS_HEIGHT), 0]}>
+        {[-2.4, 2.4].map((x) => (
+          <Box key={x} size={[0.5, 6.4, 0.5]} m={frameWood} position={[x, Y + DAIS_HEIGHT + 3.2, 0]} />
+        ))}
+        <Box size={[5.4, 0.5, 0.6]} m={frameWood} position={[0, top + 0.2, 0]} />
+        <group ref={swing} position={[0, top, 0]}>
+          <mesh geometry={cylGeo(0.7, 1.55, 2.4, 10)} material={bronze} position={[0, -1.6, 0]} />
+          <mesh geometry={cylGeo(0.7, 0.7, 0.4, 10)} material={verdigris} position={[0, -0.3, 0]} />
+          <mesh geometry={cylGeo(1.62, 1.62, 0.2, 10)} material={verdigris} position={[0, -2.75, 0]} />
+          <mesh geometry={cylGeo(0.18, 0.28, 0.5, 6)} material={iron} position={[0, -2.9, 0]} />
+          <Box size={[0.06, 3.2, 0.06]} m={rope} position={[0.2, -3.9, 0.3]} />
+        </group>
+        <Candle position={[-1.6, Y + DAIS_HEIGHT, 1.2]} />
+        <Candle position={[1.5, Y + DAIS_HEIGHT, 1.3]} />
+        {/* Votive candles light the bell from below. */}
+        <FlickerLight intensity={35} color="#ffb050" distance={12} seed={7} position={[0, Y + 2, 2]} />
       </group>
-      <Candle position={[-1.6, Y + DAIS_HEIGHT, 1.2]} />
-      <Candle position={[1.5, Y + DAIS_HEIGHT, 1.3]} />
-      {/* Votive candles light the bell from below. */}
-      <FlickerLight intensity={35} color="#ffb050" distance={12} seed={7} position={[0, Y + 2, 2]} />
     </group>
   );
 }

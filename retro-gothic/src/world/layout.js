@@ -72,8 +72,8 @@ export const setCollapse = (z, gone) => {
 
 const inside = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
 
-// Height of the walkable ground at (x, z), or null over the abyss / outside the map.
-export function groundAt(x, z) {
+// Height of the Vigil's walkable ground at (x, z), or null over the abyss / outside the map.
+function vigilGround(x, z) {
   if (inside(COURT, x, z) || inside(YARD, x, z)) return 0;
   if (Math.abs(x) <= BRIDGE_HALF_WIDTH - 0.4 && z < COURT.minZ && z >= -96) {
     if (causewayGone || z < collapseZ) return null;
@@ -87,16 +87,32 @@ export function groundAt(x, z) {
   return null;
 }
 
-// Solid things the player bumps into. Circles and boxes on the ground plane.
-export const circleColliders = [];
-export const boxColliders = [];
+// Solid things the player bumps into: circles and boxes on the ground plane, one
+// set per chapter. `y0`..`y1`, when given, is the height band a collider blocks in
+// (a tower you walk around at its foot but stand on at its top).
+const colliderSets = { 1: { circles: [], boxes: [] }, 2: { circles: [], boxes: [] }, 3: { circles: [], boxes: [] } };
 // Moving things (guards, goblins) register a live object: { object, radius }.
 export const dynamicColliders = new Set();
 
-export const addCircle = (x, z, r) => circleColliders.push({ x, z, r });
-export const addBox = (minX, maxX, minZ, maxZ) => boxColliders.push({ minX, maxX, minZ, maxZ });
+export const collidersOf = (chapter) => {
+  const set = colliderSets[chapter];
+  const add = (list, entry) => {
+    list.push(entry);
+    return entry;
+  };
+  return {
+    circle: (x, z, r, band = {}) => add(set.circles, { x, z, r, ...band }),
+    box: (minX, maxX, minZ, maxZ, band = {}) => add(set.boxes, { minX, maxX, minZ, maxZ, ...band }),
+    // For things that come and go (the cart): take a collider out again.
+    remove: (entry) => {
+      for (const list of [set.circles, set.boxes]) if (list.includes(entry)) list.splice(list.indexOf(entry), 1);
+    },
+  };
+};
+export const addCircle = collidersOf(1).circle;
+export const addBox = collidersOf(1).box;
 
-export function zoneAt(x, z) {
+function vigilZone(x, z) {
   if (z < -130) return 'The Nave of the Vigil';
   if (z < -114) return 'The Bailey';
   if (x > 14) return 'The Grinning Tankard';
@@ -106,7 +122,7 @@ export function zoneAt(x, z) {
 }
 
 // Where you wake. `?spawn=bridge` etc. starts elsewhere; `&look=yaw,pitch` in degrees.
-export const SPAWNS = {
+const VIGIL_SPAWNS = {
   court: { position: [0, 0, 17], yaw: 0, pitch: 8 },
   tavern: { position: [18, 0, 8], yaw: -80, pitch: 0 },
   yard: { position: [21.6, 0, 8.4], yaw: -31, pitch: 4 },
@@ -117,3 +133,27 @@ export const SPAWNS = {
   nave: { position: [0, 13, -130.5], yaw: 0, pitch: 4 },
   dais: { position: [0, 13.3, -144.2], yaw: 0, pitch: 12 },
 };
+
+// Each chapter is its own map. The Vigil is built in here; the others register
+// themselves when their modules load.
+const chapters = {
+  1: { ground: vigilGround, zone: vigilZone, spawns: VIGIL_SPAWNS },
+};
+export const registerChapter = (n, map) => {
+  chapters[n] = map;
+};
+
+let active = 1;
+export const setActiveChapter = (n) => {
+  if (chapters[n]) active = n;
+};
+export const activeChapter = () => active;
+
+// Height of the walkable ground at (x, z) in the current chapter, or null. Where
+// floors overlap (a stair winding round a tower), `nearY` picks the one you're on:
+// the highest you could step up to from there.
+export const groundAt = (x, z, nearY) => chapters[active].ground(x, z, nearY);
+export const zoneAt = (x, z) => chapters[active].zone(x, z);
+export const spawnsOf = (n) => chapters[n]?.spawns ?? VIGIL_SPAWNS;
+export const SPAWNS = VIGIL_SPAWNS;
+export const activeColliders = () => colliderSets[active];

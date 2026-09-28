@@ -6,6 +6,7 @@
 export const GUARDS = [
   {
     id: 'aldric',
+    morning: ['I slept. A whole night. And then the SUN woke me. Through my visor. It was glorious.', 'Nine hundred and two nights. The last one ended in the morning. Imagine that.'],
     kind: 'knight',
     name: 'Ser Aldric the Unsleeping',
     path: [[-2.0, -7]],
@@ -32,6 +33,7 @@ export const GUARDS = [
   },
   {
     id: 'lamplighter',
+    morning: ['No torches to light this morning. I have nothing to do. I think I shall enjoy it.', 'Look how the shadows fall. I had forgotten shadows go somewhere.'],
     kind: 'hooded',
     name: 'The Lamplighter',
     path: [[1.3, -9], [1.3, -48]],
@@ -57,6 +59,7 @@ export const GUARDS = [
   },
   {
     id: 'grisel',
+    morning: ['Clank. Clank. Clank. The armour is WARM. Sun-warm. I may never take it off.', 'The goblins are teaching me a dance. It involves a great deal of clanking.'],
     kind: 'knight',
     name: 'Ser Grisel',
     path: [[-1.3, -30], [-1.3, -72]],
@@ -74,6 +77,7 @@ export const GUARDS = [
   },
   {
     id: 'wick',
+    morning: ['The hood is off. The sun is on my face. It is... loud? No. Bright. It is bright.', 'It is not listening any more. Only the birds. There are BIRDS.'],
     kind: 'hooded',
     name: 'Brother Wick',
     path: [[1.4, -56], [1.4, -93]],
@@ -91,6 +95,7 @@ export const GUARDS = [
   },
   {
     id: 'ossian',
+    morning: ['I am sitting down. In the sun. With a tankard. Do not tell the Captain.', 'The Captain knows. The Captain is sitting next to me.'],
     kind: 'knight',
     name: 'Ser Ossian',
     path: [[-11, -103], [11, -103]],
@@ -106,6 +111,7 @@ export const GUARDS = [
   },
   {
     id: 'vane',
+    morning: ['The Vigil is ended, and the sun has come back to see it. I do not know what knights do in the daytime.', 'Grubnik says we drink. Grubnik is very persuasive.'],
     kind: 'knight',
     name: 'Ser Vane, Captain of the Vigil',
     path: [[-2.6, -109.5]],
@@ -131,6 +137,7 @@ export const GUARDS = [
   },
   {
     id: 'cantor',
+    morning: ['~ Sol, sol... surge, surge... ~ It is a new song. I wrote it this morning.', 'The Eye dreams on, far away. In its dream, I think, the sun is rising too.'],
     kind: 'hooded',
     name: 'The Pale Cantor',
     path: [[2.6, -109.5]],
@@ -171,6 +178,7 @@ export const VIGIL_STONE_INFO = {
 export const GOBLINS = [
   {
     id: 'snaggle',
+    morning: ['IT\'S MORNING! Real morning! My bells are GLOWING in it! Look! LOOK!', 'Stars, sun, and a hat full of bells. Best week of my LIFE.'],
     name: 'Snaggle Grinmug',
     position: [24, 0.95, 4],
     rotation: -0.4,
@@ -192,6 +200,7 @@ export const GOBLINS = [
   },
   {
     id: 'nib',
+    morning: ['*HIC* ...is that the sun? Or is it the ale? BOTH! It\'s both! *HIC*'],
     name: 'Nib Kettleback',
     position: [22.2, 0, 5.6],
     rotation: 2.3,
@@ -205,6 +214,7 @@ export const GOBLINS = [
   },
   {
     id: 'wort',
+    morning: ['WHAT\'S THAT BIG YELLOW THING? THE SUN? OH! CHEERS, SUN!'],
     name: 'Wort the Loud',
     position: [29, 0.08, 15.6],
     rotation: Math.PI,
@@ -219,6 +229,7 @@ export const GOBLINS = [
   },
   {
     id: 'pip',
+    morning: ['A sunrise jig! Left foot, right foot, jingle jingle, GOOD MORNING!'],
     name: 'Pip Jangleboots',
     position: [29, 0, 8],
     rotation: 0,
@@ -233,6 +244,7 @@ export const GOBLINS = [
   },
   {
     id: 'grubnik',
+    morning: ['The Eye shut, the stars back up, and the SUN on my barrels. The ale\'s never tasted so golden.', 'They\'ll sing about you in here for a thousand years. Well. Until at least Wednesday. CHEERS, hero!'],
     name: 'Grubnik Tapfoot, Keeper',
     position: [39.3, 0.6, 10], // on a crate behind the bar
     rotation: -Math.PI / 2,
@@ -276,6 +288,7 @@ export const GOBLINS = [
   },
   {
     id: 'mogg',
+    morning: ['To the pilgrim! To the sun! To breakfast ale!'],
     name: 'Mogg',
     position: [21.2, 0, 18.4],
     rotation: Math.PI / 2 - 0.2,
@@ -289,6 +302,7 @@ export const GOBLINS = [
   },
   {
     id: 'brisket',
+    morning: ['CLINK! For the sun! CLINK! For the stars! CLINK! For... it\'s too early for this many clinks.'],
     name: 'Brisket',
     position: [23.2, 0, 18.4],
     rotation: -Math.PI / 2 - 0.2,
@@ -303,6 +317,7 @@ export const GOBLINS = [
   },
   {
     id: 'fennick',
+    morning: ['Hundred years I waited to see that Eye shut. Then a sunrise on top of it. I\'m going to need a sit down.', 'Mind you, I was already sitting down.'],
     name: 'Old Fennick',
     position: [34.8, 0, -1.6],
     rotation: -0.6,
