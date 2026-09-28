@@ -1,5 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { live } from '../game/live.js';
 import { Box, boxGeo, mat } from '../retro/materials.jsx';
 import { BRIDGE_SEGMENTS, STEPS, bridgeHeight } from './layout.js';
 import { Parapet } from './Terrain.jsx';
@@ -13,16 +15,49 @@ const DECK_WIDTH = 7.4;
 const DECK_THICKNESS = 1.5;
 const PARAPET_X = 3.4;
 
-// Many identical blocks in one draw call.
+// How far a piece at `z` has fallen since the collapse front passed it, and how
+// much it has tumbled. Zero until the causeway starts to go.
+function fall(z) {
+  const t = (live.collapseZ - z) / (live.collapseSpeed || 6);
+  if (!(t > 0)) return { drop: 0, tumble: 0 };
+  return { drop: Math.min(400, 9 * t * t + t * 0.5), tumble: Math.min(1.2, t * 0.5) * (z % 2 > 1 ? 1 : -1) };
+}
+
+const tmp = new THREE.Matrix4();
+const rot = new THREE.Matrix4();
+
+// Many identical blocks in one draw call; each drops away as the front passes it.
 function useBlocks(geometry, material, transforms) {
-  return useMemo(() => {
-    const mesh = new THREE.InstancedMesh(geometry, material, transforms.length);
-    const m = new THREE.Matrix4();
-    transforms.forEach(([x, y, z], i) => mesh.setMatrixAt(i, m.makeTranslation(x, y, z)));
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    return mesh;
+  const mesh = useMemo(() => {
+    const m = new THREE.InstancedMesh(geometry, material, transforms.length);
+    transforms.forEach(([x, y, z], i) => m.setMatrixAt(i, tmp.makeTranslation(x, y, z)));
+    m.instanceMatrix.needsUpdate = true;
+    m.computeBoundingSphere();
+    m.frustumCulled = false;
+    return m;
   }, [geometry, material, transforms]);
+  const last = useRef(-Infinity);
+  useFrame(() => {
+    if (live.collapseZ === last.current) return;
+    last.current = live.collapseZ;
+    transforms.forEach(([x, y, z], i) => {
+      const { drop, tumble } = fall(z);
+      tmp.makeTranslation(x, y - drop, z);
+      if (tumble) tmp.multiply(rot.makeRotationX(tumble));
+      mesh.setMatrixAt(i, tmp);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+  return mesh;
+}
+
+// A piece of the causeway that drops into the abyss when the collapse reaches it.
+function Falling({ z, children }) {
+  const group = useRef();
+  useFrame(() => {
+    group.current.position.y = -fall(z).drop;
+  });
+  return <group ref={group}>{children}</group>;
 }
 
 function Steps() {
@@ -56,11 +91,11 @@ function Flats() {
     const length = z0 - z1;
     const z = (z0 + z1) / 2;
     return (
-      <group key={z0}>
+      <Falling key={z0} z={z}>
         <Box size={[DECK_WIDTH, DECK_THICKNESS, length]} m={cobble} position={[0, y0 - DECK_THICKNESS / 2, z]} />
         <Parapet position={[-PARAPET_X, y0, z]} length={length} alongZ m={stone} />
         <Parapet position={[PARAPET_X, y0, z]} length={length} alongZ m={stone} />
-      </group>
+      </Falling>
     );
   });
 }
@@ -71,12 +106,12 @@ function Piers() {
     const top = bridgeHeight(z) - DECK_THICKNESS;
     const bottom = -110;
     return (
-      <group key={z}>
+      <Falling key={z} z={z}>
         <Box size={[4.6, top - bottom, 3]} m={stone} position={[0, (top + bottom) / 2, z]} />
         <Box size={[7.8, 1.2, 3.6]} m={stone} position={[0, top - 0.6, z]} />
         <Box size={[6.2, 1.2, 3.3]} m={stone} position={[0, top - 1.8, z]} />
         <Box size={[5.2, 2, 3.8]} m={stone} position={[0, top - 9, z]} />
-      </group>
+      </Falling>
     );
   });
 }
@@ -89,7 +124,9 @@ export function Bridge() {
       <Flats />
       <Piers />
       {TORCHES.map((t, i) => (
-        <Torch key={t.id} position={[t.side * (PARAPET_X - 0.3), t.y + 1.0, t.z]} side={-t.side} seed={i} lit={isLit(t, lit)} />
+        <Falling key={t.id} z={t.z}>
+          <Torch position={[t.side * (PARAPET_X - 0.3), t.y + 1.0, t.z]} side={-t.side} seed={i} lit={isLit(t, lit)} />
+        </Falling>
       ))}
     </group>
   );

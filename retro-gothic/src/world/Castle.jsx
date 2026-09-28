@@ -291,7 +291,7 @@ function GreatBell() {
   const rungAt = useRef(null);
   const frameWood = mat({ color: '#5a3a20', map: 'darkwood' });
   useFrame(({ clock }) => {
-    if (stage >= STAGE.DONE && rungAt.current === null) rungAt.current = clock.elapsedTime;
+    if (stage >= STAGE.ESCAPE && rungAt.current === null) rungAt.current = clock.elapsedTime;
     const t = rungAt.current === null ? 0 : clock.elapsedTime - rungAt.current;
     swing.current.rotation.x = Math.sin(t * 2.2) * 0.35 * Math.exp(-t * 0.12);
   });

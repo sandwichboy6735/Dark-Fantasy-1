@@ -61,12 +61,24 @@ export const setCastleOpen = (open) => {
   castleOpen = open;
 };
 
+// The causeway falls from the castle end: nothing is left below `collapseZ`,
+// and once the Eye is closed it's gone altogether.
+let collapseZ = -Infinity;
+let causewayGone = false;
+export const setCollapse = (z, gone) => {
+  collapseZ = z;
+  causewayGone = gone;
+};
+
 const inside = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
 
 // Height of the walkable ground at (x, z), or null over the abyss / outside the map.
 export function groundAt(x, z) {
   if (inside(COURT, x, z) || inside(YARD, x, z)) return 0;
-  if (Math.abs(x) <= BRIDGE_HALF_WIDTH - 0.4 && z < COURT.minZ && z >= -96) return bridgeHeight(Math.min(z, -4));
+  if (Math.abs(x) <= BRIDGE_HALF_WIDTH - 0.4 && z < COURT.minZ && z >= -96) {
+    if (causewayGone || z < collapseZ) return null;
+    return bridgeHeight(Math.min(z, -4));
+  }
   if (inside(FORECOURT, x, z)) return FORECOURT.y;
   if (castleOpen) {
     if (inside(NAVE, x, z)) return z < DAIS_Z ? FORECOURT.y + DAIS_HEIGHT : FORECOURT.y;

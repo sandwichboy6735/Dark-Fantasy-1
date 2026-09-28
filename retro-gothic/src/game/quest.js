@@ -11,11 +11,13 @@ import { live } from './live.js';
 //               ('spilled' if the foam went flat: fetch a fresh one.)
 //   3  CASTLE   The Eye reels and the gate opens. Cross the bailey and the nave,
 //               past the Eyeless Watchers, and ring the Great Bell.
-//   4  DONE     The Eye is closed. Wander as long as you like.
+//   4  ESCAPE   The Eye is sealed, and everything it held up starts to fall. Get
+//               out of the castle and back down the causeway before it crumbles.
+//   5  DONE     You made it. Fireworks over the tavern; wander as you please.
 //
 // All the way, the Eye's gaze sweeps the stones. Stand in it and dread builds;
 // when it's full the Eye has seen you and you wake at the last light.
-export const STAGE = { ARRIVED: 0, BELLS: 1, TOAST: 2, CASTLE: 3, DONE: 4 };
+export const STAGE = { ARRIVED: 0, BELLS: 1, TOAST: 2, CASTLE: 3, ESCAPE: 4, DONE: 5 };
 
 const Y_CASTLE = 13;
 const onCauseway = (z) => (z < -96 ? Y_CASTLE : bridgeHeight(z));
@@ -41,6 +43,27 @@ export const CATS = [
   { id: 'cat-5', x: -14, y: Y_CASTLE, z: -112.2, rotation: 0.7, where: 'in the gate forecourt' },
   { id: 'cat-6', x: -8, y: Y_CASTLE + 0.3, z: -149, rotation: 0.4, where: 'by the Great Bell', from: STAGE.CASTLE },
 ];
+
+// Five torn pages from the diary of Ser Oswin, first Captain of the Vigil.
+export const PAGES = [
+  { id: 'page-1', x: -6, y: 0, z: 12, rotation: 0.4 },
+  { id: 'page-2', x: 39.6, y: 0, z: 21.2, rotation: -Math.PI / 2 },
+  { id: 'page-3', x: 2.1, y: 3, z: -34.5, rotation: -0.6 },
+  { id: 'page-4', x: 13.5, y: Y_CASTLE, z: -99.5, rotation: -1.2 },
+  { id: 'page-5', x: -10, y: Y_CASTLE, z: -138.5, rotation: 1.4, from: STAGE.CASTLE },
+];
+
+// How forgiving the game is. Chosen when you begin a new journey.
+export const DIFFICULTY = {
+  easy: { label: 'Pilgrim', dread: 0.6, watcherSpeed: 0.8, notice: 1.7, foam: 0.6, collapse: 0.8, head: 12 },
+  normal: { label: 'Vigil', dread: 1, watcherSpeed: 1, notice: 1, foam: 1, collapse: 1, head: 9 },
+};
+export const difficulty = () => DIFFICULTY[store.get().difficulty] ?? DIFFICULTY.normal;
+
+// The escape: the causeway crumbles from the castle end towards the court.
+export const COLLAPSE_START_Z = -96;
+export const COLLAPSE_SPEED = 6.6; // metres per second; you run at 7.5
+export const DAIS_WAKE = { x: 0, z: -144.2, y: Y_CASTLE + 0.3 };
 
 // Wall torches on the causeway. Most blew out; walk up to one to relight it.
 // A lit torch is a safe light and your new waking place.
@@ -99,7 +122,7 @@ export const GAZE_COUNT = GAZES.length;
 // `lure`, when set, drags nearby searchlights towards a banger's bang.
 export function gazePositions(time, stage, lure, now) {
   return GAZES.map((g) => {
-    const active = stage >= g.from && stage < STAGE.DONE;
+    const active = stage >= g.from && stage < STAGE.ESCAPE;
     const s = (g.min + g.max) / 2 + ((g.max - g.min) / 2) * Math.sin(time * g.w + g.phase);
     let x = g.axis === 'x' ? s : g.x + Math.sin(time * 0.9 + g.phase) * 1.2;
     let z = g.axis === 'z' ? s : g.z + Math.sin(time * 0.7 + g.phase) * 2;
@@ -116,20 +139,24 @@ export function gazePositions(time, stage, lure, now) {
 }
 
 const SAVE_KEY = 'vigil-and-tankard-save';
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 export function loadGame() {
   try {
     const saved = JSON.parse(window.localStorage.getItem(SAVE_KEY));
     if (saved && Number.isInteger(saved.stage) && Array.isArray(saved.bells)) {
-      // Version 1 saves ended at stage 3; that's DONE now.
-      const stage = !saved.v && saved.stage === 3 ? STAGE.DONE : saved.stage;
+      // Older saves ended at stage 3 (version 1) or 4 (version 2); that's DONE now.
+      // A save made mid-escape restarts the escape at the bell.
+      const finished = (!saved.v && saved.stage === 3) || (saved.v === 2 && saved.stage === 4);
+      const stage = finished ? STAGE.DONE : saved.stage === STAGE.ESCAPE ? STAGE.CASTLE : saved.stage;
       const known = (list, ids) => (Array.isArray(ids) ? ids.filter((id) => list.some((x) => x.id === id)) : []);
       store.set({
         stage,
         bells: known(BELLS, saved.bells),
         lit: known(TORCHES, saved.lit),
         cats: known(CATS, saved.cats),
+        pages: known(PAGES, saved.pages),
+        difficulty: saved.difficulty === 'easy' ? 'easy' : 'normal',
         seen: Number.isInteger(saved.seen) ? saved.seen : 0,
         bangers: Number.isInteger(saved.bangers) ? saved.bangers : stage >= STAGE.BELLS ? 3 : 0,
         intro: false,
@@ -143,8 +170,8 @@ export function loadGame() {
 
 export function saveGame() {
   try {
-    const { stage, bells, lit, seen, cats, bangers } = store.get();
-    const data = { v: SAVE_VERSION, stage, bells, lit, seen, cats, bangers, time: Math.round(live.playTime) };
+    const { stage, bells, lit, seen, cats, pages, bangers, difficulty: level } = store.get();
+    const data = { v: SAVE_VERSION, stage, bells, lit, seen, cats, pages, bangers, difficulty: level, time: Math.round(live.playTime) };
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch {
     // Progress just won't survive a reload.
@@ -154,7 +181,7 @@ export function saveGame() {
 export const hasProgress = () => store.get().stage > 0 || store.get().bells.length > 0;
 
 export function newGame() {
-  store.set({ stage: STAGE.ARRIVED, bells: [], lit: [], cats: [], seen: 0, bangers: 0, spilled: false, ending: false, intro: true });
+  store.set({ stage: STAGE.ARRIVED, bells: [], lit: [], cats: [], pages: [], seen: 0, bangers: 0, spilled: false, ending: false, intro: true });
   live.playTime = 0;
   live.foam = 1;
   live.dread = 0;
@@ -237,7 +264,13 @@ export function linesFor(interact) {
 export function advanceQuest(id) {
   const state = store.get();
   const key = stageKey(state);
-  if (id.startsWith('cat-')) {
+  if (id.startsWith('page-')) {
+    if (state.pages.includes(id)) return;
+    const pages = [...state.pages, id];
+    store.set({ pages });
+    sfx.page();
+    notify(pages.length === PAGES.length ? 'All five pages of the diary found!' : `Diary page ${pages.length} of ${PAGES.length}`);
+  } else if (id.startsWith('cat-')) {
     if (state.cats.includes(id)) {
       sfx.meow();
       return;
@@ -272,17 +305,41 @@ export function advanceQuest(id) {
     }, 2500);
     setTimeout(() => notify('Inside walk the Eyeless Watchers. Stay out of their lantern-light!'), 7000);
   } else if (id === 'great-bell' && key === STAGE.CASTLE) {
-    store.set({ stage: STAGE.DONE });
+    store.set({ stage: STAGE.ESCAPE });
+    live.escapeStart = live.gameTime;
     sfx.greatBell();
     live.shake = 1;
-    setTimeout(() => {
-      sfx.rumble();
-      store.set({ ending: true });
-    }, 5000);
+    startEscape();
+    setTimeout(() => notify('The castle is coming down! RUN for the causeway!'), 3500);
   } else {
     return;
   }
   saveGame();
+}
+
+// The Eye is sealed; the causeway will start to fall `head` seconds from now.
+export function startEscape() {
+  live.escape = { ringAt: live.gameTime, fallAt: live.gameTime + difficulty().head };
+  live.debris = [];
+}
+
+// Fell with the causeway, or got trapped in the castle: back to the bell.
+export function failEscape(why) {
+  store.set({ seen: store.get().seen + 1 });
+  sfx.rumble();
+  notify(why);
+  startEscape();
+  saveGame();
+}
+
+export function finishEscape() {
+  store.set({ stage: STAGE.DONE });
+  live.escape = null;
+  live.escapeTime = live.gameTime - (live.escapeStart ?? live.gameTime);
+  sfx.fanfare();
+  notify('You made it! Listen to them cheer!');
+  saveGame();
+  setTimeout(() => store.set({ ending: true }), 3500);
 }
 
 export function objective(state) {
@@ -294,7 +351,8 @@ export function objective(state) {
   if (key === 'spilled') return 'The Toast went flat! Get a fresh one from Grubnik';
   if (stage === STAGE.TOAST) return 'Carry the Toast to the Vigil Stone at the castle gate';
   if (stage === STAGE.CASTLE) return 'Enter the castle and ring the Great Bell';
-  return 'The Eye is closed. Find any cats you missed!';
+  if (stage === STAGE.ESCAPE) return 'ESCAPE! Run back down the causeway to the court';
+  return 'The Eye is closed. Celebrate at the Grinning Tankard!';
 }
 
 // Where the objective arrow points from (x, z), or null.
@@ -312,14 +370,16 @@ export function objectiveTarget(state, x, z) {
   }
   if (key === STAGE.TOAST) return VIGIL_STONE;
   if (key === STAGE.CASTLE) return GREAT_BELL;
+  if (key === STAGE.ESCAPE) return { x: 0, z: 2 };
   return null;
 }
 
 // The rank on the ending card.
-export function scoreRun({ seen, cats, lit }, seconds) {
+export function scoreRun({ seen, cats, lit, pages, difficulty: level }, seconds) {
   const relit = lit.length;
   const minutes = seconds / 60;
-  const score = Math.round(100 - seen * 6 + cats.length * 5 + relit * 3 - Math.max(0, minutes - 12) * 2);
+  const easy = level === 'easy' ? 15 : 0;
+  const score = Math.round(100 - seen * 6 + cats.length * 5 + pages.length * 4 + relit * 3 - Math.max(0, minutes - 15) * 2 - easy);
   const rank = score >= 125 ? 'S' : score >= 105 ? 'A' : score >= 85 ? 'B' : 'C';
   const title = { S: 'Legend of the Tankard', A: 'Hero of the Causeway', B: 'Stout-Hearted Pilgrim', C: 'Lucky Wanderer' }[rank];
   return { score, rank, title };

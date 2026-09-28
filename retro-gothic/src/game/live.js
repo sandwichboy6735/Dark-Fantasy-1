@@ -20,4 +20,13 @@ export const live = {
   resetWatchers: 0, // bumped after you're caught so Watchers go back to their rounds
   lure: null, // { x, z, time, duration } the last banger's bang
   now: 0, // clock time of the current frame
+  gameTime: 0, // seconds of play: stops while paused and slows with the frame rate
+  escape: null, // { ringAt, fallAt } while fleeing the castle
+  escapeStart: null, // when the Great Bell was first rung, for the ending card
+  escapeTime: 0,
+  collapseZ: -Infinity, // the causeway is gone for z below this (between the castle and it)
+  debris: [], // falling masonry: { x, z, y, landAt, hit }
+  stunUntil: 0, // knocked down by masonry until this time
+  sneaking: false,
+  rage: 0, // how angry the Eye looks, 0..1
 };

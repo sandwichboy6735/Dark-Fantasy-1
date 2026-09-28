@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { pressBang, pressTalk, store, talkButton, useStore } from '../store.js';
-import { CATS, TORCHES, advanceQuest, hasProgress, linesFor, loadGame, newGame, objective, scoreRun, STAGE } from '../game/quest.js';
+import { CATS, DIFFICULTY, PAGES, TORCHES, advanceQuest, hasProgress, linesFor, loadGame, newGame, objective, saveGame, scoreRun, STAGE } from '../game/quest.js';
 import { MapView } from './MapView.jsx';
 import { live } from '../game/live.js';
 import { sfx, startAudio, toggleMute } from '../game/audio.js';
@@ -71,18 +71,34 @@ function Notice() {
   );
 }
 
-// Shown when a new game starts: what you're here to do, and what can hurt you.
+const chooseDifficulty = (difficulty) => {
+  store.set({ difficulty, intro: false });
+  saveGame();
+};
+
+// Shown when a new game starts: what you're here to do, what can hurt you, and
+// how forgiving you'd like it to be.
 function GoalCard() {
   useEffect(() => {
-    const close = () => store.set({ intro: false });
+    const close = () => chooseDifficulty('normal');
+    const onKey = (e) => {
+      if (e.code === 'Digit1') chooseDifficulty('easy');
+      if (e.code === 'Digit2') chooseDifficulty('normal');
+    };
     const timer = setTimeout(() => talkButton.addEventListener('press', close), 400);
+    window.addEventListener('keydown', onKey);
     return () => {
       clearTimeout(timer);
       talkButton.removeEventListener('press', close);
+      window.removeEventListener('keydown', onKey);
     };
   }, []);
+  const pick = (difficulty) => (e) => {
+    e.stopPropagation();
+    chooseDifficulty(difficulty);
+  };
   return (
-    <div className="goal-card" onPointerDown={() => store.set({ intro: false })}>
+    <div className="goal-card">
       <div className="panel">
         <h2>YOUR QUEST</h2>
         <p className="lead">For a hundred years a giant Eye has watched this land. Close it.</p>
@@ -94,7 +110,17 @@ function GoalCard() {
           <b>DANGER:</b> blue searchlights from the Eye sweep the causeway. Stand in one too long and it <b>sees you</b>. Torchlight keeps
           you hidden, so relight the dead torches as you go.
         </p>
-        <p className="blink">{IS_TOUCH ? 'TAP' : 'PRESS E'} TO START</p>
+        <div className="difficulty">
+          <button type="button" onPointerDown={pick('easy')}>
+            <b>{DIFFICULTY.easy.label.toUpperCase()}</b>
+            <span>Easier: slower dread and Watchers</span>
+          </button>
+          <button type="button" className="main" onPointerDown={pick('normal')}>
+            <b>{DIFFICULTY.normal.label.toUpperCase()}</b>
+            <span>The intended challenge</span>
+          </button>
+        </div>
+        {!IS_TOUCH && <p className="hint">1 / 2 TO CHOOSE, OR E FOR VIGIL</p>}
       </div>
     </div>
   );
@@ -131,15 +157,24 @@ function LiveHud() {
       }
       if (r.foamFill) r.foamFill.style.width = `${live.foam * 100}%`;
       if (r.foam) r.foam.classList.toggle('warn', live.running);
+      const escaping = Boolean(live.escape) && store.get().stage === STAGE.ESCAPE;
       if (r.vignette) {
-        r.vignette.style.opacity = String(live.hunted > 0 ? 0.8 : Math.min(1, live.dread * 1.2));
-        r.vignette.classList.toggle('hunted', live.hunted > 0);
+        r.vignette.style.opacity = String(live.hunted > 0 || escaping ? 0.8 : Math.min(1, live.dread * 1.2));
+        r.vignette.classList.toggle('hunted', live.hunted > 0 || escaping);
       }
+      if (r.sneak) r.sneak.style.visibility = live.sneaking ? 'visible' : 'hidden';
       if (r.fade) r.fade.style.opacity = String(live.fade);
       if (r.status) {
-        const hunted = live.hunted > 0;
+        const hunted = live.hunted > 0 || escaping;
         const exposed = live.inGaze && !live.safe;
-        const text = hunted
+        const fallsIn = escaping ? Math.ceil(live.escape.fallAt - live.gameTime) : 0;
+        const text = escaping
+          ? fallsIn > 0
+            ? `THE CAUSEWAY FALLS IN ${fallsIn}... RUN!`
+            : live.gameTime < live.stunUntil
+              ? 'HIT BY FALLING STONE! GET UP!'
+              : 'RUN! THE CAUSEWAY IS FALLING BEHIND YOU!'
+          : live.hunted > 0
           ? 'A WATCHER IS HUNTING YOU! RUN FOR THE LIGHT!'
           : exposed
             ? 'THE EYE IS LOOKING. MOVE!'
@@ -180,6 +215,7 @@ function LiveHud() {
         )}
       </div>
       <div className="gaze-status" ref={bind('status')} />
+      <div className="sneak-badge" ref={bind('sneak')}>SNEAKING</div>
       <Pockets />
     </>
   );
@@ -190,6 +226,7 @@ function Pockets() {
   const bangers = useStore((s) => s.bangers);
   const stage = useStore((s) => s.stage);
   const cats = useStore((s) => s.cats.length);
+  const pages = useStore((s) => s.pages.length);
   const mode = useStore((s) => s.mode);
   return (
     <div className="pockets">
@@ -202,6 +239,11 @@ function Pockets() {
       {cats > 0 && (
         <div className="pocket">
           <span className="cat-icon" /> CATS {cats}/{CATS.length}
+        </div>
+      )}
+      {pages > 0 && (
+        <div className="pocket">
+          <span className="page-icon" /> PAGES {pages}/{PAGES.length}
         </div>
       )}
     </div>
@@ -223,17 +265,23 @@ function Ending() {
     <div className="ending">
       <div className="panel">
         <h2>THE EYE CLOSES</h2>
-        <p>The Great Bell rings out, and for the first time in a hundred years the causeway sleeps. The goblins will sing about you until at least Tuesday.</p>
+        <p>The Great Bell rang, the Eye slept, and the causeway fell into the abyss a heartbeat behind you. The stars are back. The goblins will sing about you until at least Tuesday.</p>
         <div className="rank">
           <span className={`letter rank-${result.rank}`}>{result.rank}</span>
-          <span className="rank-title">{result.title}</span>
+          <span className="rank-title">
+            {result.title}
+            <br />
+            <small>{(DIFFICULTY[store.get().difficulty] ?? DIFFICULTY.normal).label.toUpperCase()} DIFFICULTY</small>
+          </span>
         </div>
         <table className="stats">
           <tbody>
             <tr><td>TIME</td><td>{formatTime(live.playTime)}</td></tr>
             <tr><td>TIMES CAUGHT</td><td>{store.get().seen}</td></tr>
             <tr><td>TORCHES RELIT</td><td>{store.get().lit.length} / {TORCHES.filter((t) => !t.startsLit).length}</td></tr>
+            <tr><td>ESCAPE</td><td>{formatTime(live.escapeTime)}</td></tr>
             <tr><td>CATS PETTED</td><td>{store.get().cats.length} / {CATS.length}</td></tr>
+            <tr><td>DIARY PAGES</td><td>{store.get().pages.length} / {PAGES.length}</td></tr>
             <tr><td>SCORE</td><td>{result.score}</td></tr>
           </tbody>
         </table>
@@ -342,6 +390,7 @@ function TitleScreen({ playing }) {
               <tr><td>DRAG RIGHT</td><td>LOOK</td></tr>
               <tr><td>TALK</td><td>WHEN SOMEONE IS CLOSE</td></tr>
               <tr><td>BANG</td><td>THROW A BANGER</td></tr>
+              <tr><td>SNEAK</td><td>CROUCH, HARDER TO SPOT</td></tr>
               <tr><td>II</td><td>PAUSE AND MAP</td></tr>
             </tbody>
           </table>
@@ -353,6 +402,7 @@ function TitleScreen({ playing }) {
               <tr><td>MOUSE</td><td>{mode === 'drag' ? 'DRAG TO LOOK' : 'LOOK'}</td></tr>
               <tr><td>E / CLICK</td><td>TALK</td></tr>
               <tr><td>F</td><td>THROW BANGER</td></tr>
+              <tr><td>C (HOLD)</td><td>SNEAK</td></tr>
               <tr><td>M</td><td>MUTE</td></tr>
               <tr><td>ESC</td><td>PAUSE AND MAP</td></tr>
             </tbody>

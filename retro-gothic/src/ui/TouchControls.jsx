@@ -13,6 +13,7 @@ export function TouchControls() {
   const stickPointer = useRef(null);
   const lookPointers = useRef(new Map());
   const [stick, setStick] = useState(null); // { x, y, dx, dy } in screen pixels
+  const [sneak, setSneak] = useState(input.sneak);
 
   const onDown = (e) => {
     e.preventDefault();
@@ -86,6 +87,16 @@ export function TouchControls() {
           BANG
         </button>
       )}
+      <button
+        type="button"
+        className={`touch-button sneak${sneak ? ' on' : ''}`}
+        onPointerDown={tap(() => {
+          input.sneak = !input.sneak;
+          setSneak(input.sneak);
+        })}
+      >
+        SNEAK
+      </button>
       <button type="button" className="touch-button pause" onPointerDown={tap(() => store.set({ playing: false }))}>
         II
       </button>

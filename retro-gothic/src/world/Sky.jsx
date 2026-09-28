@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { store } from '../store.js';
 import { STAGE } from '../game/quest.js';
+import { live } from '../game/live.js';
 import * as THREE from 'three';
 
 export const EYE_POSITION = new THREE.Vector3(0, 250, -340);
@@ -36,6 +37,8 @@ function SkyDome() {
       uVortexDir: { value: new THREE.Vector3(0, 0.45, -1).normalize() },
       uFogColor: { value: FOG_COLOR },
       uEyeGlow: { value: 1 },
+      uRed: { value: 0 },
+      uStars: { value: 0 },
     }),
     [],
   );
@@ -47,6 +50,11 @@ function SkyDome() {
     u.uTime.value = clock.elapsedTime;
     u.uVortexDir.value.copy(EYE_POSITION).sub(camera.position).normalize();
     u.uEyeGlow.value = 1 - eye.closed * 0.85;
+    // Red while the castle falls; once you're safe, the stars the Eye stole come back.
+    const stage = store.get().stage;
+    const ease = (from, to) => from + (to - from) * 0.02;
+    u.uRed.value = ease(u.uRed.value, stage === STAGE.ESCAPE ? 1 : 0);
+    u.uStars.value = ease(u.uStars.value, stage >= STAGE.DONE ? 1 : 0);
   });
 
   return (
@@ -69,6 +77,8 @@ function SkyDome() {
           uniform vec3 uVortexDir;
           uniform vec3 uFogColor;
           uniform float uEyeGlow;
+          uniform float uRed;
+          uniform float uStars;
           varying vec3 vDir;
           ${NOISE}
           void main() {
@@ -92,6 +102,14 @@ function SkyDome() {
             col += vec3(0.015, 0.05, 0.2) * halo * (0.25 + cloud) * uEyeGlow;      // the eye's light in the clouds
             col += vec3(0.01, 0.04, 0.16) * exp(-r * 10.0) * uEyeGlow;
 
+            // The castle's fall lights the clouds from below.
+            col += vec3(0.16, 0.02, 0.0) * uRed * (0.4 + cloud) * smoothstep(0.6, -0.1, d.y);
+
+            // Stars, back where they belong, peeking between the clouds.
+            vec2 cell = floor(vec2(atan(d.z, d.x) * 160.0, d.y * 160.0));
+            float star = step(0.9965, hash(cell)) * smoothstep(0.05, 0.25, d.y) * (1.0 - cloud * 0.8);
+            col += vec3(0.9, 0.9, 1.0) * star * uStars * (0.6 + 0.4 * sin(uTime * 3.0 + hash(cell + 1.0) * 30.0));
+
             // Melt into the fog at the horizon and into the abyss below it.
             col = mix(uFogColor, col, smoothstep(-0.05, 0.3, d.y));
             col = mix(col, vec3(0.002, 0.001, 0.005), smoothstep(-0.05, -0.5, d.y));
@@ -108,7 +126,10 @@ function SkyDome() {
 // and a black slit pupil that tilts down to watch the causeway.
 function Eye() {
   const mesh = useRef();
-  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uBlink: { value: 0 }, uGlow: { value: 1 }, uLook: { value: new THREE.Vector2(0, -0.35) } }), []);
+  const uniforms = useMemo(
+    () => ({ uTime: { value: 0 }, uBlink: { value: 0 }, uGlow: { value: 1 }, uRage: { value: 0 }, uLook: { value: new THREE.Vector2(0, -0.35) } }),
+    [],
+  );
   const blink = useRef({ next: 5, start: -10 });
 
   useFrame(({ camera, clock }, delta) => {
@@ -119,9 +140,11 @@ function Eye() {
 
     // Raising the Toast leaves it squinting, half-blind; the Great Bell shuts it for good.
     const stage = store.get().stage;
-    const shut = stage >= STAGE.DONE ? 1 : stage === STAGE.CASTLE ? 0.45 : 0;
+    const shut = stage >= STAGE.ESCAPE ? 1 : stage === STAGE.CASTLE ? 0.45 : 0;
     eye.closed += Math.sign(shut - eye.closed) * Math.min(Math.abs(shut - eye.closed), Math.min(delta, 0.1) / 3);
     u.uGlow.value = 1 - eye.closed * 0.75;
+    // When it spots you, the iris burns red.
+    u.uRage.value += (live.rage - u.uRage.value) * Math.min(1, delta * 4);
 
     const b = blink.current;
     if (t > b.next) {
@@ -151,6 +174,7 @@ function Eye() {
           uniform float uTime;
           uniform float uBlink;
           uniform float uGlow;
+          uniform float uRage;
           uniform vec2 uLook;
           varying vec2 vUv;
           ${NOISE}
@@ -184,6 +208,7 @@ function Eye() {
               float striae = 0.6 + 0.4 * noise(vec2(ang * 9.0, r * 22.0 - uTime * 0.2));
               vec3 iris = mix(vec3(0.05, 0.5, 1.4), vec3(0.6, 1.4, 1.8), smoothstep(0.24, 0.05, r)) * striae;
               iris *= smoothstep(0.3, 0.26, r) * 0.5 + 0.5;                                       // dark limbal ring
+              iris = mix(iris, vec3(1.8, 0.25, 0.1) * striae, uRage);
 
               float slit = abs(d.x) - 0.045 * sqrt(max(1.0 - pow(d.y / 0.24, 2.0), 0.0));
               vec3 eye = mix(sclera, iris, step(r, 0.28));

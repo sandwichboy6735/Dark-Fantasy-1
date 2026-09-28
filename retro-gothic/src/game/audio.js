@@ -10,6 +10,7 @@ let jigGain;
 let jigLevel = 0;
 let dangerGain;
 let dangerLevel = 0;
+let quakeGain;
 let muted = false;
 
 export function startAudio() {
@@ -22,6 +23,7 @@ export function startAudio() {
       buildDrone();
       buildJig();
       buildDanger();
+      buildQuake();
     }
     ctx.resume();
   } catch {
@@ -137,6 +139,33 @@ function buildDanger() {
   }, 100);
 }
 
+// A continuous low roar of falling stone, for the escape.
+function buildQuake() {
+  const length = 3;
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < data.length; i++) {
+    last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; // brown noise
+    data[i] = last * 3.5;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 160;
+  quakeGain = ctx.createGain();
+  quakeGain.gain.value = 0;
+  src.connect(filter).connect(quakeGain).connect(master);
+  src.start();
+}
+
+export function setQuake(level) {
+  if (!ctx) return;
+  quakeGain.gain.setTargetAtTime(0.5 * level, ctx.currentTime, 0.4);
+}
+
 export function setDanger(level) {
   if (!ctx) return;
   dangerLevel = level;
@@ -219,6 +248,30 @@ export const sfx = {
           note(f, at, d, 'sine', v, master),
         );
       }
+    }),
+  page: () => play((t) => [0, 0.09].forEach((d) => noiseBurst(t + d, 0.12, 'highpass', 3000, 0.12))),
+  crash: () =>
+    play((t) => {
+      noiseBurst(t, 0.5, 'lowpass', 400, 0.7);
+      note(55, t, 0.25, 'triangle', 0.4, master);
+    }),
+  scream: () =>
+    play((t) => {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(700, t);
+      osc.frequency.exponentialRampToValueAtTime(120, t + 1.2);
+      env.gain.setValueAtTime(0.08, t);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+      osc.connect(env).connect(master);
+      osc.start(t);
+      osc.stop(t + 1.35);
+    }),
+  firework: () =>
+    play((t) => {
+      noiseBurst(t, 0.3, 'lowpass', 1200, 0.35);
+      for (let i = 0; i < 6; i++) noiseBurst(t + 0.15 + Math.random() * 0.5, 0.04, 'highpass', 4000, 0.08);
     }),
   heartbeat: () =>
     play((t) => {

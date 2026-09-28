@@ -4,6 +4,8 @@ import { Box, coneGeo, cylGeo, glow, mat } from '../retro/materials.jsx';
 import { groundAt } from './layout.js';
 import { bind, isTalkingTo, turnTowards, useCollider } from './actor.js';
 import { GUARDS } from './npcs.js';
+import { useStore } from '../store.js';
+import { STAGE } from '../game/quest.js';
 
 const steel = mat({ color: '#8a8ea0', type: 'phong', shininess: 70 });
 const darkSteel = mat({ color: '#4a4d5a', type: 'phong', shininess: 50 });
@@ -158,6 +160,16 @@ function Guard({ id, kind, name, lines, stages, path, facing = 0, speed = 1, pha
   );
 }
 
+// While the causeway falls the Vigil scatters; once you're safe they all come down
+// to the court and the tavern to celebrate.
 export function Guards() {
-  return GUARDS.map((g, i) => <Guard key={g.id} phase={i * 1.3} {...g} />);
+  const stage = useStore((s) => s.stage);
+  if (stage === STAGE.ESCAPE) return null;
+  return GUARDS.map((g, i) =>
+    stage >= STAGE.DONE ? (
+      <Guard key={`${g.id}-home`} phase={i * 1.3} {...g} path={[[g.home[0], g.home[1]]]} facing={g.home[2]} />
+    ) : (
+      <Guard key={g.id} phase={i * 1.3} {...g} />
+    ),
+  );
 }

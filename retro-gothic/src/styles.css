@@ -656,3 +656,85 @@ canvas {
 .dot.bell { background: #ffd24a; border-radius: 50%; }
 .dot.torch { background: #ff8a2a; border-radius: 50%; }
 .dot.cat { background: #141218; border: 2px solid #e8d040; border-radius: 50%; }
+
+/* Difficulty choice on the quest card. */
+.goal-card .difficulty {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+.goal-card .difficulty button {
+  display: grid;
+  gap: 8px;
+  padding: 14px 10px;
+  font: inherit;
+  font-size: var(--small);
+  line-height: 1.5;
+  color: var(--ink);
+  background: #1a1630;
+  border: 3px solid #8fb0ff;
+  cursor: pointer;
+}
+.goal-card .difficulty button.main {
+  border-color: var(--gold);
+}
+.goal-card .difficulty b {
+  font-size: var(--text);
+  color: #8fb0ff;
+}
+.goal-card .difficulty .main b {
+  color: var(--gold);
+}
+.goal-card .difficulty span {
+  font-size: calc(var(--small) * 0.85);
+  color: #b8accf;
+}
+.goal-card .hint {
+  margin: 14px 0 0;
+  font-size: var(--small);
+  color: #8a8098;
+}
+@media (max-width: 420px) {
+  .goal-card .difficulty {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sneak-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  font-size: var(--small);
+  color: #b8e0a0;
+  background: rgba(8, 12, 6, 0.7);
+  border: 2px solid #5a8a3a;
+  visibility: hidden;
+}
+
+.page-icon {
+  width: 12px;
+  height: 14px;
+  background: #e8d8a8;
+  box-shadow: inset 0 3px 0 -1px #6a5a30, inset 0 7px 0 -3px #6a5a30;
+}
+.map-page { fill: #e8d8a8; }
+.dot.page { background: #e8d8a8; }
+.ending .rank-title small {
+  font-size: var(--small);
+  color: #a89cc8;
+}
+
+.touch-button.sneak {
+  left: 20px;
+  bottom: calc(40% - 20px);
+  padding: 14px 12px;
+  font-size: var(--small);
+  background: #5a8a3a;
+}
+.touch-button.sneak.on {
+  background: #b8e0a0;
+  box-shadow: 0 0 0 4px #b8e0a0;
+}

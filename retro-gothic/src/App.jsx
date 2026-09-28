@@ -14,6 +14,9 @@ import { Watchers } from './world/Watchers.jsx';
 import { Bangers } from './world/Bangers.jsx';
 import { Cats } from './world/Cats.jsx';
 import { Embers } from './world/Embers.jsx';
+import { Pages } from './world/Pages.jsx';
+import { Debris } from './world/Debris.jsx';
+import { Fireworks } from './world/Fireworks.jsx';
 import { Player } from './player/Player.jsx';
 import { Overlay } from './ui/Overlay.jsx';
 
@@ -23,6 +26,7 @@ const KEYS = [
   { name: 'left', keys: ['KeyA', 'ArrowLeft'] },
   { name: 'right', keys: ['KeyD', 'ArrowRight'] },
   { name: 'run', keys: ['ShiftLeft', 'ShiftRight'] },
+  { name: 'sneak', keys: ['KeyC', 'ControlLeft'] },
 ];
 
 export default function App() {
@@ -52,6 +56,9 @@ export default function App() {
         <Gaze />
         <Watchers />
         <Cats />
+        <Pages />
+        <Debris />
+        <Fireworks />
         <Embers />
         <Player />
         <HeldTankard />

@@ -5,6 +5,7 @@ export const input = {
   moveY: 0, // -1 forward .. 1 back
   lookX: 0, // accumulated pixels since the last frame
   lookY: 0,
+  sneak: false, // the touch SNEAK toggle
 };
 
 export function addLook(dx, dy) {

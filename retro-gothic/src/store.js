@@ -9,6 +9,8 @@ import { useSyncExternalStore } from 'react';
 //   bells    ids of the golden bells picked up
 //   lit      ids of the causeway torches you relit
 //   cats     ids of the black cats you petted
+//   pages    ids of the diary pages you read
+//   difficulty  'easy' (Pilgrim) or 'normal' (Vigil)
 //   bangers  goblin firecrackers in your pocket
 //   seen     how many times the Eye has caught you
 //   spilled  the Toast went flat and needs replacing
@@ -24,6 +26,8 @@ let state = {
   bells: [],
   lit: [],
   cats: [],
+  pages: [],
+  difficulty: 'normal',
   bangers: 0,
   seen: 0,
   spilled: false,

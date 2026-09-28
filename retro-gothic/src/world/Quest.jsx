@@ -61,7 +61,7 @@ export function VigilStone() {
       <Box size={[1.8, 0.2, 1.3]} m={altar} position={[0, 1.1, 0]} />
       <Box size={[0.7, 0.06, 0.25]} m={mat({ color: '#1a1830', type: 'basic' })} position={[0, 0.7, 0.51]} />
       <Box ref={glowRef} size={[0.5, 0.08, 0.26]} m={sigil} position={[0, 0.7, 0.52]} />
-      {stage >= STAGE.DONE && (
+      {stage >= STAGE.CASTLE && (
         <group position={[0, 1.36, 0]}>
           <Tankard />
         </group>

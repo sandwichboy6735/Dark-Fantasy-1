@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.js';
-import { BELLS, CATS, STAGE, TORCHES, isLit, objectiveTarget } from '../game/quest.js';
+import { BELLS, CATS, PAGES, STAGE, TORCHES, isLit, objectiveTarget } from '../game/quest.js';
 import { live } from '../game/live.js';
 
 // The pause-screen map, drawn in world metres with north up: the court and tavern
@@ -24,7 +24,7 @@ export function MapView() {
         <rect x="-13" y="-152" width="26" height="22" className={open ? 'map-land' : 'map-closed'} />
         <rect x="-11" y="-130" width="22" height="12" className={open ? 'map-land' : 'map-closed'} />
         <rect x="-16" y="-116" width="32" height="20" className="map-land" />
-        <rect x="-3.7" y="-96" width="7.4" height="92" className="map-bridge" />
+        {state.stage < STAGE.DONE && <rect x="-3.7" y="-96" width="7.4" height="92" className="map-bridge" />}
         <rect x="-14" y="-4" width="28" height="26" className="map-land" />
         <rect x="14" y="-8" width="34" height="34" className="map-yard" />
         <rect x="40" y="-1" width="8" height="22" className="map-building" />
@@ -32,11 +32,14 @@ export function MapView() {
         <text x="0" y="-104" className="map-label">GATE</text>
         <text x="0" y="12" className="map-label">COURT</text>
         <text x="31" y="12" className="map-label">TAVERN</text>
-        {TORCHES.map((t) => (
+        {state.stage < STAGE.DONE && TORCHES.map((t) => (
           <circle key={t.id} cx={t.x} cy={t.z} r="1.6" className={isLit(t, state.lit) ? 'map-torch' : 'map-torch-out'} />
         ))}
         {state.stage >= STAGE.BELLS &&
           BELLS.filter((b) => !state.bells.includes(b.id)).map((b) => <circle key={b.id} cx={b.x} cy={b.z} r="1.8" className="map-bell" />)}
+        {PAGES.filter((p) => state.pages.includes(p.id)).map((p) => (
+          <rect key={p.id} x={p.x - 1.2} y={p.z - 1.5} width="2.4" height="3" className="map-page" />
+        ))}
         {CATS.filter((c) => state.cats.includes(c.id)).map((c) => (
           <circle key={c.id} cx={c.x} cy={c.z} r="1.4" className="map-cat" />
         ))}
@@ -51,6 +54,7 @@ export function MapView() {
         <li><span className="dot bell" /> BELL</li>
         <li><span className="dot torch" /> TORCH</li>
         <li><span className="dot cat" /> CATS {state.cats.length}/{CATS.length}</li>
+        <li><span className="dot page" /> PAGES {state.pages.length}/{PAGES.length}</li>
       </ul>
     </div>
   );

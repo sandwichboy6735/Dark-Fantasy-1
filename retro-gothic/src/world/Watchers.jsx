@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Box, coneGeo, cylGeo, glow, mat } from '../retro/materials.jsx';
 import { store, useStore } from '../store.js';
-import { STAGE } from '../game/quest.js';
+import { STAGE, difficulty } from '../game/quest.js';
 import { live } from '../game/live.js';
 import { sfx } from '../game/audio.js';
 import { groundAt } from './layout.js';
@@ -105,7 +105,7 @@ function Watcher({ id, path, speed = PATROL_SPEED, from }) {
     epoch: 0,
     cycle: 0,
   });
-  const active = stage >= from && stage < STAGE.DONE;
+  const active = stage >= from && stage < STAGE.ESCAPE;
 
   useFrame((_, delta) => {
     if (!active) return;
@@ -128,7 +128,12 @@ function Watcher({ id, path, speed = PATROL_SPEED, from }) {
     const dist = Math.hypot(dx, dz);
     const angle = Math.abs(Math.atan2(Math.sin(Math.atan2(dx, dz) - w.heading), Math.cos(Math.atan2(dx, dz) - w.heading)));
     const sameLevel = Math.abs(p.y - w.y) < 2;
-    const sees = playing && !p.safe && sameLevel && ((dist < SIGHT_RANGE && angle < SIGHT_HALF_ANGLE) || dist < 1.4);
+    // Sneaking (crouched, silent) keeps you out of sight for longer and further off.
+    const level = difficulty();
+    const reach = live.sneaking ? 0.55 : 1;
+    const range = SIGHT_RANGE * reach;
+    const noticeTime = NOTICE_TIME * level.notice * (live.sneaking ? 2.2 : 1);
+    const sees = playing && !p.safe && sameLevel && ((dist < range && angle < SIGHT_HALF_ANGLE) || dist < (live.sneaking ? 0.9 : 1.4));
 
     // A fresh banger nearby pulls them over to look.
     const lure = live.lure;
@@ -148,13 +153,13 @@ function Watcher({ id, path, speed = PATROL_SPEED, from }) {
       if (live.now - w.lureTime > (lure?.duration ?? 4) + 1) w.mode = 'return';
     } else if (w.mode === 'chase') {
       goal = { x: p.x, z: p.z };
-      pace = CHASE_SPEED;
+      pace = CHASE_SPEED * level.watcherSpeed;
       w.lost = sees || (dist < 10 && !p.safe) ? 0 : w.lost + dt;
       if (w.lost > GIVE_UP_TIME || p.safe) w.mode = 'return';
       if (dist < 1.0 && !p.safe && playing) live.caughtBy = 'watcher';
     } else {
       w.notice = sees ? w.notice + dt : Math.max(0, w.notice - dt);
-      if (w.notice > NOTICE_TIME) {
+      if (w.notice > noticeTime) {
         w.mode = 'chase';
         w.notice = 0;
         sfx.spotted();
@@ -204,6 +209,7 @@ function Watcher({ id, path, speed = PATROL_SPEED, from }) {
     rig.current.alarm.visible = w.mode === 'chase';
     rig.current.puzzled.visible = w.mode === 'investigate' || w.notice > 0;
     cone.current.material = w.mode === 'chase' || w.notice > 0 ? coneAngry : coneCalm;
+    cone.current.scale.setScalar(reach);
 
     // Tally hunters for the HUD and the music.
     if (w.mode === 'chase') live.huntersThisFrame += 1;
