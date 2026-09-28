@@ -119,6 +119,7 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/settlements.js` | Stone cottages, hamlets, ruins, walled fields, standing stones and shrines |
 | `src/atmosphere.js` | Valley fog, drifting ground mist, moon glow and light shafts |
 | `src/characters.js` | Character models and how they move |
+| `src/figures.js` | Life-size people: folded robes, sleeves, hands, hoods, hair, beards, witch hats and plate armour |
 | `src/npcs.js` | Everyone in the world, what they say, and what they ask |
 | `src/town.js` | Emberlight's houses, streets, clock tower and town walls |
 | `src/creatures.js` | Old Mossback the turtle |

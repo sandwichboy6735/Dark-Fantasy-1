@@ -52,13 +52,16 @@ export function sculpt({ r, scale = [1, 1, 1], feats = [], wrinkle = 0, warts = 
 // An eye: yellowed white, coloured iris, dark pupil and a heavy upper lid
 export function eye(k, c, r, iris, skin, lid = 0.35, look = [0, 0, 1]) {
   const [x, y, z] = c;
-  k.sphere('enamel', r, '#e4d8b4', { x, y, z, ws: 14, hs: 10 });
+  k.sphere('enamel', r, '#cfc2aa', { x, y, z, ws: 14, hs: 10 });
   const lz = Math.hypot(...look);
   const f = [look[0] / lz, look[1] / lz, look[2] / lz];
-  k.sphere('enamel', r * 0.55, iris, { x: x + f[0] * r * 0.7, y: y + f[1] * r * 0.7, z: z + f[2] * r * 0.7, sz: 0.45, ws: 12, hs: 8 });
-  k.sphere('enamel', r * 0.26, '#080606', { x: x + f[0] * r * 0.93, y: y + f[1] * r * 0.93, z: z + f[2] * r * 0.93, sz: 0.4, ws: 8, hs: 6 });
+  k.sphere('enamel', r * 0.66, new THREE.Color(iris).multiplyScalar(0.75).getStyle(), { x: x + f[0] * r * 0.62, y: y + f[1] * r * 0.62, z: z + f[2] * r * 0.62, sz: 0.5, ws: 14, hs: 10 });
+  k.sphere('enamel', r * 0.32, '#040303', { x: x + f[0] * r * 0.9, y: y + f[1] * r * 0.9, z: z + f[2] * r * 0.9, sz: 0.45, ws: 10, hs: 8 });
+  // lashes along the lid edge and a crease shadow under the eye
+  k.add('plain', new THREE.TorusGeometry(r * 1.02, r * 0.12, 4, 14, Math.PI * 0.9), '#140c0c', { x, y: y + r * 0.08, z: z + r * 0.22, rz: Math.PI * 0.05, bright: 1 });
+  k.add('plain', new THREE.TorusGeometry(r * 1.0, r * 0.06, 4, 12, Math.PI * 0.7), '#5a3a34', { x, y: y - r * 0.05, z: z + r * 0.2, rz: Math.PI + Math.PI * 0.15, bright: 1 });
   // lid: a partial sphere shell over the top of the eye
-  const g = new THREE.SphereGeometry(r * 1.12, 16, 10, 0, Math.PI * 2, 0, Math.PI * lid);
+  const g = new THREE.SphereGeometry(r * 1.12, 16, 10, 0, Math.PI * 2, 0, Math.PI * lid * 0.82);
   k.add('skin', g, skin, { x, y, z, rx: 0.5, bright: 0.85 });
 }
 
@@ -108,7 +111,7 @@ export function humanHead(k, c, r, skin, o = {}) {
     { d: [0, -0.05, 1], a: 0.2 * (o.nose ?? 1), w: [0.13, 0.22, 0.22] },
     { d: [0, -0.2, 0.98], a: 0.1 * (o.nose ?? 1), w: [0.1, 0.1, 0.12] },
     { d: [0, 0.28, 0.95], a: 0.06 * (o.brow ?? 1), w: [0.5, 0.1, 0.3] },
-    { d: [0.35, 0.1, 0.92], a: -0.07, w: [0.13, 0.12, 0.2] }, { d: [-0.35, 0.1, 0.92], a: -0.07, w: [0.13, 0.12, 0.2] },
+    { d: [0.35, 0.1, 0.92], a: -0.1, w: [0.14, 0.12, 0.2] }, { d: [-0.35, 0.1, 0.92], a: -0.1, w: [0.14, 0.12, 0.2] },
     { d: [0.5, -0.2, 0.8], a: 0.05, w: [0.25, 0.25, 0.25] }, { d: [-0.5, -0.2, 0.8], a: 0.05, w: [0.25, 0.25, 0.25] },
     { d: [0, -0.8, 0.55], a: 0.12 * (o.chin ?? 1), w: [0.3, 0.2, 0.3] },
     { d: [0.9, -0.6, 0], a: -0.1, w: [0.4, 0.4, 0.4] }, { d: [-0.9, -0.6, 0], a: -0.1, w: [0.4, 0.4, 0.4] },

@@ -691,12 +691,12 @@ function portraitCam(dt) {
   const f = [Math.sin(n.facing), Math.cos(n.facing)], side = [Math.cos(n.facing), -Math.sin(n.facing)];
   const hy = ud.headY || 1.6, hz = ud.headZ || 0;
   const head = _pt.set(n.pos.x + f[0] * hz, n.pos.y + hy, n.pos.z + f[1] * hz);
-  const dist = 0.75 + (ud.radius || 0.4) * 1.9;
+  const dist = 0.45 + (ud.radius || 0.4) * 1.65;
   _pc.set(head.x + f[0] * dist + side[0] * dist * 0.22, head.y - 0.08, head.z + f[1] * dist + side[1] * dist * 0.22);
   if (!portraitCamPos) portraitCamPos = camera.position.clone().lerp(_pc, 0.85);
   portraitCamPos.lerp(_pc, window.__snapCam ? 1 : 1 - Math.exp(-dt * 4));
   camera.position.copy(portraitCamPos);
-  camera.lookAt(head.x, head.y - dist * 0.22, head.z);
+  camera.lookAt(head.x, head.y - dist * 0.14, head.z);
   // warm lantern key light low on one side, cool moonlit rim from behind
   keyLight.position.set(head.x + f[0] * 1.3 - side[0] * 0.9, head.y + 0.15, head.z + f[1] * 1.3 - side[1] * 0.9);
   backLight.position.set(head.x - f[0] * 0.9 + side[0] * 0.5, head.y + 0.6, head.z - f[1] * 0.9 + side[1] * 0.5);
@@ -995,7 +995,7 @@ function frame(now) {
     portraitK += ((portrait ? 1 : 0) - portraitK) * Math.min(1, dt * 3);
     grade.uniforms.uPortrait.value = portraitK;
     bokeh.enabled = !!(portrait && HQ());
-    keyLight.intensity = portraitK * 2.2; backLight.intensity = portraitK * 3;
+    keyLight.intensity = portraitK * 1.5; backLight.intensity = portraitK * 3;
     document.body.classList.toggle('talking', !!portrait);
     player.model.visible = !portrait && !window.__freeCam;
     if (!portrait) portraitCamPos = null;
