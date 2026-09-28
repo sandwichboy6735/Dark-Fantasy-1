@@ -21,7 +21,7 @@ export class Player {
     this.stepAcc = 0;
     this.wellCooldown = 0;
     this.broom = false; this.broomModel = null;
-    this.frozen = false; this.dance = 0;
+    this.frozen = false; this.dance = 0; this.pose = null; this.poseAngle = 0; this.rested = 0;
   }
 
   setBroom(on) {
@@ -83,6 +83,7 @@ export class Player {
   update(dt) {
     const w = this.world, p = this.pos, v = this.vel, inp = this.input;
     this.wellCooldown -= dt;
+    if (this.rested > 0) this.rested -= dt;
     if (this.frozen) { this.animate(dt, 0); return; }
     if (this.broom && !this.lift) { this.updateBroom(dt); return; }
 
@@ -112,7 +113,8 @@ export class Player {
     if (this.swimming) speed *= 0.55;
     if (this.gliding) speed = Math.max(speed, 12);
 
-    const accel = this.grounded ? 12 : this.gliding ? 2.2 : 3;
+    if (this.flung > 0) this.flung -= dt;
+    const accel = this.flung > 0 && !this.grounded ? 0 : this.grounded ? 12 : this.gliding ? 2.2 : 3;
     let tx = mx * speed, tz = mz * speed;
     if (this.gliding && mag < 0.05) { tx = Math.sin(this.facing) * 12; tz = Math.cos(this.facing) * 12; }
     v.x += (tx - v.x) * Math.min(1, accel * dt);
@@ -124,7 +126,7 @@ export class Player {
     if (jumpPressed && (this.grounded || this.swimming)) { v.y = this.swimming ? 6 : 8.2; this.grounded = false; }
     this.gliding = !this.grounded && !this.swimming && inp.jump && v.y < 0;
     v.y -= 22 * dt;
-    if (this.gliding) v.y = Math.max(v.y, -1.3);
+    if (this.gliding) v.y = Math.max(v.y, this.rested > 0 ? -0.7 : -1.3);
     if (v.y < -40) v.y = -40;
 
     // Integrate horizontally, refusing cliffs that are too steep to walk up
@@ -203,6 +205,10 @@ export class Player {
       m.rotation.z = Math.sin(this.dance * 5) * 0.12;
     }
     m.scale.x += ((this.gliding ? 1.6 : 1) - m.scale.x) * Math.min(1, dt * 6);
+    m.scale.y = 1;
+    if (this.pose === 'lie') { m.rotation.x = -1.5; m.rotation.z = 0; m.position.y += 0.3; }
+    else if (this.pose === 'sit') { m.rotation.x = 0; m.position.y -= 0.35; m.scale.y = 0.8; }
+    else if (this.pose === 'swing') { m.rotation.x = this.poseAngle; m.rotation.z = 0; }
     if (this.swimming) m.position.y -= 0.1;
   }
 

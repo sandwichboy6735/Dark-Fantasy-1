@@ -1,5 +1,5 @@
-<title>DF1</title>
-<meta name="description" content="DF1: a moonlit dark fantasy realm of floating castles, goblin markets and quiet folk. Wander, glide and talk. No fighting.">
+<title>Moonfall</title>
+<meta name="description" content="Moonfall: a moonlit dark fantasy realm of floating castles, goblin markets and quiet folk. Wander, glide and talk. No fighting.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra+Display&family=Almendra:ital,wght@0,400;0,700;1,400&display=swap">
@@ -7,6 +7,7 @@
 
 <div id="game">
   <canvas id="view"></canvas>
+  <div id="fade"></div>
 
   <div id="hud" hidden>
     <div id="compass" aria-hidden="true"><div id="compassStrip"></div><div class="compass-tick"></div></div>
@@ -25,7 +26,7 @@
 
   <div id="menu" hidden>
     <div class="menu-inner">
-      <h2>DF1</h2>
+      <h2>Moonfall</h2>
       <button class="link" id="resumeBtn">Return to the realm</button>
       <div class="found">
         <p class="count" id="foundCount"></p>
@@ -40,8 +41,8 @@
 
   <div id="title">
     <div class="title-inner">
-      <h1>DF1</h1>
-      <p class="tagline">The realm of Moonveil: floating castles, warm windows and quiet folk</p>
+      <h1>Moonfall</h1>
+      <p class="tagline">A night in the realm of Moonveil: floating castles, warm windows and quiet folk</p>
       <p class="loading" id="loading"><span id="loadText">The moon is rising</span><span class="bar"><span id="loadBar"></span></span></p>
       <button class="begin" id="beginBtn" hidden>Tap to begin</button>
       <button class="anew" id="anewBtn" hidden>Begin a new journey</button>

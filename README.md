@@ -1,4 +1,4 @@
-# DF1
+# Moonfall
 
 A moonlit dark fantasy game you play in your browser. You explore Moonveil, a huge floating continent above a sea of glowing clouds, with castles drifting around it. Walk, glide, and meet the people who live there. Nothing will hurt you, there is no fighting, and there is no ending.
 
@@ -57,6 +57,16 @@ Some people ask you questions. Pick an answer, and some answers let you join in:
 - **Ferry ride:** ring the bell on the dock at the south shore of the Mirror Lake, and Charon rows you around the lake.
 - The Moon Queen, Grizzleby, Morwen and Soot the cat also have something to ask.
 
+### Rest and play
+
+- **Sleep:** at the campfire bedroll at Wayfarer's Rest, under the stars at Starfall Point, or in the hammock in the Witchwood. You drift up towards the moon in a dream, and wake up rested, so you glide further for a few minutes.
+- **Sit:** benches at Wayfarer's Rest, the village shore, the graves and the market fire. The camera drifts and your wizard has quiet thoughts.
+- **Fish:** from the end of the ferry dock. When something bites, press E quickly. There are six kinds of glowing fish to catch, from the Moonminnow to the rare Silver Whisker.
+- **Telescopes:** by Starwatch Light and on top of Archmage Oriel's tower. Look at the moon, the dragon, the castles and the village. E shows the next view.
+- **Sky lanterns:** release them at Wayfarer's Rest or Starfall Point. They float up and stay in the sky.
+- **Snowmen:** build them at three spots in the snowy Frostfang Mountains. Each one gets a witch's hat and stays there.
+- **Rope swing:** on the big tree on the west shore of the Mirror Lake. Press E at the top of the swing to let go and splash into the lake.
+
 ### Sounds
 
 Each area sounds different: crickets and a music box in the village, lapping water and frogs by the lake, crackling fire and goblin chatter at the market, bubbling cauldrons in the Witchwood, sighing ghosts and wind chimes at the graves, a hum at the Moon Circle, torches and clanking armour at the castle, and howling wind up in the snowy mountains or high in the sky.
@@ -77,7 +87,7 @@ If you fall off the edge, the clouds catch you and carry you back.
 
 ```sh
 npm install
-npm run build      # writes docs/index.html (and dist/df1.html)
+npm run build      # writes docs/index.html (and dist/moonfall.html)
 npm run dev        # rebuild whenever something in src/ changes
 ```
 
@@ -91,6 +101,7 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/characters.js` | Character models and how they move |
 | `src/npcs.js` | Everyone in the world, what they say, and what they ask |
 | `src/activities.js` | Joining in: bonfire dance, sing-along, broom race, hide and seek, ferry ride |
+| `src/cozy.js` | Sleeping, sitting, fishing, telescopes, sky lanterns, snowmen, rope swing |
 | `src/player.js` | Walking, running, gliding, swimming, broom flying, lifts, camera |
 | `src/fx.js` | Sky, moon, cloud sea, lake, smoke, fireflies, snow, lighting |
 | `src/art.js`, `src/kit.js` | Painted textures, materials, and the shape-building kit |

@@ -9,17 +9,18 @@ export class Activities {
   constructor(ctx) {
     this.c = ctx; // { scene, player, npcs, world, T, audio, particles, whisper, banner, hud, burst, save, data }
     this.cur = null;
+    this.extra = {};
     this.buildRings();
   }
 
   get active() { return !!this.cur; }
   get label() { return this.cur ? this.cur.stopLabel : ''; }
 
-  start(name) {
+  start(name, opts) {
     if (this.cur) this.stop(true);
     if (name !== 'race' && this.c.player.broom) this.c.dismount();
-    const fn = { dance: this.dance, song: this.song, race: this.race, seek: this.seek, boat: this.boat }[name];
-    if (fn) this.cur = fn.call(this);
+    const fn = { dance: this.dance, song: this.song, race: this.race, seek: this.seek, boat: this.boat, ...this.extra }[name];
+    if (fn) this.cur = fn.call(this, opts);
   }
 
   stop(silent = false) {
@@ -28,7 +29,7 @@ export class Activities {
     this.c.audio.stopMusic();
     this.c.hud('');
     const p = this.c.player;
-    p.frozen = false; p.dance = 0;
+    p.frozen = false; p.dance = 0; p.pose = null;
     if (cur.cleanup) cur.cleanup(silent);
   }
 

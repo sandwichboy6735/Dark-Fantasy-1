@@ -1,6 +1,6 @@
 // Bundles the game into single self-contained HTML files:
 //   docs/index.html      full document (GitHub Pages, or just double-click it)
-//   dist/df1.html  body-only variant for hosts that supply their own <head>
+//   dist/moonfall.html  body-only variant for hosts that supply their own <head>
 import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
@@ -18,7 +18,7 @@ async function build() {
     .split('/*SCRIPT*/').join(js);
   mkdirSync('docs', { recursive: true });
   mkdirSync('dist', { recursive: true });
-  writeFileSync('dist/df1.html', body);
+  writeFileSync('dist/moonfall.html', body);
   writeFileSync('docs/index.html', `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n</head>\n<body>\n${body}\n</body>\n</html>\n`);
   console.log(`built docs/index.html (${(body.length / 1024).toFixed(0)} KB)`);
 }

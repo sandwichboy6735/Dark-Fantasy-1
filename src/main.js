@@ -19,6 +19,7 @@ import { Player } from './player.js';
 import { Audio } from './audio.js';
 import { PLACES, WATER_Y } from './layout.js';
 import { Activities } from './activities.js';
+import { addCozy, FISH } from './cozy.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'moonveil-save-v1';
@@ -119,7 +120,8 @@ const mats = makeMaterials();
 const terrain = new Terrain();
 const world = new World(terrain);
 let stars = null, acts = null;
-const data = { hasBroom: false, raceBest: 0 };
+const data = { hasBroom: false, raceBest: 0, fish: [], lanterns: 0, snowmen: [] };
+{ const s0 = store.get(SAVE_KEY); if (s0) { data.snowmen = s0.snowmen || []; data.lanterns = s0.lanterns || 0; } }
 let tmesh = null, flora = null, particles = null, puffDrift = null, player = null, dragon = null, lights = null;
 const npcs = [];
 const wellVisuals = [];
@@ -150,12 +152,16 @@ async function load() {
   particles = new Particles(scene, mats.tex.soft, world, terrain);
   stars = new ShootingStars(scene, mats.tex.soft);
   acts = new Activities({
-    scene, player, npcs, world, T: terrain, audio, particles, data,
+    scene, player, npcs, world, T: terrain, audio, particles, data, mats, camera,
+    fade: (v) => { $('fade').style.opacity = v; },
+    stars: (secs) => stars.start(secs),
+    resetFov: () => resize(),
     whisper: showWhisper, banner: showBanner, burst, save,
     hud: (t) => { $('activity').textContent = t; $('activity').hidden = !t; },
     giveBroom,
     dismount: () => { if (player.broom) toggleBroom(); },
   });
+  for (const sp of addCozy(acts, () => dragon.g)) things.push({ ...sp, cool: 0 });
   puffDrift = makeCloudPuffs(scene, mats.tex.cloud);
   lights = new LightPool(scene, HQ() ? 6 : 3);
   // Warm up terrain near the title camera and the start
@@ -422,7 +428,7 @@ function nearestThing() {
 }
 function useThing(t) { if (t.cool > 0) return; t.cool = 2.5; t.act(); }
 function doAction() {
-  if (acts.active) { acts.stop(); return; }
+  if (acts.active) { if (acts.cur.onAction && acts.cur.onAction()) return; acts.stop(); return; }
   const n = nearestTalker();
   if (n) { openTalk(n); return; }
   const t = nearestThing();
@@ -532,7 +538,7 @@ $('dialogue').addEventListener('click', advanceTalk);
 // ---------- Save ----------
 function save() {
   if (!player || state === 'title' || state === 'loading') return;
-  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met], hasBroom: data.hasBroom, raceBest: data.raceBest });
+  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met], hasBroom: data.hasBroom, raceBest: data.raceBest, fish: data.fish, lanterns: data.lanterns, snowmen: data.snowmen });
 }
 setInterval(() => { if (state === 'play') save(); }, 20000);
 window.addEventListener('pagehide', save);
@@ -544,12 +550,12 @@ function begin(fresh) {
   const s = fresh ? null : store.get(SAVE_KEY);
   if (s) {
     found = new Set(s.found || []); met = new Set(s.met || []);
-    data.hasBroom = !!s.hasBroom; data.raceBest = s.raceBest || 0;
+    data.hasBroom = !!s.hasBroom; data.raceBest = s.raceBest || 0; data.fish = s.fish || []; data.lanterns = s.lanterns || 0;
     player.place(s.pos[0], s.pos[2], s.facing || 0);
     player.pos.y = Math.max(player.pos.y, s.pos[1]);
     player.camYaw = s.camYaw ?? player.camYaw;
   } else {
-    found = new Set(); met = new Set(); data.hasBroom = false; data.raceBest = 0;
+    found = new Set(); met = new Set(); data.hasBroom = false; data.raceBest = 0; data.fish = []; data.lanterns = 0;
     player.place(-1.6, 347, Math.PI);
     player.camPitch = 0.12; player.camDist = 6;
   }
@@ -561,7 +567,7 @@ function begin(fresh) {
   $('controlsText').textContent = isTouch
     ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone, or Use near something that glows or hums. Once you have a broom, tap Broom to fly: look where you want to go and hold Jump to climb.'
     : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk, answer with 1 or 2, and use things. B rides your broom once you have one (Space climbs, C dives, Shift is fast). P hides the screen text for photos. Esc for this menu.';
-  if (!s) setTimeout(() => showBanner('DF1', 'The realm of Moonveil. Walk, glide, fly and meet the folk who live here. Nothing here will hurt you.', 'Welcome to'), 600);
+  if (!s) setTimeout(() => showBanner('Moonfall', 'A night in the realm of Moonveil. Walk, fly, play and rest. Nothing here will hurt you.', 'Welcome to'), 600);
   captureMouse();
 }
 $('title').addEventListener('click', (e) => { if (e.target.id === 'anewBtn') return; if (state === 'title' && !$('beginBtn').hidden) begin(false); });
@@ -576,7 +582,7 @@ function openMenu() {
   $('menu').hidden = false;
   $('foundCount').textContent = `Places found: ${found.size} of ${PLACES.length}`;
   $('foundList').innerHTML = PLACES.map((p) => `<li class="${found.has(p.id) ? '' : 'no'}">${found.has(p.id) ? p.name : '???'}</li>`).join('');
-  $('metCount').textContent = `Folk met: ${met.size} of ${npcs.filter((n) => n.talkable).length}`;
+  $('metCount').textContent = `Folk met: ${met.size} of ${npcs.filter((n) => n.talkable).length} \u00b7 Fish caught: ${data.fish.length} of ${FISH.length} \u00b7 Lanterns released: ${data.lanterns} \u00b7 Snowmen built: ${data.snowmen.length}`;
   $('soundBtn').textContent = 'Sound: ' + (settings.sound ? 'on' : 'off');
   $('qualityBtn').textContent = 'Graphics: ' + settings.quality + (settings.quality !== store.get(SET_KEY)?.quality ? '' : '');
   save();
@@ -744,7 +750,7 @@ function frame(now) {
       }
     } else if (player) { player.input.x = player.input.z = 0; player.input.jump = false; }
     if (state === 'play' || state === 'menu') player.update(state === 'menu' ? 0 : dt);
-    player.updateCamera(camera, dt);
+    if (acts && acts.cur && acts.cur.cam) acts.cur.cam(camera, dt); else player.updateCamera(camera, dt);
     tmesh.update(player.pos.x, player.pos.z, player.teleported ? 60 : 3);
     player.teleported = false;
     if (state === 'play') {
@@ -761,7 +767,7 @@ function frame(now) {
       if (isTouch) { $('tTalk').hidden = !n && !th && !busy; $('tTalk').textContent = busy ? 'Stop' : n ? 'Talk' : 'Use'; }
       if (busy) $('promptText').textContent = acts.label;
       else if (n) $('promptText').textContent = 'Talk to ' + n.name;
-      else if (th) $('promptText').textContent = th.label;
+      else if (th) $('promptText').textContent = typeof th.label === 'function' ? th.label() : th.label;
       if (player.broom && Math.random() < 0.7) particles.sparkle(player.pos.x + (Math.random() - 0.5) * 0.4 - Math.sin(player.facing) * 1.3, player.pos.y + 0.7, player.pos.z - Math.cos(player.facing) * 1.3, 0, -0.2, 0, [1.2, 0.6, 1.8], 1.0);
       // glide trail
       if (player.gliding && Math.random() < 0.6) particles.sparkle(player.pos.x + (Math.random() - 0.5), player.pos.y + 1.2, player.pos.z + (Math.random() - 0.5), 0, -0.3, 0, [0.5, 0.7, 1.6], 1.2);
@@ -799,6 +805,8 @@ function frame(now) {
   regionEnv(dt);
   particles.update(dt, state === 'title' ? camera.position : player.pos, env);
   puffDrift(dt);
+  if (acts && acts.cozyUpdate) acts.cozyUpdate(dt, t);
+  if (player && player.splashNext && player.swimming) { player.splashNext = false; burst(player.pos.x, WATER_Y, player.pos.z, [[0.7, 0.8, 1.6]], 50, 5, 3, 1.2); audio.thud(700, 0.5, 0.35); showWhisper('SPLASH!', 2); }
   stars.update(dt, camera);
   lights.update(dt, world.lights, state === 'title' ? camera.position : player.pos);
 
