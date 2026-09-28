@@ -1,10 +1,15 @@
 import { useSyncExternalStore } from 'react';
 
 // A tiny store shared by the 3D scene and the DOM overlay.
-//   locked  pointer lock is active
-//   target  { id, name, lines } of the character under the crosshair, or null
-//   zone    name of the area you're standing in
-let state = { locked: false, target: null, zone: '' };
+//   playing  the player has control (pointer locked, dragging or touch)
+//   mode     'lock' | 'drag' | 'touch': how you look around
+//   target   { id, name, lines, stages } of the character under the crosshair, or null
+//   zone     name of the area you're standing in
+//   stage    quest progress, see game/quest.js
+//   bells    ids of the golden bells picked up
+//   ending   the ending card is showing
+//   notice   { text, id } a short message flashed at the top of the screen
+let state = { playing: false, mode: 'lock', target: null, zone: '', stage: 0, bells: [], ending: false, notice: null };
 const listeners = new Set();
 
 export const store = {
@@ -20,3 +25,7 @@ export const store = {
 };
 
 export const useStore = (select) => useSyncExternalStore(store.subscribe, () => select(state));
+
+// "Talk" presses from E, a click or the TALK button all go through here.
+export const talkButton = new EventTarget();
+export const pressTalk = () => talkButton.dispatchEvent(new Event('press'));

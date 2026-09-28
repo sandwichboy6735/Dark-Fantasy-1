@@ -165,7 +165,7 @@ const POSES = {
   },
 };
 
-function Goblin({ id, name, lines, position, rotation = 0, pose, skin = '#5f8f2e', tunic = '#5a3a20', onTable = false, phase = 0 }) {
+function Goblin({ id, name, lines, stages, position, rotation = 0, pose, skin = '#5f8f2e', tunic = '#5a3a20', onTable = false, phase = 0 }) {
   const root = useRef();
   const rig = useRef({});
   const heading = useRef(rotation);
@@ -191,7 +191,7 @@ function Goblin({ id, name, lines, position, rotation = 0, pose, skin = '#5f8f2e
   });
 
   return (
-    <group ref={root} position={position} userData={{ interact: { id, name, lines, accent: '#9be05a' } }}>
+    <group ref={root} position={position} userData={{ interact: { id, name, lines, stages, accent: '#9be05a' } }}>
       <group ref={bind(rig, 'body')}>
         {[-1, 1].map((s) => (
           <group key={s} ref={bind(rig, s < 0 ? 'legL' : 'legR')} position={[0.12 * s, 0.42, 0]}>

@@ -102,7 +102,7 @@ If you fall off the edge, the clouds catch you and carry you back.
 
 ## Also in this repo: The Vigil & the Tankard
 
-`retro-gothic/` is a separate, smaller game: a PS1-style first-person walk from a gothic castle causeway to a goblin tavern, built with Vite and React Three Fiber. See [`retro-gothic/README.md`](retro-gothic/README.md) for how to run it.
+`retro-gothic/` is a separate, shorter game: a PS1-style first-person adventure between a gothic castle causeway and a goblin tavern. Find five golden bells, carry the Toast of Courage, and close the Eye. It's built with Vite and React Three Fiber. With GitHub Pages serving `docs/`, it's playable at `vigil/`; see [`retro-gothic/README.md`](retro-gothic/README.md) to run or rebuild it.
 
 ## Development
 

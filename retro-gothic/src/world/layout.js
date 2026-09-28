@@ -78,6 +78,7 @@ export const SPAWNS = {
   court: { position: [0, 0, 17], yaw: 0, pitch: 8 },
   tavern: { position: [18, 0, 8], yaw: -80, pitch: 0 },
   yard: { position: [21.6, 0, 8.4], yaw: -31, pitch: 4 },
+  bar: { position: [36.4, 0, 10], yaw: -90, pitch: 0 },
   bridge: { position: [0, 6.5, -53], yaw: 0, pitch: 10 },
   gate: { position: [0, 13, -99], yaw: 0, pitch: 12 },
 };

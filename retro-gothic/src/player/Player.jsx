@@ -3,6 +3,9 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls, useKeyboardControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { store } from '../store.js';
+import { BELLS, collectBell } from '../game/quest.js';
+import { setAmbience } from '../game/audio.js';
+import { IS_TOUCH, input } from './input.js';
 import { SPAWNS, boxColliders, circleColliders, dynamicColliders, groundAt, zoneAt } from '../world/layout.js';
 
 const EYE_HEIGHT = 1.62;
@@ -12,6 +15,8 @@ const RUN_SPEED = 7.5;
 const MAX_STEP = 0.6;
 const TALK_RANGE = 9;
 const CENTER = new THREE.Vector2(0, 0);
+const LOOK_SPEED = 0.0022; // radians per pixel of mouse or drag
+const MAX_PITCH = Math.PI / 2 - 0.05;
 
 function readSpawn() {
   const params = new URLSearchParams(window.location.search);
@@ -51,7 +56,6 @@ export function Player() {
   const camera = useThree((s) => s.camera);
   const scene = useThree((s) => s.scene);
   const [, getKeys] = useKeyboardControls();
-  const controls = useRef();
   const spawn = useMemo(readSpawn, []);
   const body = useRef({ x: spawn.position[0], z: spawn.position[2], ground: spawn.position[1], y: spawn.position[1] + EYE_HEIGHT, bob: 0, lastHit: 0 });
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
@@ -62,26 +66,40 @@ export function Player() {
     camera.position.set(body.current.x, body.current.y, body.current.z);
   }, [camera, spawn]);
 
-  const onLock = useCallback(() => store.set({ locked: true }), []);
-  const onUnlock = useCallback(() => store.set({ locked: false }), []);
+  const onLock = useCallback(() => store.set({ playing: true, mode: 'lock' }), []);
+  const onUnlock = useCallback(() => store.get().mode === 'lock' && store.set({ playing: false }), []);
 
   useFrame(({ clock }, delta) => {
     const dt = Math.min(delta, 0.05);
     const b = body.current;
 
-    // WASD relative to where the camera faces, flattened onto the ground.
+    const { playing } = store.get();
+
+    // Mouse, drag and touch look all arrive through `input`.
+    if (playing && (input.lookX || input.lookY)) {
+      look.setFromQuaternion(camera.quaternion, 'YXZ');
+      look.y -= input.lookX * LOOK_SPEED;
+      look.x = THREE.MathUtils.clamp(look.x - input.lookY * LOOK_SPEED, -MAX_PITCH, MAX_PITCH);
+      look.z = 0;
+      camera.quaternion.setFromEuler(look);
+    }
+    input.lookX = 0;
+    input.lookY = 0;
+
+    // WASD (or the touch stick) relative to where the camera faces, flattened onto the ground.
     let moving = false;
-    if (controls.current?.isLocked) {
-      const { forward: f, back, left, right, run } = getKeys();
-      const ahead = (f ? 1 : 0) - (back ? 1 : 0);
-      const side = (right ? 1 : 0) - (left ? 1 : 0);
-      if (ahead || side) {
+    if (playing) {
+      const { forward: f, back, left, right, run: shift } = getKeys();
+      const ahead = THREE.MathUtils.clamp((f ? 1 : 0) - (back ? 1 : 0) - input.moveY, -1, 1);
+      const side = THREE.MathUtils.clamp((right ? 1 : 0) - (left ? 1 : 0) + input.moveX, -1, 1);
+      const run = shift || Math.hypot(input.moveX, input.moveY) > 0.9;
+      if (Math.abs(ahead) > 0.05 || Math.abs(side) > 0.05) {
         // Heading from the camera's yaw alone, so looking straight up or down still walks.
         const yaw = look.setFromQuaternion(camera.quaternion, 'YXZ').y;
         const fx = -Math.sin(yaw);
         const fz = -Math.cos(yaw);
         const len = Math.hypot(ahead, side);
-        const step = ((run ? RUN_SPEED : WALK_SPEED) * dt) / len;
+        const step = ((run ? RUN_SPEED : WALK_SPEED) * dt * Math.min(1, len)) / len;
         const dx = (fx * ahead - fz * side) * step;
         const dz = (fz * ahead + fx * side) * step;
         // Try each axis separately so you slide along walls instead of sticking.
@@ -101,7 +119,7 @@ export function Player() {
     // Ray from the centre of the screen: the first thing it hits decides who you're looking at.
     raycaster.setFromCamera(CENTER, camera);
     raycaster.far = TALK_RANGE;
-    const hit = raycaster.intersectObjects(scene.children, true)[0];
+    const hit = playing ? raycaster.intersectObjects(scene.children, true)[0] : null;
     const found = hit ? interactableOf(hit.object) : null;
     const now = clock.elapsedTime;
     const current = store.get().target;
@@ -114,7 +132,19 @@ export function Player() {
 
     const zone = zoneAt(b.x, b.z);
     if (zone !== store.get().zone) store.set({ zone });
+
+    // Walk through a golden bell to pick it up.
+    const { bells } = store.get();
+    for (const bell of BELLS) {
+      if (!bells.includes(bell.id) && Math.hypot(bell.x - b.x, bell.z - b.z) < 1.3 && Math.abs(bell.y - 0.9 - b.ground) < 1.5) collectBell(bell.id);
+    }
+
+    // The drone fades into the goblins' jig as you cross into the tavern yard.
+    setAmbience(THREE.MathUtils.clamp((b.x - 8) / 10, 0, 1), playing);
   });
 
-  return <PointerLockControls ref={controls} selector="#enter" onLock={onLock} onUnlock={onUnlock} />;
+  // PointerLockControls only locks the pointer: pointerSpeed 0 leaves turning to the
+  // overlay's mouse handler, which filters out Chrome's occasional post-lock jumps.
+  // Touch screens have no pointer lock; the overlay starts those games itself.
+  return <PointerLockControls selector={IS_TOUCH ? '#no-pointer-lock' : '#enter'} pointerSpeed={0} onLock={onLock} onUnlock={onUnlock} />;
 }

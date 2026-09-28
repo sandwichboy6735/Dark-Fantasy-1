@@ -1,10 +1,15 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { store } from '../store.js';
+import { STAGE } from '../game/quest.js';
 import * as THREE from 'three';
 
 export const EYE_POSITION = new THREE.Vector3(0, 250, -340);
 // Shared by the scene fog and the sky's horizon, so buildings melt into the clouds.
 export const FOG_COLOR = new THREE.Color('#15111f');
+
+// 0 = wide open, 1 = shut for good (after the Toast is raised).
+const eye = { closed: 0 };
 
 const NOISE = /* glsl */ `
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -30,14 +35,18 @@ function SkyDome() {
       uTime: { value: 0 },
       uVortexDir: { value: new THREE.Vector3(0, 0.45, -1).normalize() },
       uFogColor: { value: FOG_COLOR },
+      uEyeGlow: { value: 1 },
     }),
     [],
   );
 
   useFrame(({ camera, clock }) => {
     mesh.current.position.copy(camera.position);
-    uniforms.uTime.value = clock.elapsedTime;
-    uniforms.uVortexDir.value.copy(EYE_POSITION).sub(camera.position).normalize();
+    // Write through the live material: R3F may hold its own copy of `uniforms`.
+    const u = mesh.current.material.uniforms;
+    u.uTime.value = clock.elapsedTime;
+    u.uVortexDir.value.copy(EYE_POSITION).sub(camera.position).normalize();
+    u.uEyeGlow.value = 1 - eye.closed * 0.85;
   });
 
   return (
@@ -59,6 +68,7 @@ function SkyDome() {
           uniform float uTime;
           uniform vec3 uVortexDir;
           uniform vec3 uFogColor;
+          uniform float uEyeGlow;
           varying vec3 vDir;
           ${NOISE}
           void main() {
@@ -79,8 +89,8 @@ function SkyDome() {
             vec3 col = mix(vec3(0.003, 0.002, 0.007), vec3(0.022, 0.017, 0.04), cloud);
             col += vec3(0.03, 0.022, 0.055) * smoothstep(0.55, 0.8, n2) * cloud;    // lit cloud folds
             float halo = exp(-r * 4.0);
-            col += vec3(0.015, 0.05, 0.2) * halo * (0.25 + cloud);                 // the eye's light in the clouds
-            col += vec3(0.01, 0.04, 0.16) * exp(-r * 10.0);
+            col += vec3(0.015, 0.05, 0.2) * halo * (0.25 + cloud) * uEyeGlow;      // the eye's light in the clouds
+            col += vec3(0.01, 0.04, 0.16) * exp(-r * 10.0) * uEyeGlow;
 
             // Melt into the fog at the horizon and into the abyss below it.
             col = mix(uFogColor, col, smoothstep(-0.05, 0.3, d.y));
@@ -98,13 +108,19 @@ function SkyDome() {
 // and a black slit pupil that tilts down to watch the causeway.
 function Eye() {
   const mesh = useRef();
-  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uBlink: { value: 0 }, uLook: { value: new THREE.Vector2(0, -0.35) } }), []);
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uBlink: { value: 0 }, uGlow: { value: 1 }, uLook: { value: new THREE.Vector2(0, -0.35) } }), []);
   const blink = useRef({ next: 5, start: -10 });
 
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock }, delta) => {
     const t = clock.elapsedTime;
     mesh.current.lookAt(camera.position);
-    uniforms.uTime.value = t;
+    const u = mesh.current.material.uniforms;
+    u.uTime.value = t;
+
+    // Once the Toast is raised the lids come down over three seconds and stay down.
+    const shut = store.get().stage >= STAGE.DONE ? 1 : 0;
+    eye.closed += Math.sign(shut - eye.closed) * Math.min(Math.abs(shut - eye.closed), Math.min(delta, 0.1) / 3);
+    u.uGlow.value = 1 - eye.closed * 0.75;
 
     const b = blink.current;
     if (t > b.next) {
@@ -112,11 +128,11 @@ function Eye() {
       b.next = t + 5 + Math.random() * 7;
     }
     const k = (t - b.start) / 0.35;
-    uniforms.uBlink.value = k >= 0 && k <= 1 ? Math.sin(k * Math.PI) : 0;
+    u.uBlink.value = Math.max(k >= 0 && k <= 1 ? Math.sin(k * Math.PI) : 0, eye.closed);
 
     // Mostly fixed on you, drifting slowly, with a sudden dart now and then.
     const dart = Math.sin(t * 0.23) > 0.93 ? 0.45 : 0;
-    uniforms.uLook.value.set(Math.sin(t * 0.31) * 0.25 + dart, -0.3 + Math.sin(t * 0.17) * 0.1);
+    u.uLook.value.set(Math.sin(t * 0.31) * 0.25 + dart, -0.3 + Math.sin(t * 0.17) * 0.1);
   });
 
   return (
@@ -133,6 +149,7 @@ function Eye() {
         fragmentShader={/* glsl */ `
           uniform float uTime;
           uniform float uBlink;
+          uniform float uGlow;
           uniform vec2 uLook;
           varying vec2 vUv;
           ${NOISE}
@@ -145,8 +162,8 @@ function Eye() {
             // Glow that bleeds out of the lids into the sky.
             float almond = length(vec2(p.x * 0.75, p.y * 1.6));
             float halo = exp(-max(almond - 0.45, 0.0) * 5.5);
-            vec3 col = vec3(0.1, 0.35, 1.0) * halo * 0.9;
-            float alpha = halo * 0.85;
+            vec3 col = vec3(0.1, 0.35, 1.0) * halo * 0.9 * uGlow;
+            float alpha = halo * 0.85 * uGlow;
 
             // Heavy dark lids.
             float rim = smoothstep(0.1, 0.0, abs(edge + 0.02)) * step(abs(p.x), 0.86);
@@ -189,13 +206,21 @@ function skipInNormalPass(renderer, scene, camera, geometry) {
   geometry.setDrawRange(0, scene.overrideMaterial ? 0 : Infinity);
 }
 
+function EyeLight() {
+  const light = useRef();
+  useFrame(() => {
+    light.current.intensity = 0.5 * (1 - eye.closed * 0.8);
+  });
+  return <directionalLight ref={light} color="#3f5dff" intensity={0.5} position={EYE_POSITION.toArray()} />;
+}
+
 export function Sky() {
   return (
     <>
       <SkyDome />
       <Eye />
       {/* The eye's cold glow grazes the castle's spires. */}
-      <directionalLight color="#3f5dff" intensity={0.5} position={EYE_POSITION.toArray()} />
+      <EyeLight />
     </>
   );
 }

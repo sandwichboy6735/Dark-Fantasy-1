@@ -160,6 +160,8 @@ function Bar() {
     <group>
       <Box size={[1, 1.1, 9]} m={wood} position={[38.1, 0.55, 10]} />
       <Box size={[1.3, 0.1, 9.3]} m={darkWood} position={[38.1, 1.15, 10]} />
+      {/* Grubnik's crate: without it you'd only see his hat over the bar. */}
+      <Box size={[0.8, 0.6, 0.9]} m={wood} position={[39.3, 0.3, 10]} />
       <Barrel position={[38.2, 1.2, 6.6]} rotation={[0, 0, Math.PI / 2]} scale={0.55} />
       <Barrel position={[38.2, 1.2, 13.4]} rotation={[0, 0, Math.PI / 2]} scale={0.55} />
       {[8.2, 9.4, 11.6].map((z) => (

@@ -1,12 +1,13 @@
 {
   "name": "retro-gothic",
   "version": "0.1.0",
-  "description": "A PS1-style first-person walk from a gothic bridge to a goblin tavern, built with React Three Fiber.",
+  "description": "A PS1-style first-person adventure: find the bells, carry the Toast, close the Eye. Built with React Three Fiber.",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:pages": "vite build --outDir ../docs/vigil --emptyOutDir",
     "preview": "vite preview"
   },
   "dependencies": {

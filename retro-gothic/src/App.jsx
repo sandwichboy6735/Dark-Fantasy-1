@@ -8,6 +8,7 @@ import { Castle } from './world/Castle.jsx';
 import { Guards } from './world/Guards.jsx';
 import { Tavern } from './world/Tavern.jsx';
 import { Goblins } from './world/Goblin.jsx';
+import { Bells, HeldTankard, VigilStone } from './world/Quest.jsx';
 import { Player } from './player/Player.jsx';
 import { Overlay } from './ui/Overlay.jsx';
 
@@ -41,7 +42,10 @@ export default function App() {
         <Guards />
         <Tavern />
         <Goblins />
+        <Bells />
+        <VigilStone />
         <Player />
+        <HeldTankard />
         <RetroPipeline />
       </Canvas>
     </KeyboardControls>
