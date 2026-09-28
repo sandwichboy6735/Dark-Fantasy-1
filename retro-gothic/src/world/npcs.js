@@ -19,6 +19,10 @@ export const GUARDS = [
         'Halt. ...No. Go on, pilgrim. The castle expects everyone, sooner or later.',
         'Lost? The goblins\' tavern is east of this court. The keeper there is always looking for fools. Er. Helpers.',
       ],
+      1: [
+        'Going up? Watch for the blue light. That is the Eye\'s gaze, sweeping the steps.',
+        'Stand in it too long and it SEES you. You\'ll wake back at the last torch you sheltered by. Torchlight hides you.',
+      ],
       2: ['Is that... ale? Taken UP there? The Captain will have words. Or perhaps he will have a sip.'],
       3: ['I think... I think I could sleep. Tonight, I might.', 'Nine hundred and one nights. The last one was the quietest.'],
     },
@@ -35,7 +39,15 @@ export const GUARDS = [
       'If the Eye blinks while you are on the causeway... try not to be on the causeway.',
     ],
     stages: {
-      1: ['Bells? Yes. Something gold was glinting on the landings. Gold catches torchlight.', 'I light them at dusk. It is always dusk.'],
+      0: [
+        'The wind took most of my torches tonight. Only the first and last still burn.',
+        'Walk up to a dead torch and it will catch again. Every torch you light is a place the Eye cannot see you.',
+      ],
+      1: [
+        'Bells? Yes. Something gold was glinting between the landings. Right where the blue light sweeps.',
+        'Relight my torches as you climb. Wait in their glow while the gaze passes, then go.',
+      ],
+      2: ['Walk, do not run, with that cup. And wait in the torchlight for the gaze to pass. The Eye is angry now; it moves faster.'],
       3: ['The torches burn the same, but they are no longer hiding anything. How strange.'],
     },
   },
@@ -217,12 +229,18 @@ export const GOBLINS = [
         'Welcome to the Grinning Tankard! Mind the teeth. They\'re decorative.',
         'Trouble is, Snaggle ran up the causeway on a dare, and the Eye looked at him. He came back without his FIVE GOLDEN BELLS.',
         'No bells, no motley. No motley, no Toast. Find \'em on the causeway, and I\'ll pour you something legendary.',
+        'Mind the Eye\'s blue searchlights up there. Keep to the torchlight when they come near.',
       ],
       1: ['{bells} of 5 bells so far, pilgrim. They\'ll be glinting somewhere between here and the castle gate.', 'House special while you wait: Bog Stout. Brewed with real bog.'],
       ready: [
         'THE BELLS! Hear that jingle? Snaggle, get your hat!',
         'Here. The Toast of Courage: the foamiest tankard ever poured. Pure, loud goblin cheer.',
-        'Carry it up to the VIGIL STONE before the castle gate and raise it to the Eye. It can\'t abide a good time. Go on!',
+        'Carry it up to the VIGIL STONE before the castle gate and raise it to the Eye. It can\'t abide a good time.',
+        'But WALK. Run and the foam sloshes out, and a flat Toast is no Toast at all. And the Eye will be looking for you now.',
+      ],
+      spilled: [
+        'FLAT?! You ran with it, didn\'t you. Or the Eye stared the head clean off it.',
+        'Here, a fresh one. Walk, wait in the torchlight, and walk again. Foam is a delicate thing.',
       ],
       2: ['Don\'t spill it! Up the causeway, to the Vigil Stone by the gate. Raise it high!'],
       3: ['They\'ll sing about you in here for a hundred years. Well. Until Tuesday. CHEERS!', 'Drinks are on the house. Forever. Within reason.'],

@@ -4,6 +4,8 @@ import { Box, boxGeo, mat } from '../retro/materials.jsx';
 import { BRIDGE_SEGMENTS, STEPS, bridgeHeight } from './layout.js';
 import { Parapet } from './Terrain.jsx';
 import { Torch } from './Lights.jsx';
+import { useStore } from '../store.js';
+import { TORCHES, isLit } from '../game/quest.js';
 
 const cobble = mat({ color: '#a39dac', map: 'cobble' });
 const stone = mat({ color: '#7d7890', map: 'castle' });
@@ -79,23 +81,15 @@ function Piers() {
   });
 }
 
-const TORCHES = [
-  [-1, -12],
-  [1, -31],
-  [-1, -54],
-  [1, -76],
-  [-1, -93],
-  [1, -93],
-];
-
 export function Bridge() {
+  const lit = useStore((s) => s.lit);
   return (
     <group>
       <Steps />
       <Flats />
       <Piers />
-      {TORCHES.map(([side, z], i) => (
-        <Torch key={i} position={[side * (PARAPET_X - 0.3), bridgeHeight(z) + 1.0, z]} side={-side} seed={i} />
+      {TORCHES.map((t, i) => (
+        <Torch key={t.id} position={[t.side * (PARAPET_X - 0.3), t.y + 1.0, t.z]} side={-t.side} seed={i} lit={isLit(t, lit)} />
       ))}
     </group>
   );

@@ -22,8 +22,17 @@ export const RETRO = {
   depthEdgeStrength: 0.35,
 };
 
-// RenderPixelatedPass renders at (buffer size / pixelSize). Picking the pixel
-// size from the buffer height pins the internal image at RETRO.internalHeight lines.
-export function pixelSizeFor(bufferHeight) {
-  return Math.max(1, bufferHeight / RETRO.internalHeight);
+// RenderPixelatedPass renders at (buffer size / pixelSize). Picking the pixel size
+// from the shorter side keeps it at RETRO.internalHeight pixels: 240 lines on a wide
+// screen, 240 columns on a phone held upright (never a 110-pixel-wide sliver).
+export function pixelSizeFor(bufferWidth, bufferHeight) {
+  return Math.max(1, Math.min(bufferWidth, bufferHeight) / RETRO.internalHeight);
+}
+
+// Vertical field of view: 70 degrees on wide screens, opened up on tall ones so the
+// horizontal view never drops below about 75 degrees.
+export function fovFor(aspect) {
+  const minHorizontal = (75 * Math.PI) / 180;
+  const vertical = 2 * Math.atan(Math.tan(minHorizontal / 2) / aspect);
+  return Math.min(105, Math.max(70, (vertical * 180) / Math.PI));
 }

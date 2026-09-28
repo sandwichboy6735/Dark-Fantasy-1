@@ -3,8 +3,24 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls, useKeyboardControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { store } from '../store.js';
-import { BELLS, collectBell } from '../game/quest.js';
-import { setAmbience } from '../game/audio.js';
+import {
+  BELLS,
+  GAZE_RADIUS,
+  SAFE_RADIUS,
+  STAGE,
+  TORCHES,
+  collectBell,
+  gazePositions,
+  isLit,
+  lightTorch,
+  objectiveTarget,
+  safeLights,
+  saveGame,
+  seenByTheEye,
+  spillToast,
+} from '../game/quest.js';
+import { setAmbience, sfx } from '../game/audio.js';
+import { live } from '../game/live.js';
 import { IS_TOUCH, input } from './input.js';
 import { SPAWNS, boxColliders, circleColliders, dynamicColliders, groundAt, zoneAt } from '../world/layout.js';
 
@@ -17,6 +33,10 @@ const TALK_RANGE = 9;
 const CENTER = new THREE.Vector2(0, 0);
 const LOOK_SPEED = 0.0022; // radians per pixel of mouse or drag
 const MAX_PITCH = Math.PI / 2 - 0.05;
+const DREAD_RISE = 0.6; // per second in the gaze: about 1.7 s until you're seen
+const DREAD_FALL = 0.35;
+const FOAM_SPILL = 0.16; // per second of running with the Toast
+const TORCH_REACH = 2.6;
 
 function readSpawn() {
   const params = new URLSearchParams(window.location.search);
@@ -57,7 +77,17 @@ export function Player() {
   const scene = useThree((s) => s.scene);
   const [, getKeys] = useKeyboardControls();
   const spawn = useMemo(readSpawn, []);
-  const body = useRef({ x: spawn.position[0], z: spawn.position[2], ground: spawn.position[1], y: spawn.position[1] + EYE_HEIGHT, bob: 0, lastHit: 0 });
+  const body = useRef({
+    x: spawn.position[0],
+    z: spawn.position[2],
+    ground: spawn.position[1],
+    y: spawn.position[1] + EYE_HEIGHT,
+    bob: 0,
+    lastHit: 0,
+    wake: { x: 0, z: 0, y: 0 },
+    heartbeat: 0,
+    saveTimer: 0,
+  });
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const look = useMemo(() => new THREE.Euler(), []);
 
@@ -88,6 +118,7 @@ export function Player() {
 
     // WASD (or the touch stick) relative to where the camera faces, flattened onto the ground.
     let moving = false;
+    let running = false;
     if (playing) {
       const { forward: f, back, left, right, run: shift } = getKeys();
       const ahead = THREE.MathUtils.clamp((f ? 1 : 0) - (back ? 1 : 0) - input.moveY, -1, 1);
@@ -108,6 +139,7 @@ export function Player() {
         b.ground = groundAt(b.x, b.z) ?? b.ground;
         b.bob += dt * (run ? 13 : 9);
         moving = true;
+        running = run;
       }
     }
 
@@ -137,6 +169,70 @@ export function Player() {
     const { bells } = store.get();
     for (const bell of BELLS) {
       if (!bells.includes(bell.id) && Math.hypot(bell.x - b.x, bell.z - b.z) < 1.3 && Math.abs(bell.y - 0.9 - b.ground) < 1.5) collectBell(bell.id);
+    }
+
+    const state = store.get();
+    if (playing) {
+      live.playTime += dt;
+      b.saveTimer += dt;
+      if (b.saveTimer > 10) {
+        b.saveTimer = 0;
+        saveGame();
+      }
+    }
+
+    // Walk up to a cold torch to relight it.
+    for (const torch of TORCHES) {
+      if (!isLit(torch, state.lit) && Math.abs(torch.z - b.z) < TORCH_REACH && Math.abs(torch.y - b.ground) < 1) lightTorch(torch.id);
+    }
+
+    // The Eye's gaze: searchlights sweep the causeway. Torchlight keeps you hidden.
+    if (playing && state.stage < STAGE.DONE) live.gazeTime += dt * (state.stage === STAGE.TOAST ? 1.3 : 1);
+    live.gazes = gazePositions(live.gazeTime, state.stage);
+    const lights = safeLights(state.lit);
+    const shelter = lights.find((l) => Math.hypot(l.x - b.x, l.z - b.z) < SAFE_RADIUS);
+    if (shelter) b.wake = shelter.wake;
+    live.safe = Boolean(shelter);
+    live.inGaze = live.gazes.some((g) => g.active && Math.hypot(g.x - b.x, g.z - b.z) < GAZE_RADIUS && Math.abs(g.y - b.ground) < 3);
+    if (playing && live.inGaze && !live.safe) {
+      live.dread = Math.min(1, live.dread + dt * DREAD_RISE);
+      b.heartbeat -= dt;
+      if (b.heartbeat <= 0) {
+        sfx.heartbeat();
+        b.heartbeat = 0.75 - live.dread * 0.35;
+      }
+    } else {
+      live.dread = Math.max(0, live.dread - dt * DREAD_FALL);
+      b.heartbeat = 0;
+    }
+    if (live.dread >= 1) {
+      // Seen. Black out and wake by the last light you sheltered in.
+      live.dread = 0;
+      live.fade = 1;
+      b.x = b.wake.x;
+      b.z = b.wake.z;
+      b.ground = b.wake.y;
+      b.y = b.wake.y + EYE_HEIGHT;
+      camera.quaternion.setFromEuler(look.set(0, 0, 0, 'YXZ'));
+      seenByTheEye();
+    }
+    live.fade = Math.max(0, live.fade - dt * 0.8);
+
+    // Carrying the Toast: running sloshes the foam out.
+    live.running = running;
+    if (state.stage === STAGE.TOAST && !state.spilled && running && playing) {
+      live.foam = Math.max(0, live.foam - dt * FOAM_SPILL);
+      if (live.foam <= 0) spillToast();
+    }
+
+    // The objective arrow: where the next goal is, relative to where you face.
+    const goal = objectiveTarget(state, b.x, b.z);
+    if (goal) {
+      const yaw = look.setFromQuaternion(camera.quaternion, 'YXZ').y;
+      const toward = Math.atan2(-(goal.x - b.x), -(goal.z - b.z));
+      live.marker = { angle: Math.atan2(Math.sin(toward - yaw), Math.cos(toward - yaw)), distance: Math.hypot(goal.x - b.x, goal.z - b.z) };
+    } else {
+      live.marker = null;
     }
 
     // The drone fades into the goblins' jig as you cross into the tavern yard.

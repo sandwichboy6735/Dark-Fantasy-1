@@ -9,6 +9,7 @@ import { Guards } from './world/Guards.jsx';
 import { Tavern } from './world/Tavern.jsx';
 import { Goblins } from './world/Goblin.jsx';
 import { Bells, HeldTankard, VigilStone } from './world/Quest.jsx';
+import { Gaze } from './world/Gaze.jsx';
 import { Player } from './player/Player.jsx';
 import { Overlay } from './ui/Overlay.jsx';
 
@@ -44,6 +45,7 @@ export default function App() {
         <Goblins />
         <Bells />
         <VigilStone />
+        <Gaze />
         <Player />
         <HeldTankard />
         <RetroPipeline />

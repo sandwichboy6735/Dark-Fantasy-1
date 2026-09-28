@@ -202,7 +202,7 @@ function Eye() {
 // RenderPixelatedPass redraws the scene with a MeshNormalMaterial override to
 // find outlines. The eye is a flat card, so there it would draw a rectangle
 // around itself; hide it from that pass by emptying its draw range.
-function skipInNormalPass(renderer, scene, camera, geometry) {
+export function skipInNormalPass(renderer, scene, camera, geometry) {
   geometry.setDrawRange(0, scene.overrideMaterial ? 0 : Infinity);
 }
 

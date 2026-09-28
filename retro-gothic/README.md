@@ -6,12 +6,18 @@ Start in a torchlit court. North, a cobbled causeway climbs over the abyss to a 
 
 ## The story
 
+Your goal: close the giant Eye that has watched this land for a hundred years. The quest banner and the gold arrow at the top of the screen always show what to do next and how far away it is.
+
 1. **Find the keeper.** Grubnik Tapfoot runs the Grinning Tankard, east of the court. Snaggle ran up the causeway on a dare, the Eye looked at him, and he came back without the five golden bells from his jester hat.
-2. **Find the five bells.** They're scattered up the causeway to the castle gate. Look for thin shafts of gold light, and walk into a bell to pick it up.
+2. **Find the five bells.** They're scattered up the causeway to the castle gate, marked by shafts of gold light. Walk into a bell to pick it up.
 3. **Carry the Toast.** Take the bells back to Grubnik. He pours the Toast of Courage, and you carry it in your hand.
 4. **Raise it to the Eye.** Take it to the Vigil Stone in the gate forecourt and talk to the stone.
 
-Everyone's lines change as the story moves on, so talk to people again. The objective is shown at the top right. Progress saves in the browser by itself; the title screen offers **Begin anew**.
+**The Eye's gaze.** Blue searchlights sweep the causeway. Standing in one fills your DREAD meter; when it's full, the Eye has seen you and you wake by the last light you sheltered in. Torchlight hides you. Most of the causeway torches have blown out: walk up to one to relight it, and it becomes a safe spot and your new waking place. Wait in the light while a searchlight passes, then move.
+
+**The Toast.** While you carry it, running sloshes out the foam (the FOAM meter), and being seen curdles half of it. If it goes flat, fetch a fresh one from Grubnik. Once you carry it, the Eye gets angry: its searchlights sweep faster and a third one watches the gate.
+
+The ending shows your time, how often the Eye saw you, and how many torches you relit. Everyone's lines change as the story moves on, so talk to people again. Progress saves in the browser by itself; the title screen offers **Begin anew**.
 
 ## Run it
 
@@ -64,7 +70,9 @@ All of it is tuned in `src/retro/config.js`.
 | File | What it does |
 |---|---|
 | `src/App.jsx` | Canvas, fog, keyboard map, and the whole scene |
-| `src/game/quest.js` | The story's stages, bells, saving, and who says what when |
+| `src/game/quest.js` | The story's stages, bells, torches, searchlight paths, saving, and who says what when |
+| `src/game/live.js` | Per-frame values the HUD reads: dread, foam, the objective arrow |
+| `src/world/Gaze.jsx` | The Eye's searchlights: beam, pool of light and a real blue light |
 | `src/game/audio.js` | Synthesised sound: the drone, the tavern reel, blips, chimes, the fanfare |
 | `src/world/Quest.jsx` | The golden bells, the Vigil Stone, and the Toast in your hand |
 | `src/retro/*` | The pipeline above, plus the cached material and geometry helpers |

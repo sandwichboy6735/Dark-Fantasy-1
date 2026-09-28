@@ -23,7 +23,7 @@ function Bell({ x, y, z, seed }) {
     sparks.current.rotation.y = -t * 3;
   });
   return (
-    <group ref={group} position={[x, y, z]} scale={1.5}>
+    <group ref={group} position={[x, y, z]} scale={2}>
       {/* A faint shaft of gold so you can spot it down the causeway. */}
       <Box size={[0.07, 7, 0.07]} m={beam} position={[0, 3.6, 0]} />
       <mesh geometry={coneGeo(0.17, 0.24, 6)} material={gold} />

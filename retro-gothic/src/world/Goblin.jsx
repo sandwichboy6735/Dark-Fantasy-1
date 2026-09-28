@@ -15,6 +15,8 @@ const belt = mat({ color: '#24160c' });
 const tankardWood = mat({ color: '#c09070', map: 'barrel' });
 const foam = mat({ color: '#f2ead0' });
 const band = mat({ color: '#3a3a40', type: 'phong' });
+// Goblins are small, but at 240 lines they still need to read from across the yard.
+const GOBLIN_SCALE = 1.25;
 
 // Oversized: the mug is about the size of the goblin's head.
 export function Tankard() {
@@ -191,7 +193,7 @@ function Goblin({ id, name, lines, stages, position, rotation = 0, pose, skin = 
   });
 
   return (
-    <group ref={root} position={position} userData={{ interact: { id, name, lines, stages, accent: '#9be05a' } }}>
+    <group ref={root} position={position} scale={GOBLIN_SCALE} userData={{ interact: { id, name, lines, stages, accent: '#9be05a' } }}>
       <group ref={bind(rig, 'body')}>
         {[-1, 1].map((s) => (
           <group key={s} ref={bind(rig, s < 0 ? 'legL' : 'legR')} position={[0.12 * s, 0.42, 0]}>

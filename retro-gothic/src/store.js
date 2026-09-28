@@ -7,9 +7,26 @@ import { useSyncExternalStore } from 'react';
 //   zone     name of the area you're standing in
 //   stage    quest progress, see game/quest.js
 //   bells    ids of the golden bells picked up
+//   lit      ids of the causeway torches you relit
+//   seen     how many times the Eye has caught you
+//   spilled  the Toast went flat and needs replacing
+//   intro    the goal card is showing (new games)
 //   ending   the ending card is showing
 //   notice   { text, id } a short message flashed at the top of the screen
-let state = { playing: false, mode: 'lock', target: null, zone: '', stage: 0, bells: [], ending: false, notice: null };
+let state = {
+  playing: false,
+  mode: 'lock',
+  target: null,
+  zone: '',
+  stage: 0,
+  bells: [],
+  lit: [],
+  seen: 0,
+  spilled: false,
+  ending: false,
+  intro: true,
+  notice: null,
+};
 const listeners = new Set();
 
 export const store = {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { pressTalk, store, talkButton, useStore } from '../store.js';
-import { advanceQuest, hasProgress, linesFor, loadGame, newGame, objective } from '../game/quest.js';
+import { TORCHES, advanceQuest, hasProgress, linesFor, loadGame, newGame, objective, STAGE } from '../game/quest.js';
+import { live } from '../game/live.js';
 import { sfx, startAudio, toggleMute } from '../game/audio.js';
 import { IS_TOUCH, addLook } from '../player/input.js';
 import { TouchControls } from './TouchControls.jsx';
@@ -69,6 +70,108 @@ function Notice() {
   );
 }
 
+// Shown when a new game starts: what you're here to do, and what can hurt you.
+function GoalCard() {
+  useEffect(() => {
+    const close = () => store.set({ intro: false });
+    const timer = setTimeout(() => talkButton.addEventListener('press', close), 400);
+    return () => {
+      clearTimeout(timer);
+      talkButton.removeEventListener('press', close);
+    };
+  }, []);
+  return (
+    <div className="goal-card" onPointerDown={() => store.set({ intro: false })}>
+      <div className="panel">
+        <h2>YOUR QUEST</h2>
+        <p className="lead">For a hundred years a giant Eye has watched this land. Close it.</p>
+        <ol>
+          <li>Talk to <b>Grubnik</b>, the goblin behind the tavern bar.</li>
+          <li>Follow the <b className="gold">gold arrow</b> at the top of the screen.</li>
+        </ol>
+        <p className="danger">
+          <b>DANGER:</b> blue searchlights from the Eye sweep the causeway. Stand in one too long and it <b>sees you</b>. Torchlight keeps
+          you hidden, so relight the dead torches as you go.
+        </p>
+        <p className="blink">{IS_TOUCH ? 'TAP' : 'PRESS E'} TO START</p>
+      </div>
+    </div>
+  );
+}
+
+const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+// Per-frame HUD: the objective arrow, the dread and foam meters, the blue vignette
+// and the black-out after being seen. Written straight to the DOM every frame.
+function LiveHud() {
+  const refs = useRef({});
+  const bind = (name) => (el) => {
+    refs.current[name] = el;
+  };
+  const stage = useStore((s) => s.stage);
+  const spilled = useStore((s) => s.spilled);
+  const showFoam = stage === STAGE.TOAST && !spilled;
+
+  useEffect(() => {
+    let frame;
+    const tick = () => {
+      const r = refs.current;
+      const m = live.marker;
+      if (r.marker) {
+        r.marker.style.visibility = m ? 'visible' : 'hidden';
+        if (m) {
+          r.arrow.style.transform = `rotate(${-m.angle}rad)`;
+          r.distance.textContent = `${Math.round(m.distance)} m`;
+        }
+      }
+      if (r.dread) {
+        r.dread.style.visibility = live.dread > 0.01 ? 'visible' : 'hidden';
+        r.dreadFill.style.width = `${live.dread * 100}%`;
+      }
+      if (r.foamFill) r.foamFill.style.width = `${live.foam * 100}%`;
+      if (r.foam) r.foam.classList.toggle('warn', live.running);
+      if (r.vignette) r.vignette.style.opacity = String(Math.min(1, live.dread * 1.2));
+      if (r.fade) r.fade.style.opacity = String(live.fade);
+      if (r.status) {
+        const text = live.inGaze && !live.safe ? 'THE EYE IS LOOKING. MOVE!' : live.inGaze && live.safe ? 'HIDDEN IN TORCHLIGHT' : '';
+        r.status.textContent = text;
+        r.status.className = `gaze-status${live.inGaze && !live.safe ? ' alarm' : ''}`;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <>
+      <div className="vignette" ref={bind('vignette')} />
+      <div className="fade" ref={bind('fade')} />
+      <div className="marker" ref={bind('marker')}>
+        <div className="arrow-up" ref={bind('arrow')} />
+        <span ref={bind('distance')} />
+      </div>
+      <div className="meters">
+        <div className="meter dread" ref={bind('dread')}>
+          <span>DREAD</span>
+          <div className="bar">
+            <div ref={bind('dreadFill')} />
+          </div>
+        </div>
+        {showFoam && (
+          <div className="meter foam" ref={bind('foam')}>
+            <span>FOAM</span>
+            <div className="bar">
+              <div ref={bind('foamFill')} />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="gaze-status" ref={bind('status')} />
+    </>
+  );
+}
+
 function Ending() {
   useEffect(() => {
     const close = () => store.set({ ending: false });
@@ -85,6 +188,13 @@ function Ending() {
         <h2>THE EYE CLOSES</h2>
         <p>For the first time in a hundred years, the causeway sleeps.</p>
         <p>Down in the Grinning Tankard, they will be singing about you until at least Tuesday.</p>
+        <table className="stats">
+          <tbody>
+            <tr><td>TIME</td><td>{formatTime(live.playTime)}</td></tr>
+            <tr><td>SEEN BY THE EYE</td><td>{store.get().seen}</td></tr>
+            <tr><td>TORCHES RELIT</td><td>{store.get().lit.length} / {TORCHES.filter((t) => !t.startsLit).length}</td></tr>
+          </tbody>
+        </table>
         <p className="thanks">Thank you for playing. Wander as long as you like.</p>
         <p className="blink">{IS_TOUCH ? 'TAP TALK' : 'PRESS E'} TO CONTINUE</p>
       </div>
@@ -209,20 +319,26 @@ export function Overlay() {
   const zone = useStore((s) => s.zone);
   const ending = useStore((s) => s.ending);
   const goal = useStore((s) => objective(s));
+  const intro = useStore((s) => s.intro);
   useGlobalInput();
 
   return (
     <div className="hud">
       {playing && mode === 'touch' && <TouchControls />}
+      <LiveHud />
       <div className={`crosshair${target ? ' hot' : ''}`} />
       {zone && (
         <div className="zone" key={zone}>
           {zone}
         </div>
       )}
-      <div className="objective">{goal}</div>
+      <div className="objective" key={goal}>
+        <span className="label">QUEST</span>
+        {goal}
+      </div>
       <Notice />
-      {target && !ending && <Dialogue key={target.id} target={target} />}
+      {target && !ending && !intro && <Dialogue key={target.id} target={target} />}
+      {playing && intro && !ending && <GoalCard />}
       {ending && <Ending />}
       <TitleScreen playing={playing} />
     </div>

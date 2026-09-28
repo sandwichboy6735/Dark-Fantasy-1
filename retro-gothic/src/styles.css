@@ -3,6 +3,12 @@
   --panel: #0c0a18;
   --edge: #e8dcc0;
   --shade: #3a2e66;
+  --gold: #ffcc4a;
+  --gaze: #5a86ff;
+  /* One text size for the whole HUD: big on phones, bigger on desktops. */
+  --text: clamp(13px, 1.1vw + 9px, 20px);
+  --small: calc(var(--text) * 0.8);
+  --big: calc(var(--text) * 1.5);
   font-family: 'Press Start 2P', monospace;
 }
 
@@ -35,14 +41,25 @@ canvas {
   pointer-events: none;
   -webkit-font-smoothing: none;
   font-smooth: never;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
+.panel {
+  background: var(--panel);
+  border: 4px solid var(--edge);
+  box-shadow:
+    0 0 0 4px #000,
+    inset 0 0 0 4px var(--shade);
+}
+
+/* Crosshair. */
 .crosshair {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   transform: translate(-50%, -50%);
 }
 .crosshair::before,
@@ -53,27 +70,74 @@ canvas {
   box-shadow: 0 0 0 2px #000;
 }
 .crosshair::before {
-  left: 8px;
+  left: 10px;
   top: 0;
   width: 2px;
-  height: 18px;
+  height: 22px;
 }
 .crosshair::after {
-  top: 8px;
+  top: 10px;
   left: 0;
-  width: 18px;
+  width: 22px;
   height: 2px;
 }
 .crosshair.hot::before,
 .crosshair.hot::after {
-  background: #ffcc33;
+  background: var(--gold);
+}
+
+/* Top of the screen: the objective arrow, then the quest line. */
+.marker {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text);
+  color: var(--gold);
+  text-shadow: 2px 2px 0 #000;
+}
+.arrow-up {
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 26px solid var(--gold);
+  filter: drop-shadow(2px 2px 0 #000);
+}
+
+.objective {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--text) + 30px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 14px;
+  font-size: var(--text);
+  line-height: 1.6;
+  text-align: center;
+  color: var(--ink);
+  background: rgba(8, 6, 18, 0.78);
+  border: 3px solid #000;
+  box-shadow: inset 0 0 0 2px var(--gold);
+  animation: pop 0.5s steps(4);
+}
+.objective .label {
+  margin-right: 10px;
+  color: var(--gold);
+}
+@keyframes pop {
+  0% { transform: translateX(-50%) scale(1.3); }
 }
 
 .zone {
   position: absolute;
-  left: 24px;
-  top: 24px;
-  font-size: 12px;
+  left: 16px;
+  bottom: 16px;
+  font-size: var(--small);
   letter-spacing: 1px;
   text-transform: uppercase;
   color: #d8cdb0;
@@ -87,27 +151,120 @@ canvas {
   100% { opacity: 0.35; }
 }
 
+/* Dread and foam meters, left side. */
+.meters {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 14px;
+}
+.meter {
+  display: grid;
+  gap: 6px;
+  font-size: var(--small);
+  text-shadow: 2px 2px 0 #000;
+}
+.meter .bar {
+  width: clamp(120px, 18vw, 220px);
+  height: 16px;
+  background: #000;
+  border: 3px solid var(--edge);
+}
+.meter .bar > div {
+  height: 100%;
+}
+.meter.dread span {
+  color: #9db6ff;
+}
+.meter.dread .bar > div {
+  background: var(--gaze);
+}
+.meter.foam span {
+  color: #f2ead0;
+}
+.meter.foam .bar > div {
+  background: #f2ead0;
+}
+.meter.foam.warn .bar {
+  border-color: #ff6a3a;
+  animation: blink 0.4s steps(2) infinite;
+}
+
+.gaze-status {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  transform: translateX(-50%);
+  font-size: var(--text);
+  white-space: nowrap;
+  color: #ffcc4a;
+  text-shadow: 2px 2px 0 #000;
+}
+.gaze-status.alarm {
+  color: #9db6ff;
+  animation: blink 0.35s steps(2) infinite;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(40, 70, 255, 0.55) 100%);
+}
+.fade {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: #000;
+}
+
+.notice {
+  position: absolute;
+  left: 50%;
+  /* Below the quest banner, which can wrap to two lines. */
+  top: calc(var(--text) * 5.5 + 60px);
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 12px 18px;
+  font-size: var(--text);
+  line-height: 1.6;
+  text-align: center;
+  color: var(--gold);
+  background: rgba(12, 10, 24, 0.9);
+  border: 4px solid #000;
+  box-shadow: inset 0 0 0 2px var(--gold);
+  animation: notice 3.5s steps(10) forwards;
+}
+@keyframes notice {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+/* Dialogue. */
 .dialogue {
   position: absolute;
   left: 50%;
-  bottom: 28px;
-  width: min(760px, calc(100% - 32px));
+  bottom: 20px;
+  width: min(900px, calc(100% - 32px));
   transform: translateX(-50%);
-  padding: 22px 22px 18px;
+  padding: 26px 22px 20px;
   background: var(--panel);
   border: 4px solid var(--edge);
   box-shadow:
     0 0 0 4px #000,
     inset 0 0 0 4px var(--shade),
     8px 8px 0 4px rgba(0, 0, 0, 0.6);
-  image-rendering: pixelated;
 }
 .dialogue .speaker {
   position: absolute;
-  top: -18px;
+  top: calc(var(--small) * -1 - 10px);
   left: 16px;
-  padding: 6px 10px;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: var(--small);
   color: #000;
   background: var(--accent);
   border: 4px solid #000;
@@ -115,8 +272,8 @@ canvas {
 .dialogue p {
   margin: 4px 0 0;
   min-height: 3.6em;
-  font-size: 13px;
-  line-height: 1.9;
+  font-size: var(--text);
+  line-height: 1.8;
   color: var(--ink);
   text-shadow: 2px 2px 0 #000;
 }
@@ -124,7 +281,7 @@ canvas {
   position: absolute;
   right: 16px;
   bottom: 8px;
-  font-size: 9px;
+  font-size: var(--small);
   color: #a89cc8;
   animation: blink 0.8s steps(2) infinite;
 }
@@ -133,52 +290,60 @@ canvas {
   width: 0;
   height: 0;
   margin: 0 4px;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 7px solid var(--accent);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--accent);
 }
 
-#enter {
+/* Full-screen cards: title, goal, ending. */
+#enter,
+.goal-card,
+.ending {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(4, 3, 10, 0.72);
+  padding: 16px;
+  background: rgba(4, 3, 10, 0.75);
   pointer-events: auto;
+}
+#enter {
   cursor: pointer;
 }
 #enter.hidden {
   display: none;
 }
-#enter .panel {
-  padding: 32px 40px;
+#enter .panel,
+.goal-card .panel,
+.ending .panel {
+  width: min(720px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: clamp(20px, 4vw, 40px);
   text-align: center;
-  background: var(--panel);
-  border: 4px solid var(--edge);
-  box-shadow:
-    0 0 0 4px #000,
-    inset 0 0 0 4px var(--shade);
 }
 #enter h1 {
-  margin: 0 0 28px;
-  font-size: 22px;
+  margin: 0 0 24px;
+  font-size: calc(var(--big) * 1.3);
   line-height: 1.5;
   font-weight: normal;
   color: #ff9a3a;
   text-shadow: 3px 3px 0 #2a0a00;
 }
 #enter h1 small {
-  font-size: 12px;
+  font-size: var(--text);
   color: #6f9aff;
 }
-#enter .blink {
-  margin: 0 0 24px;
-  font-size: 12px;
+#enter .blink,
+.goal-card .blink,
+.ending .blink {
+  margin: 0 0 20px;
+  font-size: var(--text);
   animation: blink 1s steps(2) infinite;
 }
 #enter table {
   margin: 0 auto;
-  font-size: 9px;
+  font-size: var(--small);
   line-height: 2.2;
   color: #b8accf;
   border-spacing: 16px 0;
@@ -190,94 +355,12 @@ canvas {
 #enter td:last-child {
   text-align: left;
 }
-
-@keyframes blink {
-  50% { opacity: 0; }
-}
-
-@media (max-width: 600px) {
-  .dialogue p { font-size: 10px; }
-  #enter .panel { padding: 24px 16px; }
-  #enter h1 { font-size: 16px; }
-}
-
-/* Quest progress, top right. */
-.objective {
-  position: absolute;
-  right: 24px;
-  top: 24px;
-  max-width: min(420px, 55vw);
-  font-size: 10px;
-  line-height: 1.8;
-  text-align: right;
-  color: #f0c060;
-  text-shadow: 2px 2px 0 #000;
-}
-
-.notice {
-  position: absolute;
-  left: 50%;
-  top: 22%;
-  transform: translateX(-50%);
-  padding: 10px 16px;
-  font-size: 12px;
-  white-space: nowrap;
-  color: #ffe08a;
-  background: rgba(12, 10, 24, 0.85);
-  border: 4px solid #000;
-  box-shadow: inset 0 0 0 2px #f0c060;
-  animation: notice 3.2s steps(10) forwards;
-}
-@keyframes notice {
-  0% { opacity: 0; }
-  10% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; visibility: hidden; }
-}
-
-.ending {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(2, 2, 8, 0.8);
-  animation: fade-in 2s steps(8);
-}
-.ending .panel {
-  max-width: min(640px, calc(100% - 32px));
-  padding: 32px 36px;
-  text-align: center;
-  background: var(--panel);
-  border: 4px solid var(--edge);
-  box-shadow:
-    0 0 0 4px #000,
-    inset 0 0 0 4px var(--shade);
-}
-.ending h2 {
-  margin: 0 0 24px;
-  font-size: 22px;
-  font-weight: normal;
-  color: #8fb0ff;
-  text-shadow: 3px 3px 0 #0a0a30;
-}
-.ending p {
-  margin: 0 0 16px;
-  font-size: 11px;
-  line-height: 2;
-}
-.ending .thanks {
-  color: #f0c060;
-}
-@keyframes fade-in {
-  from { opacity: 0; }
-}
-
 #enter .anew {
   display: block;
-  margin: -8px auto 24px;
-  padding: 8px 12px;
+  margin: -6px auto 22px;
+  padding: 10px 14px;
   font: inherit;
-  font-size: 9px;
+  font-size: var(--small);
   color: #b8accf;
   background: none;
   border: 2px solid #b8accf;
@@ -286,6 +369,74 @@ canvas {
 #enter .anew:hover {
   color: var(--ink);
   border-color: var(--ink);
+}
+
+.goal-card h2,
+.ending h2 {
+  margin: 0 0 20px;
+  font-size: var(--big);
+  font-weight: normal;
+  color: var(--gold);
+  text-shadow: 3px 3px 0 #2a1a00;
+}
+.ending h2 {
+  color: #8fb0ff;
+  text-shadow: 3px 3px 0 #0a0a30;
+}
+.goal-card p,
+.goal-card li,
+.ending p {
+  font-size: var(--text);
+  line-height: 1.8;
+}
+.goal-card p,
+.ending p {
+  margin: 0 0 16px;
+}
+.goal-card .lead {
+  color: #9db6ff;
+}
+.goal-card ol {
+  margin: 0 0 16px;
+  padding-left: 1.6em;
+  text-align: left;
+}
+.goal-card li {
+  margin-bottom: 8px;
+}
+.goal-card b {
+  color: var(--gold);
+  font-weight: normal;
+}
+.goal-card .danger {
+  padding: 12px;
+  text-align: left;
+  border: 2px dashed var(--gaze);
+}
+.goal-card .danger b {
+  color: #9db6ff;
+}
+.ending .thanks {
+  color: var(--gold);
+}
+.ending .stats {
+  margin: 0 auto 20px;
+  font-size: var(--text);
+  line-height: 2;
+  border-spacing: 20px 0;
+}
+.ending .stats td:first-child {
+  text-align: right;
+  color: #a89cc8;
+}
+.ending .stats td:last-child {
+  text-align: left;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
 }
 
 /* Touch controls. */
@@ -297,29 +448,32 @@ canvas {
 }
 .stick {
   position: absolute;
-  width: 112px;
-  height: 112px;
-  margin: -56px 0 0 -56px;
-  border: 4px solid rgba(232, 220, 192, 0.5);
+  width: 132px;
+  height: 132px;
+  margin: -66px 0 0 -66px;
+  border: 4px solid rgba(232, 220, 192, 0.6);
   border-radius: 50%;
   pointer-events: none;
 }
 .stick .knob {
   position: absolute;
-  left: 32px;
-  top: 32px;
-  width: 40px;
-  height: 40px;
-  background: rgba(232, 220, 192, 0.7);
+  left: 38px;
+  top: 38px;
+  width: 48px;
+  height: 48px;
+  background: rgba(232, 220, 192, 0.8);
   border: 4px solid #000;
   border-radius: 50%;
 }
 .stick-hint {
   position: absolute;
-  left: 32px;
-  bottom: 40px;
-  font-size: 9px;
-  color: rgba(232, 220, 192, 0.45);
+  left: 24px;
+  bottom: 56px;
+  padding: 18px 14px;
+  font-size: var(--small);
+  color: rgba(232, 220, 192, 0.6);
+  border: 3px dashed rgba(232, 220, 192, 0.35);
+  border-radius: 50%;
   pointer-events: none;
 }
 .touch-button {
@@ -333,24 +487,33 @@ canvas {
   touch-action: none;
 }
 .touch-button.talk {
-  right: 24px;
-  bottom: 190px;
-  padding: 18px 16px;
-  font-size: 12px;
+  right: 20px;
+  bottom: 40%;
+  padding: 24px 20px;
+  font-size: var(--text);
 }
 .touch-button.pause {
-  right: 16px;
-  top: 64px;
-  padding: 8px 10px;
-  font-size: 10px;
+  right: 12px;
+  top: 12px;
+  padding: 10px 12px;
+  font-size: var(--small);
   background: var(--edge);
 }
 
-@media (max-width: 600px) {
-  .objective { top: 52px; left: 24px; right: auto; text-align: left; max-width: 70vw; font-size: 8px; }
-  .notice { font-size: 9px; white-space: normal; width: 80vw; text-align: center; }
-  .dialogue { bottom: 12px; }
-  .dialogue .speaker { font-size: 9px; }
-  .ending h2 { font-size: 16px; }
-  .ending p { font-size: 9px; }
+/* Narrow screens: the dialogue sits above the stick, meters move up top. */
+@media (max-width: 700px) {
+  .meters {
+    top: auto;
+    bottom: 42%;
+    transform: none;
+  }
+  .gaze-status {
+    top: 58%;
+    white-space: normal;
+    width: calc(100% - 32px);
+    text-align: center;
+  }
+  .zone {
+    display: none;
+  }
 }

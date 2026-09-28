@@ -103,6 +103,21 @@ export function setAmbience(tavern, playing) {
   jigGain.gain.setTargetAtTime(jigLevel, t, 0.6);
 }
 
+function noiseBurst(start, length, type, freq, volume) {
+  const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * length), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  const src = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const env = ctx.createGain();
+  src.buffer = buffer;
+  filter.type = type;
+  filter.frequency.value = freq;
+  env.gain.value = volume;
+  src.connect(filter).connect(env).connect(master);
+  src.start(start);
+}
+
 function play(fn) {
   if (ctx && !muted) fn(ctx.currentTime);
 }
@@ -115,6 +130,17 @@ export const sfx = {
     play((t) =>
       [62, 66, 69, 74, 69, 74, 78].forEach((n, i) => note(midi(n), t + i * 0.13, i === 6 ? 1.2 : 0.2, 'square', 0.06, master)),
     ),
+  whoosh: () =>
+    play((t) => {
+      noiseBurst(t, 0.5, 'bandpass', 900, 0.5);
+      [64, 71, 76].forEach((n, i) => note(midi(n), t + 0.1 + i * 0.06, 0.4, 'triangle', 0.1, master));
+    }),
+  spill: () => play((t) => [67, 63, 60, 55].forEach((n, i) => note(midi(n), t + i * 0.12, 0.25, 'square', 0.06, master))),
+  heartbeat: () =>
+    play((t) => {
+      note(52, t, 0.14, 'sine', 0.5, master);
+      note(46, t + 0.18, 0.18, 'sine', 0.4, master);
+    }),
   rumble: () =>
     play((t) => {
       const length = 4;

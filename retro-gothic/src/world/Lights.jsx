@@ -27,17 +27,18 @@ function Flame({ scale = 1, speed = 11, seed = 0 }) {
 }
 
 // A wall torch on an iron bracket. `side` is the direction it leans out to.
-export function Torch({ position, side = 1, intensity = 40, distance = 17, seed = 0 }) {
+// An unlit torch keeps its light (at zero) so the light count never changes.
+export function Torch({ position, side = 1, intensity = 40, distance = 17, seed = 0, lit = true }) {
   return (
     <group position={position}>
       <Box size={[0.08, 0.08, 0.5]} m={iron} position={[0, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
       <group position={[0.25 * side, 0.1, 0]} rotation={[0, 0, -0.25 * side]}>
         <mesh geometry={cylGeo(0.05, 0.035, 0.6, 5)} material={pole} />
         <group position={[0, 0.3, 0]}>
-          <Flame seed={seed} />
+          {lit ? <Flame seed={seed} /> : <Box size={[0.12, 0.1, 0.12]} m={glow('#5a1606')} position={[0, 0.05, 0]} />}
         </group>
       </group>
-      <pointLight color="#ff6000" intensity={intensity} distance={distance} decay={1.6} position={[0.35 * side, 0.9, 0]} />
+      <pointLight color="#ff6000" intensity={lit ? intensity : 0} distance={distance} decay={1.6} position={[0.35 * side, 0.9, 0]} />
     </group>
   );
 }

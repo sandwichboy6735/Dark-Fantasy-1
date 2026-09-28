@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { RETRO, pixelSizeFor } from './config.js';
+import { RETRO, fovFor, pixelSizeFor } from './config.js';
 import { DitherShader } from './DitherShader.js';
 import { applyVertexJitter, updateJitter } from './vertexJitter.js';
 
@@ -50,7 +50,9 @@ export function RetroPipeline() {
     const dpr = gl.getPixelRatio();
     const bufferWidth = Math.floor(size.width * dpr);
     const bufferHeight = Math.floor(size.height * dpr);
-    pixelPass.pixelSize = pixelSizeFor(bufferHeight);
+    pixelPass.pixelSize = pixelSizeFor(bufferWidth, bufferHeight);
+    camera.fov = fovFor(size.width / size.height);
+    camera.updateProjectionMatrix();
     composer.setPixelRatio(dpr);
     composer.setSize(size.width, size.height);
 
