@@ -67,6 +67,18 @@ Some people ask you questions. Pick an answer, and some answers let you join in:
 - **Snowmen:** build them at three spots in the snowy Frostfang Mountains. Each one gets a witch's hat and stays there.
 - **Rope swing:** on the big tree on the west shore of the Mirror Lake. Press E at the top of the swing to let go and splash into the lake.
 
+### Day and night
+
+A full day passes every 10 minutes, and the time of day shows under the compass:
+
+- **Dawn:** a rose and gold sky, with a rainbow in the west just after sunrise.
+- **Day:** a soft blue sky over the floating isles, with a real sun and shadows.
+- **Sunset:** the whole sky, the lake and the cloud sea turn orange and pink.
+- **Dusk:** purple and magenta, as the lanterns come on.
+- **Night:** the giant moon, stars, green and pink northern lights in the north, glowing sparkles drifting in the lake, and the odd shooting star.
+
+Three enormous glowing **sky whales** swim slowly around the realm at every hour, and you can hear them sing when one is near. Sleeping skips ahead to the next sunrise or sunset. The time of day is saved with your game.
+
 ### Sounds
 
 Each area sounds different: crickets and a music box in the village, lapping water and frogs by the lake, crackling fire and goblin chatter at the market, bubbling cauldrons in the Witchwood, sighing ghosts and wind chimes at the graves, a hum at the Moon Circle, torches and clanking armour at the castle, and howling wind up in the snowy mountains or high in the sky.
@@ -103,6 +115,7 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/activities.js` | Joining in: bonfire dance, sing-along, broom race, hide and seek, ferry ride |
 | `src/cozy.js` | Sleeping, sitting, fishing, telescopes, sky lanterns, snowmen, rope swing |
 | `src/player.js` | Walking, running, gliding, swimming, broom flying, lifts, camera |
-| `src/fx.js` | Sky, moon, cloud sea, lake, smoke, fireflies, snow, lighting |
+| `src/fx.js` | Sky (sun, moon, stars, aurora, rainbow), cloud sea, lake, smoke, fireflies, snow |
+| `src/daynight.js` | The day and night cycle and its colours, and the sky whales |
 | `src/art.js`, `src/kit.js` | Painted textures, materials, and the shape-building kit |
 | `src/audio.js` | Sound created live: area sounds, tunes, voices, bells |

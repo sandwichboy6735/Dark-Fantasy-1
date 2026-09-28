@@ -62,7 +62,8 @@ body.photo #hud, body.photo #touch { display: none !important; }
 #dlgChoices button:hover { border-color: var(--ember); background: rgba(80, 50, 90, 0.7); }
 #dlgChoices .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ember); color: var(--ember); font-size: 0.8rem; }
 body.touch #dlgChoices .num { display: none; }
-#activity { position: absolute; top: calc(52px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 10px rgba(255, 180, 94, 0.5), 0 1px 4px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#timeLabel { position: absolute; top: calc(44px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); text-shadow: 0 1px 4px #000; }
+#activity { position: absolute; top: calc(66px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 10px rgba(255, 180, 94, 0.5), 0 1px 4px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #dialogue .more { position: absolute; right: 20px; bottom: 10px; margin: 0; color: var(--moon); animation: pulse 1.6s infinite; }
 #menuBtn { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 14px; width: 42px; height: 42px; display: grid; place-items: center; pointer-events: auto; }
 #menuBtn svg { width: 26px; height: 26px; fill: var(--moon); filter: drop-shadow(0 0 6px rgba(160, 170, 255, 0.7)); }
@@ -98,5 +99,6 @@ body.touch #prompt .key { display: none; }
 #dlgChoices button:hover { border-color: var(--ember); background: rgba(80, 50, 90, 0.7); }
 #dlgChoices .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ember); color: var(--ember); font-size: 0.8rem; }
 body.touch #dlgChoices .num { display: none; }
-#activity { position: absolute; top: calc(52px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 10px rgba(255, 180, 94, 0.5), 0 1px 4px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#timeLabel { position: absolute; top: calc(44px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); text-shadow: 0 1px 4px #000; }
+#activity { position: absolute; top: calc(66px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 10px rgba(255, 180, 94, 0.5), 0 1px 4px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #dialogue .more { animation: none; } #banner, #whisper { transition: none; } }

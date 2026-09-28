@@ -12,12 +12,17 @@ const NOISE_GLSL = /* glsl */`
 `;
 
 export function makeSky() {
-  const uniforms = { uTime: { value: 0 }, uMoon: { value: moonDir } };
+  const uniforms = {
+    uTime: { value: 0 }, uMoon: { value: moonDir }, uSun: { value: new THREE.Vector3(0, -1, 0) },
+    uZen: { value: new THREE.Color(0.004, 0.006, 0.03) }, uMid: { value: new THREE.Color(0.03, 0.03, 0.12) }, uHor: { value: new THREE.Color(0.14, 0.11, 0.30) },
+    uSunCol: { value: new THREE.Color(1, 0.6, 0.3) }, uCloud: { value: new THREE.Color(0.16, 0.14, 0.38) },
+    uNight: { value: 1 }, uAurora: { value: 1 }, uRainbow: { value: 0 },
+  };
   const mat = new THREE.ShaderMaterial({
     uniforms, side: THREE.BackSide, depthWrite: false, fog: false,
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }`,
     fragmentShader: NOISE_GLSL + /* glsl */`
-      uniform float uTime; uniform vec3 uMoon; varying vec3 vDir;
+      uniform float uTime, uNight, uAurora, uRainbow; uniform vec3 uMoon, uSun, uZen, uMid, uHor, uSunCol, uCloud; varying vec3 vDir;
       float star(vec3 d, float scale, float thresh){
         vec3 p = d * scale; vec3 i = floor(p); vec3 f = fract(p) - 0.5;
         float h = fract(sin(dot(i, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
@@ -27,27 +32,50 @@ export function makeSky() {
         float tw = 0.65 + 0.35*sin(uTime*(1.0+h*3.0) + h*60.0);
         return smoothstep(0.08, 0.0, d2) * tw * (h - thresh) / (1.0 - thresh);
       }
+      vec3 hue(float t){ return clamp(abs(fract(t + vec3(0.0, 0.667, 0.333)) * 6.0 - 3.0) - 1.0, 0.0, 1.0); }
       void main(){
         vec3 d = normalize(vDir);
         float h = d.y;
-        vec3 zen = vec3(0.004, 0.006, 0.03), mid = vec3(0.03, 0.03, 0.12), hor = vec3(0.14, 0.11, 0.30);
-        vec3 col = mix(hor, mid, smoothstep(0.0, 0.25, h));
-        col = mix(col, zen, smoothstep(0.25, 0.9, h));
+        float sd = dot(d, uSun);
+        // Horizon glow gathers around the sun at sunrise and sunset
+        float sunSide = pow(max(sd, 0.0) * 0.5 + 0.5, 3.0);
+        vec3 hor = mix(uHor, uHor * 0.55 + uSunCol * 0.45, sunSide * smoothstep(0.35, -0.05, uSun.y) * step(-0.35, uSun.y));
+        vec3 col = mix(hor, uMid, smoothstep(0.0, 0.28, h));
+        col = mix(col, uZen, smoothstep(0.28, 0.95, h));
         col = mix(col, hor * 0.7, smoothstep(0.0, -0.3, h));
+        // Sun disc and glow
+        col += uSunCol * (smoothstep(0.9994, 0.9997, sd) * 6.0 + pow(max(sd, 0.0), 60.0) * 0.8 + pow(max(sd, 0.0), 6.0) * 0.18) * smoothstep(-0.12, 0.0, uSun.y);
         float md = dot(d, uMoon);
-        // halo
-        col += vec3(0.35, 0.38, 0.9) * pow(max(md, 0.0), 30.0) * 0.55 + vec3(0.25, 0.22, 0.6) * pow(max(md, 0.0), 6.0) * 0.18;
-        // stars (fewer near the moon)
-        float sm = 1.0 - smoothstep(0.93, 0.99, md);
+        col += vec3(0.35, 0.38, 0.9) * (pow(max(md, 0.0), 30.0) * 0.55 + pow(max(md, 0.0), 6.0) * 0.18) * (0.3 + 0.7 * uNight);
+        // Stars
+        float smn = 1.0 - smoothstep(0.93, 0.99, md);
         float s = star(d, 180.0, 0.93) * 1.6 + star(d, 90.0, 0.985) * 5.0;
-        col += vec3(0.75, 0.82, 1.3) * s * smoothstep(-0.02, 0.15, h) * sm;
-        // violet cloud banks
+        col += vec3(0.75, 0.82, 1.3) * s * smoothstep(-0.02, 0.15, h) * smn * uNight;
+        // Aurora: green and pink curtains in the northern sky
+        if (uAurora > 0.01 && h > 0.04) {
+          vec2 a = d.xz / (h + 0.35);
+          float wave = a.x * 1.1 + fbm(vec2(a.x * 0.35, uTime * 0.03)) * 5.0 + sin(uTime * 0.2 + a.x) * 0.5;
+          float band = smoothstep(0.55, 1.0, sin(wave + a.y * 0.6)) + smoothstep(0.75, 1.0, sin(wave * 1.7 + 2.0)) * 0.6;
+          float streak = 0.55 + 0.45 * fbm(vec2(a.x * 9.0, uTime * 0.25));
+          float vert = smoothstep(0.05, 0.22, h) * (1.0 - smoothstep(0.35, 0.75, h));
+          float north = smoothstep(0.35, -0.6, d.z);
+          vec3 ac = mix(vec3(0.1, 1.0, 0.55), vec3(0.95, 0.25, 0.9), smoothstep(0.15, 0.5, h));
+          ac = mix(ac, vec3(0.2, 0.7, 1.0), 0.5 + 0.5 * sin(a.x * 0.8 + uTime * 0.05));
+          col += ac * band * streak * vert * north * uAurora * 0.65;
+        }
+        // Morning rainbow opposite the sun
+        if (uRainbow > 0.01) {
+          float ang = acos(clamp(dot(d, -uSun), -1.0, 1.0));
+          float r = (ang - 0.66) / 0.05;
+          if (r > 0.0 && r < 1.0 && h > 0.0) col += hue(r * 0.8) * sin(r * 3.14159) * 0.4 * uRainbow * smoothstep(0.0, 0.1, h);
+        }
+        // Clouds, tinted by the sun at sunrise and sunset
         if (h > -0.1) {
           vec2 uv = d.xz / (h + 0.28);
           float c = fbm(uv * 1.3 + vec2(uTime * 0.004, uTime * 0.002));
           float c2 = fbm(uv * 3.1 - vec2(uTime * 0.006, 0.0));
           float cloud = smoothstep(0.52, 0.8, c * 0.7 + c2 * 0.4) * smoothstep(-0.05, 0.12, h) * (1.0 - smoothstep(0.55, 0.95, h));
-          vec3 lit = vec3(0.16, 0.14, 0.38) + vec3(0.42, 0.44, 0.85) * pow(max(md, 0.0), 10.0) * 0.8;
+          vec3 lit = uCloud + vec3(0.42, 0.44, 0.85) * pow(max(md, 0.0), 10.0) * 0.8 * uNight + uSunCol * (pow(max(sd, 0.0), 3.0) * 0.9 + 0.12) * smoothstep(-0.2, 0.05, uSun.y);
           col = mix(col, lit * (0.35 + 0.65 * c2), cloud * 0.75);
         }
         gl_FragColor = vec4(col, 1.0);
@@ -90,12 +118,12 @@ export function makeSky() {
 
 // A sea of glowing cloud that fills the world beneath the continent
 export function makeCloudSea() {
-  const uniforms = { uTime: { value: 0 }, uMoon: { value: moonDir }, uCam: { value: new THREE.Vector3() }, fogColor: { value: new THREE.Color() } };
+  const uniforms = { uTime: { value: 0 }, uMoon: { value: moonDir.clone() }, uCam: { value: new THREE.Vector3() }, fogColor: { value: new THREE.Color() }, uDeep: { value: new THREE.Color(0.04, 0.04, 0.16) }, uMidC: { value: new THREE.Color(0.2, 0.2, 0.58) }, uHi: { value: new THREE.Color(0.7, 0.7, 1.25) }, uGlint: { value: new THREE.Color(0.5, 0.55, 1.1) }, uFar: { value: new THREE.Color(0.16, 0.13, 0.36) } };
   const mat = new THREE.ShaderMaterial({
     uniforms, transparent: false,
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: NOISE_GLSL + /* glsl */`
-      uniform float uTime; uniform vec3 uMoon, uCam, fogColor; varying vec3 vW;
+      uniform float uTime; uniform vec3 uMoon, uCam, fogColor, uDeep, uMidC, uHi, uGlint, uFar; varying vec3 vW;
       void main(){
         vec2 p = vW.xz * 0.0032;
         vec2 q = vec2(fbm(p + vec2(uTime * 0.010, 0.0)), fbm(p + vec2(5.2, 1.3) - uTime * 0.008));
@@ -105,15 +133,15 @@ export function makeCloudSea() {
         // billows: bright rounded tops, dark creases
         float puff = smoothstep(0.35, 0.8, c);
         float crease = smoothstep(0.12, 0.0, abs(c - 0.5)) * 0.35;
-        vec3 deep = vec3(0.04, 0.04, 0.16), mid = vec3(0.20, 0.20, 0.58), hi = vec3(0.70, 0.70, 1.25);
+        vec3 deep = uDeep, mid = uMidC, hi = uHi;
         vec3 col = mix(deep, mid, smoothstep(0.25, 0.55, c));
         col = mix(col, hi, puff * (0.55 + 0.45 * fine));
         col -= crease * vec3(0.08, 0.08, 0.2);
         vec3 v = normalize(uCam - vW);
         vec3 r = reflect(-v, normalize(vec3((fine - 0.5) * 0.6, 1.0, (c - 0.5) * 0.6)));
-        col += vec3(0.5, 0.55, 1.1) * pow(max(dot(r, uMoon), 0.0), 14.0) * (0.3 + puff);
+        col += uGlint * pow(max(dot(r, uMoon), 0.0), 14.0) * (0.3 + puff);
         float d = length(vW.xz - uCam.xz);
-        col = mix(col, vec3(0.16, 0.13, 0.36), smoothstep(700.0, 3000.0, d));
+        col = mix(col, uFar, smoothstep(700.0, 3000.0, d));
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -124,7 +152,7 @@ export function makeCloudSea() {
 }
 
 export function makeLake() {
-  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uMoon: { value: moonDir } }]);
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uMoon: { value: moonDir.clone() }, uGlint: { value: new THREE.Color(0.75, 0.78, 1.3) }, uDeepW: { value: new THREE.Color(0.015, 0.025, 0.07) }, uSkyW: { value: new THREE.Color(0.09, 0.09, 0.26) }, uNight: { value: 1 } }]);
   const mat = new THREE.ShaderMaterial({
     uniforms, fog: true, transparent: true,
     vertexShader: `#include <fog_pars_vertex>
@@ -134,7 +162,7 @@ export function makeLake() {
       }`,
     fragmentShader: NOISE_GLSL + /* glsl */`
       #include <fog_pars_fragment>
-      uniform float uTime; uniform vec3 uMoon; varying vec3 vW;
+      uniform float uTime, uNight; uniform vec3 uMoon, uGlint, uDeepW, uSkyW; varying vec3 vW;
       void main(){
         vec2 p = vW.xz;
         float n1 = vnoise(p * 0.35 + vec2(uTime * 0.3, 0.0)) - 0.5, n2 = vnoise(p * 0.8 - vec2(0.0, uTime * 0.4)) - 0.5;
@@ -142,9 +170,12 @@ export function makeLake() {
         vec3 v = normalize(cameraPosition - vW);
         vec3 r = reflect(-v, nrm);
         float fres = pow(1.0 - max(v.y, 0.0), 4.0);
-        vec3 col = mix(vec3(0.015, 0.025, 0.07), vec3(0.09, 0.09, 0.26), fres);
+        vec3 col = mix(uDeepW, uSkyW, fres);
         float glint = pow(max(dot(r, uMoon), 0.0), 300.0) * 1.1 + pow(max(dot(r, uMoon), 0.0), 40.0) * 0.12;
-        col += vec3(0.75, 0.78, 1.3) * glint;
+        col += uGlint * glint;
+        // Glowing plankton drifts in the lake at night
+        float plank = smoothstep(0.78, 0.95, vnoise(p * 0.25 + vec2(uTime * 0.05, -uTime * 0.03))) * smoothstep(0.6, 0.9, vnoise(p * 1.7 - uTime * 0.2));
+        col += vec3(0.1, 0.9, 1.0) * plank * 1.4 * uNight;
         gl_FragColor = vec4(col, 0.92);
         #include <fog_fragment>
       }`,

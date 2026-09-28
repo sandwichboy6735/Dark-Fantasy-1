@@ -255,6 +255,17 @@ export class Audio {
     const g = this.env(1, amp, 0.2); n.connect(f).connect(g).connect(this.master);
   }
   fanfare() { [523, 659, 784, 1047].forEach((f, i) => { this.tone(f, 0.5, 'triangle', 0.06, i * 0.15, this.master); this.tone(f, 0.5, 'triangle', 0.03, i * 0.15, this.reverb); }); }
+  whale() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    for (const [f0, f1, f2, off] of [[190, 130, 210, 0], [160, 240, 120, 2.2]]) {
+      const o = this.ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(f0, t + off); o.frequency.linearRampToValueAtTime(f1, t + off + 1.2); o.frequency.linearRampToValueAtTime(f2, t + off + 2.4);
+      const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, t + off); g.gain.exponentialRampToValueAtTime(0.05, t + off + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + off + 2.6);
+      o.connect(g); g.connect(this.reverb); const d = this.ctx.createGain(); d.gain.value = 0.4; g.connect(d).connect(this.master);
+      o.start(t + off); o.stop(t + off + 2.8);
+    }
+  }
   ding() { this.tone(1568, 0.6, 'sine', 0.06); this.tone(2093, 0.8, 'sine', 0.04, 0.08); }
 
   // ================= Little tunes for joining in =================

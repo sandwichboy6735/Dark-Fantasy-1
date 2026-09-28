@@ -20,6 +20,7 @@ import { Audio } from './audio.js';
 import { PLACES, WATER_Y } from './layout.js';
 import { Activities } from './activities.js';
 import { addCozy, FISH } from './cozy.js';
+import { applyTime, makeWhales, phaseName, DAY_SECONDS } from './daynight.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'moonveil-save-v1';
@@ -70,7 +71,11 @@ moonLight.shadow.mapSize.set(2048, 2048);
 Object.assign(moonLight.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 10, far: 500 });
 moonLight.shadow.bias = -0.0006; moonLight.shadow.normalBias = 0.6;
 scene.add(moonLight, moonLight.target);
-scene.add(new THREE.HemisphereLight(0x6a68c4, 0x2c2a64, 1.55));
+const hemi = new THREE.HemisphereLight(0x6a68c4, 0x2c2a64, 1.55);
+scene.add(hemi);
+const lightDir = moonDir.clone();
+let dayTime = 0.72, lastPhase = '';
+const updWhales = makeWhales(scene);
 
 const sky = makeSky();
 scene.add(sky.dome, sky.moon);
@@ -156,6 +161,7 @@ async function load() {
     fade: (v) => { $('fade').style.opacity = v; },
     stars: (secs) => stars.start(secs),
     resetFov: () => resize(),
+    skipTime: () => { const night = dayTime < 0.22 || dayTime > 0.8; dayTime = night ? 0.235 : 0.735; lastPhase = ''; return night ? 'sunrise' : 'sunset'; },
     whisper: showWhisper, banner: showBanner, burst, save,
     hud: (t) => { $('activity').textContent = t; $('activity').hidden = !t; },
     giveBroom,
@@ -538,7 +544,7 @@ $('dialogue').addEventListener('click', advanceTalk);
 // ---------- Save ----------
 function save() {
   if (!player || state === 'title' || state === 'loading') return;
-  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met], hasBroom: data.hasBroom, raceBest: data.raceBest, fish: data.fish, lanterns: data.lanterns, snowmen: data.snowmen });
+  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met], hasBroom: data.hasBroom, raceBest: data.raceBest, fish: data.fish, lanterns: data.lanterns, snowmen: data.snowmen, dayTime });
 }
 setInterval(() => { if (state === 'play') save(); }, 20000);
 window.addEventListener('pagehide', save);
@@ -550,11 +556,13 @@ function begin(fresh) {
   const s = fresh ? null : store.get(SAVE_KEY);
   if (s) {
     found = new Set(s.found || []); met = new Set(s.met || []);
+    if (typeof s.dayTime === 'number') dayTime = s.dayTime;
     data.hasBroom = !!s.hasBroom; data.raceBest = s.raceBest || 0; data.fish = s.fish || []; data.lanterns = s.lanterns || 0;
     player.place(s.pos[0], s.pos[2], s.facing || 0);
     player.pos.y = Math.max(player.pos.y, s.pos[1]);
     player.camYaw = s.camYaw ?? player.camYaw;
   } else {
+    dayTime = 0.72;
     found = new Set(); met = new Set(); data.hasBroom = false; data.raceBest = 0; data.fish = []; data.lanterns = 0;
     player.place(-1.6, 347, Math.PI);
     player.camPitch = 0.12; player.camDist = 6;
@@ -714,13 +722,16 @@ function zonesAt(p) {
 
 // ---------- Loop ----------
 let last = performance.now();
-let areaT = 0, titleT = 0, bubbleT = 0;
+let areaT = 0, titleT = 0, bubbleT = 0, whaleT = 10, lastWhales = [];
 const tmpV = new THREE.Vector3();
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const t = now / 1000;
+  if (state === 'title') dayTime = 0.765;
+  else if (state === 'play') dayTime = (dayTime + dt / DAY_SECONDS) % 1;
+  const tod = applyTime(dayTime, { sky, fog: FOG, scene, hemi, renderer, light: moonLight, lightDir, cloudSea, lake, moon: sky.moon });
   sky.uniforms.uTime.value = t; cloudSea.uniforms.uTime.value = t; lake.uniforms.uTime.value = t; grade.uniforms.uTime.value = t % 10;
 
   if (state === 'loading') {
@@ -803,6 +814,24 @@ function frame(now) {
     for (const p of world.bubbles) if (Math.hypot(p.cx - focus.x, p.cz - focus.z) < 60) particles.sparkle(p.cx + (Math.random() - 0.5), p.cy + 1.3, p.cz + (Math.random() - 0.5), 0, 0.8 + Math.random(), 0, [0.4, 1.6, 0.6], 1.5);
   }
   regionEnv(dt);
+  env.fireflies *= 0.2 + 0.8 * tod.night;
+  const whales = updWhales(t);
+  lastWhales = whales;
+  if (state === 'play') {
+    const ph = phaseName(dayTime);
+    $('timeLabel').textContent = ph;
+    if (lastPhase && ph !== lastPhase) {
+      const msg = { Dawn: 'Dawn paints the sky rose and gold. Look west for a rainbow.', Morning: 'The sky clears to a soft blue.', Day: 'The floating isles shine in the daylight.', Afternoon: 'The shadows grow long and golden.', Sunset: 'The sun sinks, and the whole sky catches fire.', Dusk: 'Dusk. The lanterns wake up one by one.', Night: 'Night falls. Look north: the sky is dancing.' }[ph];
+      if (msg && !talk) showWhisper(msg, 5);
+    }
+    lastPhase = ph;
+    whaleT -= dt;
+    if (whaleT <= 0) {
+      whaleT = 25 + Math.random() * 30;
+      if (whales.some((w) => w.g.position.distanceTo(player.pos) < 900)) audio.whale();
+    }
+    if (tod.night > 0.8 && Math.random() < dt / 18) stars.start(1.5);
+  }
   particles.update(dt, state === 'title' ? camera.position : player.pos, env);
   puffDrift(dt);
   if (acts && acts.cozyUpdate) acts.cozyUpdate(dt, t);
@@ -821,7 +850,7 @@ function frame(now) {
   // Moon shadows follow the player
   tmpV.copy(focus);
   moonLight.target.position.copy(tmpV);
-  moonLight.position.copy(tmpV).addScaledVector(moonDir, 250);
+  moonLight.position.copy(tmpV).addScaledVector(lightDir, 250);
   grade.uniforms.uLetter.value += ((document.body.classList.contains('photo') ? 1 : 0) - grade.uniforms.uLetter.value) * Math.min(1, dt * 4);
 
   if (isTouch && state !== 'loading' && state !== 'title') $('touch').hidden = state !== 'play' || !!talk;
@@ -834,4 +863,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 load();
 
-window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; } };
+window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dayTime() { return dayTime; } };

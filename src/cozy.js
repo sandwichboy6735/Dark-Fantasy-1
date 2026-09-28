@@ -215,7 +215,8 @@ export function addCozy(acts, getDragon) {
         player.pose = null; c.fade(0);
         player.rested = 180;
         player._cam = null;
-        c.banner('Well rested', 'For a while your cloak catches more air, so you glide further.', 'You wake up');
+        const when = c.skipTime();
+        c.banner('Well rested', 'You slept until ' + when + '. For a while your cloak catches more air, so you glide further.', 'You wake up');
       },
     };
   };
