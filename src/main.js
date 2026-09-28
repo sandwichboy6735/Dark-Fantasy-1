@@ -18,6 +18,7 @@ import { NPCS } from './npcs.js';
 import { Player } from './player.js';
 import { Audio } from './audio.js';
 import { PLACES, WATER_Y } from './layout.js';
+import { Activities } from './activities.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'moonveil-save-v1';
@@ -117,7 +118,8 @@ resize();
 const mats = makeMaterials();
 const terrain = new Terrain();
 const world = new World(terrain);
-let stars = null;
+let stars = null, acts = null;
+const data = { hasBroom: false, raceBest: 0 };
 let tmesh = null, flora = null, particles = null, puffDrift = null, player = null, dragon = null, lights = null;
 const npcs = [];
 const wellVisuals = [];
@@ -147,6 +149,13 @@ async function load() {
   buildPeople();
   particles = new Particles(scene, mats.tex.soft, world, terrain);
   stars = new ShootingStars(scene, mats.tex.soft);
+  acts = new Activities({
+    scene, player, npcs, world, T: terrain, audio, particles, data,
+    whisper: showWhisper, banner: showBanner, burst, save,
+    hud: (t) => { $('activity').textContent = t; $('activity').hidden = !t; },
+    giveBroom,
+    dismount: () => { if (player.broom) toggleBroom(); },
+  });
   puffDrift = makeCloudPuffs(scene, mats.tex.cloud);
   lights = new LightPool(scene, HQ() ? 6 : 3);
   // Warm up terrain near the title camera and the start
@@ -156,10 +165,10 @@ async function load() {
   await tick();
   state = 'title';
   $('loading').hidden = true;
-  const save = store.get(SAVE_KEY);
-  $('beginBtn').textContent = save ? 'Tap to continue your journey' : 'Tap to begin';
+  const saved = store.get(SAVE_KEY);
+  $('beginBtn').textContent = saved ? 'Tap to continue your journey' : 'Tap to begin';
   $('beginBtn').hidden = false;
-  $('anewBtn').hidden = !save;
+  $('anewBtn').hidden = !saved;
 }
 
 function buildPlaces() {
@@ -214,6 +223,30 @@ function buildPlaces() {
   // Witchwood
   k = new Kit(mats);
   const pots = [[600, -60, 0.4], [720, 80, 2.2], [560, 120, -0.6], [700, -100, 1.5]].map(([x, z, r]) => S.witchHut(k, world, T, x, z, r));
+  { // broom rack
+    const x = 598, z = 46, y = T.heightAt(x, z);
+    for (const dx of [-1.4, 1.4]) k.cyl('wood', 0.07, 0.07, 1.8, 5, '#3a2a20', { x: x + dx, y: y + 0.9, z });
+    k.box('wood', 3.2, 0.12, 0.12, '#3a2a20', { x, y: y + 1.7, z });
+    for (let i = 0; i < 3; i++) {
+      k.cyl('wood', 0.03, 0.03, 1.9, 5, '#5a4030', { x: x - 0.8 + i * 0.8, y: y + 1.05, z: z + 0.1, rz: 0.12 });
+      k.cone('thatch', 0.2, 0.55, 7, '#a08858', { x: x - 0.8 + i * 0.8 - 0.05, y: y + 0.28, z: z + 0.1 });
+    }
+    world.circle(x, z, 1.6, y - 1, y + 2);
+    world.lights.push({ x, y: y + 2, z, color: 0xc890ff, intensity: 1, range: 10 });
+    k.sphere('glow', 0.12, '#c890ff', { x, y: y + 1.95, z, bright: 2.5 });
+  }
+  { // ferry dock on the south shore of the Mirror Lake
+    for (let i = 0; i < 7; i++) {
+      const x = 60 - i * 1.1, z = 300 - i * 2.4;
+      k.box('wood', 2.6, 0.18, 2.5, '#5a4432', { x, y: WATER_Y + 0.7, z, ry: 0.42 });
+      k.cyl('wood', 0.12, 0.12, 3, 5, '#3a2a20', { x: x + 1.2, y: WATER_Y - 0.4, z });
+    }
+    const by = T.heightAt(60, 298);
+    k.cyl('wood', 0.08, 0.08, 2.4, 5, '#3a2a20', { x: 61.6, y: by + 1.2, z: 298 });
+    k.cone('metal', 0.22, 0.35, 10, '#c8a860', { x: 61.6, y: by + 2.35, z: 298, open: true });
+    world.platform({ x: 56.5, z: 292, r: 7, top: () => WATER_Y + 0.8 });
+    world.noTrees(60, 295, 12);
+  }
   scene.add(k.build());
   // Graves, circle, tower, lighthouse
   k = new Kit(mats); S.graves(k, world, T, 430, 500); scene.add(k.build());
@@ -260,8 +293,17 @@ function buildPeople() {
   const staffLight = new THREE.PointLight(0x9fd0ff, 3, 12, 1.6);
   staffLight.position.set(0.52, 2.3, 0.3);
   pm.add(staffLight);
+  pm.rotation.order = 'YXZ';
+  const bk = new Kit(mats);
+  bk.cyl('wood', 0.035, 0.035, 2.4, 6, '#5a4030', { y: 0.75, z: 0.2, rx: Math.PI / 2 });
+  bk.cone('thatch', 0.26, 0.7, 8, '#a08858', { y: 0.75, z: -1.2, rx: -Math.PI / 2 });
+  bk.sphere('glow', 0.06, '#c890ff', { y: 0.75, z: 1.42, bright: 2.5 });
+  const broomModel = bk.build({ shadows: false });
+  broomModel.visible = false;
+  pm.add(broomModel);
   scene.add(pm);
   player = new Player(pm, world, terrain);
+  player.broomModel = broomModel;
   player.onStep = () => audio.step(player.swimming);
   player.onLand = () => audio.land();
   player.onLift = (label) => { audio.lift(); if (label) showWhisper(label, 2.5); };
@@ -361,6 +403,8 @@ function addInteractables(T, pot) {
     burst(pot.cx, pot.cy + 1.3, pot.cz, [[0.4, 2, 0.6], [1.2, 0.5, 2]], 70, 3, 1.2, 2.4);
     showWhisper('Blorp. The stew smells of mushrooms and something that might be a sock.');
   });
+  add(596, 44, 'Take a broom from the rack', () => giveBroom(true));
+  add(60, 298, 'Ring for the ferryman', () => { audio.ding(); acts.start('boat'); });
   add(-278, 537, 'Touch the humming stone', () => {
     audio.chime(); setTimeout(() => audio.chime(), 400);
     burst(-280, T.heightAt(-280, 540) + 3, 540, [[0.6, 0.9, 2.4]], 60, 5, 2);
@@ -378,6 +422,7 @@ function nearestThing() {
 }
 function useThing(t) { if (t.cool > 0) return; t.cool = 2.5; t.act(); }
 function doAction() {
+  if (acts.active) { acts.stop(); return; }
   const n = nearestTalker();
   if (n) { openTalk(n); return; }
   const t = nearestThing();
@@ -396,31 +441,63 @@ function nearestTalker() {
   return best;
 }
 function openTalk(n) {
-  talk = { npc: n, i: 0, shown: 0, t: 0 };
+  talk = { npc: n, queue: [...n.lines], line: '', shown: 0, t: 0, asked: false, after: null, choosing: false };
   n.talking = true;
   met.add(n.name);
   $('dlgName').textContent = n.name; $('dlgTitle').textContent = n.title;
   $('dialogue').hidden = false; $('prompt').hidden = true; $('tTalk').hidden = true;
-  $('dlgText').textContent = '';
+  $('dlgChoices').hidden = true;
   player.facing = Math.atan2(n.pos.x - player.pos.x, n.pos.z - player.pos.z);
+  nextLine();
+}
+function nextLine() {
+  if (talk.queue.length) { talk.line = talk.queue.shift(); talk.shown = 0; $('dlgText').textContent = ''; return; }
+  const ask = talk.npc.def.ask;
+  if (ask && !talk.asked) {
+    talk.asked = true; talk.line = ask.q; talk.shown = 0; talk.choosing = true;
+    const box = $('dlgChoices'); box.innerHTML = '';
+    ask.options.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.innerHTML = `<span class="num">${i + 1}</span>${o.text}`;
+      b.addEventListener('click', (e) => { e.stopPropagation(); choose(i); });
+      box.appendChild(b);
+    });
+    return;
+  }
+  const after = talk.after;
+  closeTalk();
+  if (after) doAfter(after);
+}
+function choose(i) {
+  if (!talk || !talk.choosing) return;
+  const o = talk.npc.def.ask.options[i]; if (!o) return;
+  talk.choosing = false; $('dlgChoices').hidden = true;
+  talk.queue = [o.reply]; talk.after = o.do || null;
+  audio.talk(1.2);
+  nextLine();
+}
+function doAfter(what) {
+  if (what === 'broom') giveBroom(false);
+  else if (what === 'stars') { stars.start(10); audio.chime(); setTimeout(() => audio.chime(), 500); }
+  else if (what === 'purr') { for (let i = 0; i < 6; i++) setTimeout(() => audio.thud(160, 0.18, 0.12), i * 260); }
+  else acts.start(what);
 }
 function advanceTalk() {
   if (!talk) return;
-  const line = talk.npc.lines[talk.i];
-  if (talk.shown < line.length) { talk.shown = line.length; $('dlgText').textContent = line; return; }
-  talk.i++; talk.shown = 0;
-  if (talk.i >= talk.npc.lines.length) closeTalk();
+  if (talk.shown < talk.line.length) { talk.shown = talk.line.length; $('dlgText').textContent = talk.line; if (talk.choosing) $('dlgChoices').hidden = false; return; }
+  if (talk.choosing) return;
+  nextLine();
 }
 function closeTalk() {
   if (!talk) return;
   talk.npc.talking = false;
   talk = null;
-  $('dialogue').hidden = true;
+  $('dialogue').hidden = true; $('dlgChoices').hidden = true;
   save();
 }
 function updateTalk(dt) {
   if (!talk) return;
-  const line = talk.npc.lines[talk.i];
+  const line = talk.line;
   if (talk.shown < line.length) {
     talk.t += dt;
     while (talk.t > 0.022 && talk.shown < line.length) {
@@ -428,16 +505,34 @@ function updateTalk(dt) {
       if (talk.shown % 3 === 0 && /\w/.test(line[talk.shown])) audio.talk(talk.npc.voice);
     }
     $('dlgText').textContent = line.slice(0, talk.shown);
+    if (talk.shown >= line.length && talk.choosing) $('dlgChoices').hidden = false;
   }
-  $('dlgMore').style.visibility = talk.shown >= line.length ? 'visible' : 'hidden';
+  $('dlgMore').style.visibility = talk.shown >= line.length && !talk.choosing ? 'visible' : 'hidden';
   if (Math.hypot(talk.npc.pos.x - player.pos.x, talk.npc.pos.z - player.pos.z) > 7) closeTalk();
+}
+function giveBroom(mount) {
+  if (!data.hasBroom) {
+    data.hasBroom = true;
+    showBanner('A broom of your own', isTouch ? 'Tap Broom to fly. Look where you want to go.' : 'Press B to fly. Look where you want to go; Space climbs, C dives, Shift goes fast.', 'You got');
+    audio.fanfare();
+    save();
+  }
+  if (isTouch) $('tBroom').hidden = false;
+  if (mount && !player.broom) toggleBroom();
+}
+function toggleBroom() {
+  if (!data.hasBroom || state !== 'play') return;
+  if (acts && acts.active && acts.cur.stopLabel !== 'Give up the race') return;
+  player.setBroom(!player.broom);
+  audio.whoosh(player.broom ? 0.2 : 0.1);
+  $('tBroom').classList.toggle('on', player.broom);
 }
 $('dialogue').addEventListener('click', advanceTalk);
 
 // ---------- Save ----------
 function save() {
   if (!player || state === 'title' || state === 'loading') return;
-  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met] });
+  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met], hasBroom: data.hasBroom, raceBest: data.raceBest });
 }
 setInterval(() => { if (state === 'play') save(); }, 20000);
 window.addEventListener('pagehide', save);
@@ -449,11 +544,12 @@ function begin(fresh) {
   const s = fresh ? null : store.get(SAVE_KEY);
   if (s) {
     found = new Set(s.found || []); met = new Set(s.met || []);
+    data.hasBroom = !!s.hasBroom; data.raceBest = s.raceBest || 0;
     player.place(s.pos[0], s.pos[2], s.facing || 0);
     player.pos.y = Math.max(player.pos.y, s.pos[1]);
     player.camYaw = s.camYaw ?? player.camYaw;
   } else {
-    found = new Set(); met = new Set();
+    found = new Set(); met = new Set(); data.hasBroom = false; data.raceBest = 0;
     player.place(-1.6, 347, Math.PI);
     player.camPitch = 0.12; player.camDist = 6;
   }
@@ -461,10 +557,11 @@ function begin(fresh) {
   $('title').hidden = true;
   $('hud').hidden = false;
   $('touch').hidden = !isTouch;
+  $('tBroom').hidden = !data.hasBroom;
   $('controlsText').textContent = isTouch
-    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone, or Use near something that glows or hums.'
-    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk to people or use things (a bell, a well, a bonfire, a cauldron, a humming stone). P hides the screen text for photos. Esc for this menu.';
-  if (!s) setTimeout(() => showBanner('Moonveil', 'Walk, glide and meet the folk who live here. Nothing here will hurt you.', 'Welcome to'), 600);
+    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone, or Use near something that glows or hums. Once you have a broom, tap Broom to fly: look where you want to go and hold Jump to climb.'
+    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk, answer with 1 or 2, and use things. B rides your broom once you have one (Space climbs, C dives, Shift is fast). P hides the screen text for photos. Esc for this menu.';
+  if (!s) setTimeout(() => showBanner('DF1', 'The realm of Moonveil. Walk, glide, fly and meet the folk who live here. Nothing here will hurt you.', 'Welcome to'), 600);
   captureMouse();
 }
 $('title').addEventListener('click', (e) => { if (e.target.id === 'anewBtn') return; if (state === 'title' && !$('beginBtn').hidden) begin(false); });
@@ -531,7 +628,9 @@ window.addEventListener('keydown', (e) => {
   if (state !== 'play') return;
   keys.add(k);
   if (k === 'Space') e.preventDefault();
+  if (talk && talk.choosing && (k === 'Digit1' || k === 'Digit2' || k === 'Digit3')) { choose(+k.slice(5) - 1); return; }
   if (talk && (k === 'KeyE' || k === 'Space' || k === 'Enter')) { advanceTalk(); return; }
+  if (k === 'KeyB') toggleBroom();
   if (k === 'KeyE') doAction();
   if (k === 'Escape') { if (talk) closeTalk(); else if (lockFailed) openMenu(); }
   if (k === 'KeyP') document.body.classList.toggle('photo');
@@ -569,6 +668,7 @@ if (isTouch) {
   jb.addEventListener('touchstart', (e) => { e.preventDefault(); touch.jump = true; jb.classList.add('on'); if (talk) advanceTalk(); }, { passive: false });
   jb.addEventListener('touchend', (e) => { e.preventDefault(); touch.jump = false; jb.classList.remove('on'); }, { passive: false });
   $('tTalk').addEventListener('touchstart', (e) => { e.preventDefault(); doAction(); }, { passive: false });
+  $('tBroom').addEventListener('touchstart', (e) => { e.preventDefault(); toggleBroom(); }, { passive: false });
 }
 
 // ---------- Environment by region ----------
@@ -581,6 +681,29 @@ function regionEnv(dt) {
   const snowT = z < -300 || y > 150 ? 1 : 0;
   env.snow += (snowT - env.snow) * Math.min(1, dt * 0.5);
   env.fireflies = z < -350 ? 0.2 : 1;
+}
+
+// ---------- Where are we? (for the soundscape) ----------
+const sm = (a, b, x) => { let t = (x - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
+const near = (p, x, z, r0, r1) => sm(r1, r0, Math.hypot(p.x - x, p.z - z));
+const titleZones = { village: 0, lake: 0, market: 0, fire: 0, witch: 0, graves: 0, circle: 0, castle: 0, snow: 0, high: 1, queen: 1, meadow: 0 };
+function zonesAt(p) {
+  const ground = terrain.heightAt(p.x, p.z);
+  const z = {
+    village: near(p, 0, 40, 150, 230),
+    lake: sm(1.6, 1.05, Math.hypot(p.x / 250, (p.z - 205) / 118)),
+    market: near(p, -640, 140, 90, 150),
+    fire: near(p, -640, 140, 12, 45),
+    witch: near(p, 640, 20, 250, 330),
+    graves: near(p, 430, 500, 80, 130),
+    circle: near(p, -280, 540, 25, 60),
+    castle: near(p, -380, -560, 70, 130) * sm(140, 170, p.y),
+    snow: Math.max(sm(-280, -420, p.z), sm(140, 190, p.y)),
+    high: Math.max(sm(30, 90, p.y - ground), sm(160, 260, p.y)),
+    queen: near(p, -1260, 1270, 90, 170),
+  };
+  z.meadow = Math.max(0, 1 - Math.max(z.village, z.market, z.witch, z.graves, z.snow, z.high, z.queen));
+  return z;
 }
 
 // ---------- Loop ----------
@@ -617,6 +740,7 @@ function frame(now) {
         inp.x = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
         inp.run = keys.has('ShiftLeft') || keys.has('ShiftRight');
         inp.jump = keys.has('Space');
+        inp.down = keys.has('KeyC') || keys.has('ControlLeft') || keys.has('ControlRight');
       }
     } else if (player) { player.input.x = player.input.z = 0; player.input.jump = false; }
     if (state === 'play' || state === 'menu') player.update(state === 'menu' ? 0 : dt);
@@ -629,12 +753,16 @@ function frame(now) {
       updateCompass();
       updateTalk(dt);
       for (const th of things) th.cool -= dt;
-      const n = talk ? null : nearestTalker();
-      const th = talk || n ? null : nearestThing();
-      $('prompt').hidden = !n && !th;
-      if (isTouch) { $('tTalk').hidden = !n && !th; $('tTalk').textContent = n ? 'Talk' : 'Use'; }
-      if (n) $('promptText').textContent = 'Talk to ' + n.name;
+      acts.update(dt, t);
+      const busy = acts.active;
+      const n = talk || busy ? null : nearestTalker();
+      const th = talk || n || busy ? null : nearestThing();
+      $('prompt').hidden = !n && !th && !busy;
+      if (isTouch) { $('tTalk').hidden = !n && !th && !busy; $('tTalk').textContent = busy ? 'Stop' : n ? 'Talk' : 'Use'; }
+      if (busy) $('promptText').textContent = acts.label;
+      else if (n) $('promptText').textContent = 'Talk to ' + n.name;
       else if (th) $('promptText').textContent = th.label;
+      if (player.broom && Math.random() < 0.7) particles.sparkle(player.pos.x + (Math.random() - 0.5) * 0.4 - Math.sin(player.facing) * 1.3, player.pos.y + 0.7, player.pos.z - Math.cos(player.facing) * 1.3, 0, -0.2, 0, [1.2, 0.6, 1.8], 1.0);
       // glide trail
       if (player.gliding && Math.random() < 0.6) particles.sparkle(player.pos.x + (Math.random() - 0.5), player.pos.y + 1.2, player.pos.z + (Math.random() - 0.5), 0, -0.3, 0, [0.5, 0.7, 1.6], 1.2);
     }
@@ -691,11 +819,11 @@ function frame(now) {
   if (isTouch && state !== 'loading' && state !== 'title') $('touch').hidden = state !== 'play' || !!talk;
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('show'); }
   if (whisperT > 0) { whisperT -= dt; if (whisperT <= 0) $('whisper').classList.remove('show'); }
-  if (state !== 'loading') audio.update(dt, { windStrength: player && player.pos.y > 120 ? 0.9 : 0.35, night: 1, underwater: false, cave: false });
+  if (state !== 'loading') audio.update(dt, { windStrength: player && player.pos.y > 120 ? 0.9 : 0.35, night: 1, underwater: false, cave: false, zones: state === 'title' ? titleZones : zonesAt(player.pos) });
   composer.render(dt);
   if (!firstFrameAt) firstFrameAt = now;
 }
 requestAnimationFrame(frame);
 load();
 
-window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing };
+window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; } };

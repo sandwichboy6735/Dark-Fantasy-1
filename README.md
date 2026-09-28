@@ -1,6 +1,6 @@
-# Moonveil
+# DF1
 
-A moonlit fantasy world you explore in your browser. It is a huge floating continent above a sea of glowing clouds, with castles drifting around it. Walk, glide, and meet the people who live there. Nothing will hurt you, there is no fighting, and there is no ending.
+A moonlit dark fantasy game you play in your browser. You explore Moonveil, a huge floating continent above a sea of glowing clouds, with castles drifting around it. Walk, glide, and meet the people who live there. Nothing will hurt you, there is no fighting, and there is no ending.
 
 ## Play
 
@@ -19,6 +19,9 @@ Your progress saves in the browser by itself. Tap to continue where you left off
 | Jump | `Space` | Jump |
 | Glide | Hold `Space` while falling | Hold Jump while falling |
 | Talk or use something | `E` next to someone or something | Talk / Use (appears when you're close) |
+| Answer a question | `1` or `2` (or click an answer) | Tap an answer |
+| Ride your broom | `B` (Space climbs, `C` dives, `Shift` is fast) | Broom (hold Jump to climb) |
+| Stop an activity | `E` | Stop |
 | Hide the screen text for photos | `P` | |
 | Menu | `Esc` | Moon button, top right |
 
@@ -42,6 +45,22 @@ The compass at the top points to the places you've found, and ◇ marks the ones
 
 There are 45 characters to talk to: goblins, witches, wizards, knights, villagers, children, ghosts, a cat, the Moon Queen and more. The menu counts the places you've found and the people you've met.
 
+### Join in
+
+Some people ask you questions. Pick an answer, and some answers let you join in:
+
+- **Borrow a broom:** say yes to Wren in the Witchwood, or take one from the broom rack. Then fly anywhere by looking where you want to go.
+- **Broom race:** Hazel, the race keeper in the Witchwood, starts a race through eight glowing rings above the trees. Your best time is saved.
+- **Bonfire dance:** Old Crumb invites you to dance round the fire with the goblins at the Goblin Market.
+- **Sing-along:** Pip the bard gathers the villagers of Emberlight for a song.
+- **Hide and seek:** Little Bo the ghost hides three times around Stillwater Graves. Listen for her giggles.
+- **Ferry ride:** ring the bell on the dock at the south shore of the Mirror Lake, and Charon rows you around the lake.
+- The Moon Queen, Grizzleby, Morwen and Soot the cat also have something to ask.
+
+### Sounds
+
+Each area sounds different: crickets and a music box in the village, lapping water and frogs by the lake, crackling fire and goblin chatter at the market, bubbling cauldrons in the Witchwood, sighing ghosts and wind chimes at the graves, a hum at the Moon Circle, torches and clanking armour at the castle, and howling wind up in the snowy mountains or high in the sky.
+
 ### Things to try
 
 A few things in the world react when you walk up and press `E` (or tap Use):
@@ -58,7 +77,7 @@ If you fall off the edge, the clouds catch you and carry you back.
 
 ```sh
 npm install
-npm run build      # writes docs/index.html (and dist/moonveil.html)
+npm run build      # writes docs/index.html (and dist/df1.html)
 npm run dev        # rebuild whenever something in src/ changes
 ```
 
@@ -70,8 +89,9 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/structures.js` | Castles, cottages, the market, witch huts, graves, towers, floating islands |
 | `src/flora.js` | Forests, glowing mushrooms and flowers |
 | `src/characters.js` | Character models and how they move |
-| `src/npcs.js` | Everyone in the world and what they say |
-| `src/player.js` | Walking, running, gliding, swimming, lifts, camera |
+| `src/npcs.js` | Everyone in the world, what they say, and what they ask |
+| `src/activities.js` | Joining in: bonfire dance, sing-along, broom race, hide and seek, ferry ride |
+| `src/player.js` | Walking, running, gliding, swimming, broom flying, lifts, camera |
 | `src/fx.js` | Sky, moon, cloud sea, lake, smoke, fireflies, snow, lighting |
 | `src/art.js`, `src/kit.js` | Painted textures, materials, and the shape-building kit |
-| `src/audio.js` | Sound created live: wind, choir, bells, owls, voices |
+| `src/audio.js` | Sound created live: area sounds, tunes, voices, bells |

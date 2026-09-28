@@ -20,6 +20,45 @@ export class Player {
     this.onStep = null; this.onLand = null; this.onFallIntoClouds = null; this.onLift = null;
     this.stepAcc = 0;
     this.wellCooldown = 0;
+    this.broom = false; this.broomModel = null;
+    this.frozen = false; this.dance = 0;
+  }
+
+  setBroom(on) {
+    this.broom = on;
+    if (this.broomModel) this.broomModel.visible = on;
+    this.vel.set(0, on ? 2 : 0, 0);
+    if (on) { this.grounded = false; this.pos.y += 0.6; }
+  }
+
+  updateBroom(dt) {
+    const p = this.pos, v = this.vel, inp = this.input, w = this.world;
+    const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
+    const fx = -Math.sin(this.camYaw) * cp, fy = -sp * 0.9, fz = -Math.cos(this.camYaw) * cp;
+    const rx = Math.cos(this.camYaw), rz = -Math.sin(this.camYaw);
+    const speed = inp.run ? 30 : 17;
+    let tx = (fx * inp.z + rx * inp.x) * speed, tz = (fz * inp.z + rz * inp.x) * speed;
+    let ty = fy * inp.z * speed + (inp.jump ? 9 : 0) - (inp.down ? 9 : 0);
+    const k = Math.min(1, dt * 3);
+    v.x += (tx - v.x) * k; v.y += (ty - v.y) * k; v.z += (tz - v.z) * k;
+    p.addScaledVector(v, dt);
+    w.collide(p, 0.5, 1.8);
+    const g = w.groundAt(p.x, p.z, p.y + 1);
+    if (p.y < g + 0.4) { p.y = g + 0.4; if (v.y < 0) v.y = 0; }
+    if (p.y > 900) p.y = 900;
+    if (p.y < -26) { if (this.onFallIntoClouds) this.onFallIntoClouds(); p.copy(this.lastSafe); p.y += 3; v.set(0, 0, 0); }
+    const hs = Math.hypot(v.x, v.z);
+    if (hs > 0.5) {
+      const target = Math.atan2(v.x, v.z);
+      let d = target - this.facing; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      this.facing += d * Math.min(1, dt * 6);
+    }
+    this.gliding = false; this.grounded = false;
+    const m = this.model;
+    this.phase += dt;
+    m.position.copy(p); m.position.y += Math.sin(this.phase * 2.2) * 0.12;
+    m.rotation.set(Math.max(-0.4, Math.min(0.4, -v.y * 0.02)) + Math.min(0.25, hs * 0.008), this.facing, Math.sin(this.phase * 1.3) * 0.06, 'YXZ');
+    m.scale.x += (1 - m.scale.x) * Math.min(1, dt * 6);
   }
 
   place(x, z, facing = 0) {
@@ -44,6 +83,8 @@ export class Player {
   update(dt) {
     const w = this.world, p = this.pos, v = this.vel, inp = this.input;
     this.wellCooldown -= dt;
+    if (this.frozen) { this.animate(dt, 0); return; }
+    if (this.broom && !this.lift) { this.updateBroom(dt); return; }
 
     if (this.lift) {
       const L = this.lift;
@@ -155,6 +196,12 @@ export class Player {
       m.rotation.x = 0.35; m.rotation.z = Math.sin(this.phase * 0.4) * 0.1;
     } else { m.rotation.x *= 0.9; m.rotation.z *= 0.9; }
     m.rotation.y = this.facing;
+    if (this.dance > 0) {
+      this.dance += dt;
+      m.position.y += Math.abs(Math.sin(this.dance * 5)) * 0.35;
+      m.rotation.y += Math.sin(this.dance * 2.5) * 0.9;
+      m.rotation.z = Math.sin(this.dance * 5) * 0.12;
+    }
     m.scale.x += ((this.gliding ? 1.6 : 1) - m.scale.x) * Math.min(1, dt * 6);
     if (this.swimming) m.position.y -= 0.1;
   }

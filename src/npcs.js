@@ -3,6 +3,9 @@ export const NPCS = [
   // ---- Wayfarer's Rest ----
   { type: 'witch', name: 'Morwen', title: 'Your travelling companion', x: 1.6, z: 346, beh: 'idle', face: Math.PI, voice: 1.25,
     o: { robe: '#2a2446', hat: '#1e1a30', hair: '#5a2e2a' },
+    ask: { q: 'Shall I tell you a secret?', options: [
+      { text: 'Yes, please!', reply: 'The witches in the Witchwood lend brooms to anyone polite. Ask young Wren, east of the village. Then the whole sky is yours.' },
+      { text: 'Maybe later.', reply: 'Suit yourself, wanderer. Secrets keep.' }] },
     lines: ['Beautiful, isn’t it? Emberlight never sleeps while the moon is up.',
       'Follow the lanterns down the road to the village. Beyond it are the Frostfang Mountains and Castle Vaelmoor.',
       'Hold Jump while you fall and your cloak will catch the air. Handy, in a realm that floats.',
@@ -14,6 +17,9 @@ export const NPCS = [
   { type: 'villager', name: 'Ferris', title: 'The Miller', x: 49, z: 105, beh: 'idle', face: 1.6, o: { robe: '#4a4a3a', hood: false, hair: '#6a4a30', apron: '#9a8a70' },
     lines: ['The wheel turns whether the lake likes it or not.', 'The lake? Ask Charon the ferryman. He’s been rowing since before it had water in it.'] },
   { type: 'villager', name: 'Pip', title: 'Bard of Emberlight', x: 5, z: 38, beh: 'wander', radius: 12, voice: 1.3, o: { robe: '#6a2a4a', hood: false, hat: '#3a2a5a', feather: '#e0c060', lute: true, hair: '#c08040' },
+    ask: { q: 'Will you sing along with me? Everyone in Emberlight joins in!', options: [
+      { text: 'Let\u2019s sing!', reply: 'Gather round, everyone! A-one, a-two...', do: 'song' },
+      { text: 'Not right now.', reply: 'Your loss. It\u2019s a very good song. About a monocle.' }] },
     lines: ['A song? I only know one. It’s about a goblin who lost his monocle.', '♪ Oh the moon is round and the night is long, and Grizzleby’s monocle’s gone, gone, gone ♪', 'The goblins in the Market say it isn’t lost. They say he sold it. To himself.'] },
   { type: 'villager', name: 'Sister Aldith', title: 'Keeper of the Chapel', x: 6, z: -22, beh: 'idle', face: 0, o: { robe: '#56566a', hoodColor: '#3a3a4a' },
     lines: ['Our bell rings for the Moon Queen. She has never once rung back.', 'They say she lives on the last floating island, past Starfall Point. The stones drift out to her.'] },
@@ -30,6 +36,9 @@ export const NPCS = [
   { type: 'villager', name: 'Egbert', title: 'Night Watchman', x: 40, z: 50, beh: 'path', path: [[40, 50], [120, 70], [215, 120], [235, 230], [150, 330], [235, 230], [215, 120], [120, 70]], speed: 1.3, o: { robe: '#3a3a4a', hat: '#2a2a2a', lantern: true, hood: false, hair: '#8a6a4a' },
     lines: ['Quiet night. Every night’s quiet. I’m not complaining.', 'Twenty years on watch and the worst I’ve seen is a goblin with a very loud hat.'] },
   { type: 'cat', name: 'Soot', title: 'The village cat', x: -18, z: 38, beh: 'wander', radius: 10, speed: 0.8, voice: 2,
+    ask: { q: '(Soot looks at you, then at your hand.)', options: [
+      { text: 'Pet the cat', reply: '(Soot purrs like a tiny thunderstorm.)', do: 'purr' },
+      { text: 'Leave the cat alone', reply: '(Soot seems offended that you did not try.)' }] },
     lines: ['Mrrp.', '(Soot stares at you as if you owe it money.)', '(Soot allows you to exist. For now.)'] },
   { type: 'wizard', name: 'Theodric', title: 'Scholar of the Moon', x: -40, z: 112, beh: 'idle', face: 0.4, voice: 0.8, o: { robe: '#4a3a2a', hat: '#3a2a1a', orb: '#ffd080' },
     lines: ['I came here to study the moon. Forty years later I’m still on the first page.', 'Did you know she never sets? She just drifts a little, like the islands.', 'Archmage Oriel’s tower is west of the Goblin Market. Ask him about the lifts of light.'] },
@@ -56,6 +65,9 @@ export const NPCS = [
 
   // ---- The Goblin Market ----
   { type: 'goblin', name: 'Grizzleby Quint', title: 'Purveyor of Fine Things', x: -640, z: 118, beh: 'idle', face: 0, voice: 0.75, o: { monocle: true, lantern: true, vest: '#8a1a24' },
+    ask: { q: 'Care to buy something? Everything is free today. Well, for you. Just today.', options: [
+      { text: 'What\u2019s the best thing you have?', reply: 'This lantern! It is not for sale. But you may LOOK at it. Marvellous, isn\u2019t it?' },
+      { text: 'Just looking.', reply: 'Looking is how all the best deals start.' }] },
     lines: ['Ahh, a customer! Welcome, welcome to the finest stall in the Goblin Market!',
       'Everything’s for sale. Well. Everything except the monocle. And the waistcoat. And the lantern.',
       'No coin? No matter. A smile is worth... well, not much, but I’ll take it.',
@@ -71,6 +83,9 @@ export const NPCS = [
   { type: 'goblin', name: 'Gobbet', title: 'The other Gobbo Twin', x: -606, z: 164, beh: 'wander', radius: 12, speed: 1.6, voice: 1.45, o: { vest: '#8a6a2a' },
     lines: ['We’re not twins. He’s just copying me.'] },
   { type: 'goblin', name: 'Old Crumb', title: 'Elder of the Market', x: -650, z: 150, beh: 'idle', face: Math.PI, voice: 0.6, o: { vest: '#3a3030', skin: '#5a6a3a', monocle: true },
+    ask: { q: 'Every night the goblins dance round the bonfire. Will you join us?', options: [
+      { text: 'Yes, let\u2019s dance!', reply: 'Hah! Everyone, round the fire! Mind your tails!', do: 'dance' },
+      { text: 'I\u2019ll just watch.', reply: 'Watching is allowed. Tapping your feet is encouraged.' }] },
     lines: ['This Market has been here since the first goblin found a hole and said: this will do.', 'Goblins aren’t greedy. We’re just very, very enthusiastic about things.'] },
   { type: 'goblin', name: 'Fidget', title: 'Market Runner', x: -620, z: 140, beh: 'wander', radius: 25, speed: 3, voice: 1.8, o: { vest: '#2a4a6a' },
     lines: ['Can’t stop! Delivering a lantern! To another goblin! Who sells lanterns!'] },
@@ -81,9 +96,17 @@ export const NPCS = [
   { type: 'witch', name: 'Brambleweed', title: 'Mushroom Whisperer', x: 715, z: 92, beh: 'wander', radius: 10, voice: 1.1, o: { robe: '#3a2a4a', hair: '#2a4a2a' },
     lines: ['The mushrooms glow because they’re happy. Or angry. It’s hard to tell with mushrooms.', 'Please don’t step on the big blue ones. They’re shy.'] },
   { type: 'witch', name: 'Wren', title: 'Apprentice Witch', x: 570, z: 128, beh: 'wander', radius: 8, voice: 1.5, o: { robe: '#4a2a3a', hair: '#c05a2a' },
+    ask: { q: 'Want to borrow my spare broom? It only bucks a little.', options: [
+      { text: 'Yes! I want to fly!', reply: 'Here you go! Press B (or tap Broom) to hop on and off. Look where you want to go, and hold Jump to climb.', do: 'broom' },
+      { text: 'No thanks, I like the ground.', reply: 'The ground is very reliable. I respect that.' }] },
     lines: ['I’m learning to fly my broom. So far I’ve learned to fall off it.', 'Elspeth and Agatha fly circles over the wood all night. Show-offs.'] },
   { type: 'witch', name: 'Elspeth', title: 'Night Flyer', x: 640, z: 20, y: 60, beh: 'fly', radius: 90, speed: 0.12, o: { broom: true, robe: '#2a2040' } },
   { type: 'witch', name: 'Agatha', title: 'Night Flyer', x: 660, z: 0, y: 75, beh: 'fly', radius: 140, speed: -0.08, phase: 2, o: { broom: true, robe: '#3a1a2a', hair: '#1a1a1a' } },
+  { type: 'witch', name: 'Hazel', title: 'Keeper of the Broom Race', x: 590, z: 34, beh: 'idle', face: 1.2, voice: 1.2, o: { robe: '#3a2a5a', hat: '#221a3a', hair: '#e0a040', broom: true },
+    ask: { q: 'The Night Flyers race through the glowing rings above the wood. Want to race?', options: [
+      { text: 'Yes, let\u2019s race!', reply: 'Hop on! Fly through the golden ring, then the next one lights up. Go, go, go!', do: 'race' },
+      { text: 'Not tonight.', reply: 'The rings will be here. They never get tired.' }] },
+    lines: ['Welcome, flyer! Or future flyer.', 'Elspeth holds the record. Agatha says Elspeth cheats. Elspeth says Agatha is slow.'] },
   { type: 'witch', name: 'Grimalda', title: 'Hermit of the Wood', x: 700, z: -100, beh: 'idle', face: -2.4, voice: 0.9, o: { robe: '#1e1a2a', hair: '#e0e0e0' },
     lines: ['Hmph. Visitors.', '...Well, since you’re here. The Moon Circle south of the lake hums when you stand in it. Go and listen.'] },
 
@@ -95,6 +118,9 @@ export const NPCS = [
   { type: 'ghost', name: 'Sir Percival the Late', title: 'Formerly of Vaelmoor', x: 445, z: 505, beh: 'float', radius: 4, voice: 0.8, o: { color: '#9ae0ff' },
     lines: ['I guarded Castle Vaelmoor for thirty years. Never once attacked.', 'Eventually I simply... drifted off. Tell Sir Gorm to take a walk now and then.'] },
   { type: 'ghost', name: 'Little Bo', title: 'Very good at hide and seek', x: 400, z: 480, beh: 'float', radius: 8, voice: 1.9, o: { color: '#c0f0ff' },
+    ask: { q: 'Want to play hide and seek? I\u2019ll hide three times!', options: [
+      { text: 'Ready or not!', reply: 'Close your eyes and count to three... hee hee!', do: 'seek' },
+      { text: 'Maybe later, Bo.', reply: 'Okay. I\u2019ll practise hiding. You\u2019ll never find me anyway.' }] },
     lines: ['Want to play hide and seek? I’m very good at it.', 'You’ll never find me. I’m the one that glows.'] },
 
   // ---- The Moon Circle ----
@@ -117,6 +143,9 @@ export const NPCS = [
 
   // ---- The Moon Queen's island ----
   { type: 'queen', name: 'Selene', title: 'The Moon Queen', x: -1260, z: 1290, beh: 'isle', face: 0.8, voice: 1.2,
+    ask: { q: 'Would you like the moon to sing for you?', options: [
+      { text: 'Yes, please.', reply: 'Then listen. And look up.', do: 'stars' },
+      { text: 'I\u2019m happy just to be here.', reply: 'So am I, little wizard. So am I.' }] },
     lines: ['You crossed the stepping stones. Few wanderers do.', 'I let the islands drift so that the realm never grows still.', 'There is no end to Moonveil, little wizard. Only more moonlight. Go wherever you like.'] },
   { type: 'knight', name: 'Sir Caelum', title: 'Moonguard', x: -1250, z: 1298, beh: 'isle', face: 0.8, voice: 0.9, o: { steel: '#c8ccec', tabard: '#8088c8', plume: '#e8f0ff', cape: '#4a4e8a', shield: '#6a70b0' },
     lines: ['The Queen welcomes all who make the crossing.', 'Mind the edge. It’s a long way down, and the clouds only look like pillows.'] },

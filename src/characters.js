@@ -227,6 +227,7 @@ export class NPC {
     this.phase += dt;
     let moving = false;
     const near = pd < 6 && Math.abs(player.pos.y - this.pos.y) < 4;
+    if (this.override) { this.override(dt, t); m.position.copy(this.pos); m.rotation.y = this.facing; return; }
 
     if (this.talking || (near && d.beh !== 'fly' && d.beh !== 'boat')) {
       this.turnTo(Math.atan2(dx, dz), dt * 4);

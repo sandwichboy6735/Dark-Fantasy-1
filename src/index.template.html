@@ -1,5 +1,5 @@
-<title>Moonveil</title>
-<meta name="description" content="A moonlit fantasy realm of floating castles, goblin markets and quiet folk. Wander, glide and talk. No fighting.">
+<title>DF1</title>
+<meta name="description" content="DF1: a moonlit dark fantasy realm of floating castles, goblin markets and quiet folk. Wander, glide and talk. No fighting.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra+Display&family=Almendra:ital,wght@0,400;0,700;1,400&display=swap">
@@ -11,11 +11,13 @@
   <div id="hud" hidden>
     <div id="compass" aria-hidden="true"><div id="compassStrip"></div><div class="compass-tick"></div></div>
     <div id="banner"><p id="bannerKicker">You have found</p><h2 id="bannerName"></h2><p id="bannerSub"></p></div>
+    <div id="activity" hidden></div>
     <div id="whisper"></div>
     <div id="prompt" hidden><span class="key" id="promptKey">E</span><span id="promptText"></span></div>
     <div id="dialogue" hidden>
       <p class="who"><span id="dlgName"></span><span id="dlgTitle"></span></p>
       <p id="dlgText"></p>
+      <div id="dlgChoices" hidden></div>
       <p class="more" id="dlgMore">&#9656;</p>
     </div>
     <button id="menuBtn" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3a8.5 8.5 0 1 0 5.5 15A9.5 9.5 0 0 1 15.5 3z"/></svg></button>
@@ -23,7 +25,7 @@
 
   <div id="menu" hidden>
     <div class="menu-inner">
-      <h2>Moonveil</h2>
+      <h2>DF1</h2>
       <button class="link" id="resumeBtn">Return to the realm</button>
       <div class="found">
         <p class="count" id="foundCount"></p>
@@ -38,8 +40,8 @@
 
   <div id="title">
     <div class="title-inner">
-      <h1>Moonveil</h1>
-      <p class="tagline">A realm of floating castles, warm windows and quiet folk</p>
+      <h1>DF1</h1>
+      <p class="tagline">The realm of Moonveil: floating castles, warm windows and quiet folk</p>
       <p class="loading" id="loading"><span id="loadText">The moon is rising</span><span class="bar"><span id="loadBar"></span></span></p>
       <button class="begin" id="beginBtn" hidden>Tap to begin</button>
       <button class="anew" id="anewBtn" hidden>Begin a new journey</button>
@@ -50,6 +52,7 @@
     <div id="stick"><div id="stickKnob"></div></div>
     <button id="tJump" aria-label="Jump, hold to glide">Jump</button>
     <button id="tTalk" aria-label="Talk" hidden>Talk</button>
+    <button id="tBroom" aria-label="Ride your broom" hidden>Broom</button>
   </div>
 </div>
 <script>/*SCRIPT*/</script>

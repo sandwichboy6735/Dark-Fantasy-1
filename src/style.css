@@ -20,7 +20,7 @@ button:focus-visible { outline: 2px solid var(--moon); outline-offset: 4px; }
 /* ---------- Title ---------- */
 #title { position: absolute; inset: 0; display: grid; place-items: end center; padding: 16px 16px calc(9vh + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to bottom, rgba(7, 7, 26, 0) 40%, rgba(7, 7, 26, 0.75) 100%); cursor: pointer; }
 .title-inner { display: grid; justify-items: center; gap: 14px; text-align: center; width: min(640px, 100%); }
-h1 { font-family: var(--display); font-weight: 400; margin: 0; font-size: clamp(3.4rem, 15vw, 7.5rem); line-height: 0.9; letter-spacing: 0.02em; color: #f2f0ff;
+h1 { font-family: var(--display); font-weight: 400; margin: 0; font-size: clamp(4.4rem, 22vw, 9.5rem); line-height: 0.9; letter-spacing: 0.02em; color: #f2f0ff;
   text-shadow: 0 0 24px rgba(160, 170, 255, 0.75), 0 0 80px rgba(110, 100, 255, 0.5), 0 3px 0 rgba(0, 0, 0, 0.6); }
 .tagline { margin: 0; font-style: italic; font-size: clamp(1rem, 3.6vw, 1.3rem); color: var(--ink-dim); text-shadow: 0 1px 8px #000; text-wrap: balance; }
 .loading { margin: 10px 0 0; display: grid; gap: 10px; justify-items: center; color: var(--ink-dim); font-style: italic; }
@@ -56,6 +56,12 @@ body.photo #hud, body.photo #touch { display: none !important; }
 #dlgName { font-family: var(--display); font-size: 1.6rem; color: var(--ember); text-shadow: 0 0 12px rgba(255, 180, 94, 0.45); }
 #dlgTitle { font-style: italic; color: var(--ink-dim); }
 #dlgText { margin: 0; font-size: 1.2rem; line-height: 1.5; min-height: 3em; max-width: 62ch; }
+#dlgChoices { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+#dlgChoices button { display: flex; align-items: center; gap: 10px; padding: 9px 16px 9px 10px; border: 1px solid rgba(255, 180, 94, 0.5); border-radius: 22px; background: rgba(40, 30, 70, 0.6); font-size: 1.05rem; color: var(--ink); }
+#dlgChoices button:hover { border-color: var(--ember); background: rgba(80, 50, 90, 0.7); }
+#dlgChoices .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ember); color: var(--ember); font-size: 0.8rem; }
+body.touch #dlgChoices .num { display: none; }
+#activity { position: absolute; top: calc(52px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 10px rgba(255, 180, 94, 0.5), 0 1px 4px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #dialogue .more { position: absolute; right: 20px; bottom: 10px; margin: 0; color: var(--moon); animation: pulse 1.6s infinite; }
 #menuBtn { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 14px; width: 42px; height: 42px; display: grid; place-items: center; pointer-events: auto; }
 #menuBtn svg { width: 26px; height: 26px; fill: var(--moon); filter: drop-shadow(0 0 6px rgba(160, 170, 255, 0.7)); }
@@ -78,10 +84,18 @@ body.photo #hud, body.photo #touch { display: none !important; }
 #touch { position: absolute; inset: 0; pointer-events: none; }
 #stick { position: absolute; left: 22px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); width: 130px; height: 130px; border-radius: 50%; border: 1px solid rgba(207, 212, 255, 0.25); background: radial-gradient(circle, rgba(207, 212, 255, 0.06), rgba(207, 212, 255, 0)); pointer-events: auto; }
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(207, 212, 255, 0.22); box-shadow: 0 0 14px rgba(160, 170, 255, 0.4); }
-#tJump, #tTalk { position: absolute; right: 22px; width: 78px; height: 78px; border-radius: 50%; border: 1px solid rgba(207, 212, 255, 0.35); background: radial-gradient(circle, rgba(60, 60, 140, 0.45), rgba(20, 20, 50, 0.3)); font-family: var(--display); font-size: 1.1rem; pointer-events: auto; text-shadow: 0 1px 4px #000; }
+#tJump, #tTalk, #tBroom { position: absolute; right: 22px; width: 78px; height: 78px; border-radius: 50%; border: 1px solid rgba(207, 212, 255, 0.35); background: radial-gradient(circle, rgba(60, 60, 140, 0.45), rgba(20, 20, 50, 0.3)); font-family: var(--display); font-size: 1.1rem; pointer-events: auto; text-shadow: 0 1px 4px #000; }
 #tJump { bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
 #tTalk { bottom: calc(122px + env(safe-area-inset-bottom, 0px)); border-color: var(--ember); color: var(--ember); }
+#tBroom { right: 112px; bottom: calc(30px + env(safe-area-inset-bottom, 0px)); border-color: #c890ff; color: #e0c8ff; }
+#tBroom.on { background: radial-gradient(circle, rgba(160, 100, 255, 0.6), rgba(40, 30, 90, 0.4)); }
 #tJump.on { background: radial-gradient(circle, rgba(120, 130, 255, 0.6), rgba(40, 40, 90, 0.4)); }
 body.touch #prompt .key { display: none; }
 
-@media (prefers-reduced-motion: reduce) { .begin, #dialogue .more { animation: none; } #banner, #whisper { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .begin, #dlgChoices { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+#dlgChoices button { display: flex; align-items: center; gap: 10px; padding: 9px 16px 9px 10px; border: 1px solid rgba(255, 180, 94, 0.5); border-radius: 22px; background: rgba(40, 30, 70, 0.6); font-size: 1.05rem; color: var(--ink); }
+#dlgChoices button:hover { border-color: var(--ember); background: rgba(80, 50, 90, 0.7); }
+#dlgChoices .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ember); color: var(--ember); font-size: 0.8rem; }
+body.touch #dlgChoices .num { display: none; }
+#activity { position: absolute; top: calc(52px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); font-size: 1.05rem; color: var(--ember); text-shadow: 0 0 10px rgba(255, 180, 94, 0.5), 0 1px 4px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#dialogue .more { animation: none; } #banner, #whisper { transition: none; } }
