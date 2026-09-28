@@ -69,7 +69,7 @@ export class Audio {
     this.muffle.frequency.setTargetAtTime(env.underwater ? 500 : 20000, t, 0.1);
     this.nextBell -= dt; this.nextCaw -= dt;
     if (this.nextBell < 0) { this.bell(); this.nextBell = 70 + Math.random() * 90; }
-    if (this.nextCaw < 0) { if (env.night < 0.8) this.caw(); this.nextCaw = 20 + Math.random() * 35; }
+    if (this.nextCaw < 0) { this.owl(); this.nextCaw = 25 + Math.random() * 40; }
   }
 
   env(dur, peak, attack = 0.005) {
@@ -90,16 +90,16 @@ export class Audio {
     }
   }
 
-  caw() {
+  owl() {
     if (!this.ctx) return;
     const p = this.pan(Math.random() * 1.6 - 0.8); p.connect(this.master); p.connect(this.reverb);
-    for (let k = 0; k < 2 + (Math.random() < 0.5 ? 1 : 0); k++) {
-      const t = this.ctx.currentTime + k * 0.38;
-      const o = this.ctx.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(720, t); o.frequency.exponentialRampToValueAtTime(420, t + 0.26);
-      const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1300; f.Q.value = 2;
-      const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.035, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-      o.connect(f).connect(g).connect(p); o.start(t); o.stop(t + 0.32);
+    const notes = [[0, 0.35], [0.5, 0.2], [0.75, 0.55]];
+    for (const [off, len] of notes) {
+      const t = this.ctx.currentTime + off;
+      const o = this.ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(410, t); o.frequency.linearRampToValueAtTime(370, t + len);
+      const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(g).connect(p); o.start(t); o.stop(t + len + 0.05);
     }
   }
 
@@ -133,16 +133,29 @@ export class Audio {
     const s = this.ctx.createGain(); s.gain.value = 0.25; g.connect(s).connect(this.reverb);
   }
 
-  materialFreq(id) {
-    // soft materials low, stone mid, glass/crystal bright
-    if ([1, 2, 5, 19, 20, 30, 35].includes(id)) return 700;
-    if ([7, 22, 24, 25, 26, 29, 31, 34].includes(id)) return 2400;
-    if ([13, 23, 11].includes(id)) return 5000;
-    if ([6, 8, 21, 36, 38].includes(id)) return 1100;
-    return 1600;
+  step(soft) { this.thud(soft ? 500 : 900, 0.08, 0.05); }
+  land() { this.thud(400, 0.25, 0.25); }
+
+  lift() {
+    if (!this.ctx) return;
+    const n = this.noise(2.2);
+    const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.5;
+    const t = this.ctx.currentTime;
+    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(2400, t + 1.6);
+    const g = this.env(2, 0.25, 0.3);
+    n.connect(f).connect(g); g.connect(this.master); g.connect(this.reverb);
+    this.chime();
   }
-  breakSound(id) { this.thud(this.materialFreq(id), 0.22, 0.35); if ([13, 23].includes(id)) this.chime(); }
-  placeSound(id) { this.thud(this.materialFreq(id) * 0.6, 0.12, 0.3); }
-  step(id) { this.thud(this.materialFreq(id) * 0.5, 0.09, 0.07); }
-  hit(id) { this.thud(this.materialFreq(id) * 0.8, 0.05, 0.08); }
+
+  // Little syllable blips for dialogue, pitched per character
+  talk(voice = 1) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(); o.type = 'triangle';
+    const base = 170 * voice * (0.85 + Math.random() * 0.3);
+    o.frequency.setValueAtTime(base, t); o.frequency.linearRampToValueAtTime(base * (0.9 + Math.random() * 0.3), t + 0.07);
+    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    o.connect(f).connect(g).connect(this.master); o.start(t); o.stop(t + 0.1);
+  }
 }

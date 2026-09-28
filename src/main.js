@@ -1,4 +1,4 @@
-// Ashenveil — game bootstrap, loop, input, HUD and persistence.
+// Moonveil — bootstrap, loading, title flyover, exploration loop, dialogue and saving.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -6,804 +6,629 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
-import { B, BLOCKS, CATALOG, RECIPES, SOLID } from './blocks.js';
-import { buildAtlas, makeIcons, tileUV, TILE_AVG } from './textures.js';
-import { World, SKY } from './world.js';
-import { BIOME, BIOME_NAMES, BIOME_SUBTITLES, SEA } from './worldgen.js';
-import { makeMaterials, makeSky, palette, timeName, GradeShader } from './render.js';
-import { Ambient } from './ambient.js';
+import { Terrain, TerrainMesh } from './terrain.js';
+import { World } from './world.js';
+import { makeMaterials } from './art.js';
+import { Kit } from './kit.js';
+import * as S from './structures.js';
+import { Flora, glowFlowers } from './flora.js';
+import { makeSky, makeCloudSea, makeLake, makeCloudPuffs, Particles, makeWellVisual, LightPool, moonDir } from './fx.js';
+import { buildCharacter, buildDragon, NPC } from './characters.js';
+import { NPCS } from './npcs.js';
 import { Player } from './player.js';
 import { Audio } from './audio.js';
-import { VERSES, WHISPERS } from './lore.js';
-import { hashString, hash3 } from './noise.js';
+import { PLACES, WATER_Y } from './layout.js';
 
 const $ = (id) => document.getElementById(id);
-const SAVE_KEY = 'ashenveil-save-v1';
-const SETTINGS_KEY = 'ashenveil-settings-v1';
-const DAY_LENGTH = 720; // seconds per full day
-const REACH = 6;
-
+const SAVE_KEY = 'moonveil-save-v1';
+const SET_KEY = 'moonveil-settings-v1';
 const store = {
   get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
 };
 
-// ---------- Renderer ----------
+const isTouch = matchMedia('(pointer: coarse)').matches && (navigator.maxTouchPoints || 0) > 0;
+const settings = Object.assign({ quality: isTouch ? 'fast' : 'beautiful', sound: true }, store.get(SET_KEY) || {});
+const HQ = () => settings.quality === 'beautiful';
+if (isTouch) document.body.classList.add('touch');
+
+// ---------- Renderer & scene ----------
 const canvas = $('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: HQ(), powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, HQ() ? 1.5 : 1));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.3;
+renderer.shadowMap.enabled = HQ();
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1200);
-camera.rotation.order = 'YXZ';
-scene.add(camera);
+const FOG = new THREE.Color(0x1d1b44);
+scene.fog = new THREE.FogExp2(FOG, 0.0012);
+scene.background = FOG;
+const camera = new THREE.PerspectiveCamera(60, 1, 0.3, 6000);
 
-const atlasCanvas = buildAtlas();
-const atlasTex = new THREE.CanvasTexture(atlasCanvas);
-atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter;
-atlasTex.generateMipmaps = false; atlasTex.flipY = false; atlasTex.colorSpace = THREE.SRGBColorSpace;
-const ICONS = makeIcons(atlasCanvas);
-const materials = makeMaterials(atlasTex);
-const U = materials.uniforms;
-U.uPlayer = { value: new THREE.Vector3() };
-// Personal hearthlight: a faint warm glow around the wanderer
-for (const m of [materials.opaque, materials.translucent]) {
-  m.fragmentShader = m.fragmentShader
-    .replace('uniform float uFogDensity', 'uniform vec3 uPlayer;\n    uniform float uFogDensity')
-    .replace('vec3 col = albedo * light * vLight.w;', 'float pd = length(vWorld - uPlayer); light += vec3(0.32, 0.2, 0.12) * pow(max(0.0, 1.0 - pd / 7.0), 2.0);\n      vec3 col = albedo * light * vLight.w;');
-  m.needsUpdate = true;
+// Moonlit image-based light: a violet sky with a bright moon
+{
+  const envScene = new THREE.Scene();
+  const envMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, uniforms: { uMoon: { value: moonDir } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'uniform vec3 uMoon; varying vec3 vD; void main(){ float h = vD.y; vec3 c = mix(vec3(0.05,0.045,0.09), vec3(0.16,0.15,0.4), smoothstep(-0.2,0.2,h)); c = mix(c, vec3(0.05,0.05,0.16), smoothstep(0.3,1.0,h)); c += vec3(1.2,1.25,2.2) * pow(max(dot(vD,uMoon),0.0), 60.0) * 3.0; gl_FragColor = vec4(c,1.0); }',
+  });
+  envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), envMat));
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(envScene, 0.02).texture;
+  scene.environmentIntensity = 0.9;
 }
-const sky = makeSky();
-scene.add(sky.mesh);
 
+const moonLight = new THREE.DirectionalLight(0xa8b0ff, 1.7);
+moonLight.position.copy(moonDir).multiplyScalar(200);
+moonLight.castShadow = HQ();
+moonLight.shadow.mapSize.set(2048, 2048);
+Object.assign(moonLight.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 10, far: 500 });
+moonLight.shadow.bias = -0.0006; moonLight.shadow.normalBias = 0.6;
+scene.add(moonLight, moonLight.target);
+scene.add(new THREE.HemisphereLight(0x6a68c4, 0x2c2a64, 1.55));
+
+const sky = makeSky();
+scene.add(sky.dome, sky.moon);
+const cloudSea = makeCloudSea();
+scene.add(cloudSea.mesh);
+const lake = makeLake();
+scene.add(lake.mesh);
+
+// Post-processing: bloom for moon and windows, then a painterly grade
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.8, 0.55, 0.82);
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.8, 0.6, 0.86);
 composer.addPass(bloom);
-const grade = new ShaderPass(GradeShader);
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uLetter: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uLetter; varying vec2 vUv;
+    float rnd(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uTime) * 43758.5453); }
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(c, vec3(0.3,0.59,0.11));
+      c += vec3(0.006, 0.004, 0.02) * (1.0 - smoothstep(0.0, 0.2, l));
+      c = mix(vec3(l), c, 1.08);
+      vec2 q = vUv - 0.5; c *= clamp(1.0 - dot(q,q) * 1.1, 0.0, 1.0);
+      c += (rnd(vUv * 700.0) - 0.5) * 0.018;
+      float bar = uLetter * 0.1; if (vUv.y < bar || vUv.y > 1.0 - bar) c = vec3(0.0);
+      gl_FragColor = vec4(max(c, 0.0), 1.0);
+    }`,
+});
 composer.addPass(grade);
 composer.addPass(new OutputPass());
 
-// Selection outline
-const outline = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
-  new THREE.LineBasicMaterial({ color: new THREE.Color(0.9, 0.85, 0.8), transparent: true, opacity: 0.45 }),
-);
-outline.visible = false;
-scene.add(outline);
-
-// Held block
-const heldMat = new THREE.MeshBasicMaterial({ map: atlasTex, alphaTest: 0.5, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
-const held = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), heldMat);
-held.renderOrder = 10;
-held.visible = false;
-camera.add(held);
-let heldId = -1, swing = 0;
-function setHeld(id) {
-  if (id === heldId) return;
-  heldId = id;
-  held.visible = !!id;
-  if (!id) return;
-  const b = BLOCKS[id];
-  held.geometry.dispose();
-  if (b.cross) {
-    const g = new THREE.PlaneGeometry(1, 1);
-    const uv = tileUV(b.tex.side), a = g.attributes.uv;
-    for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) ? uv[2] : uv[0], a.getY(i) ? uv[1] : uv[3]);
-    held.geometry = g;
-  } else {
-    const g = new THREE.BoxGeometry(1, 1, 1);
-    const a = g.attributes.uv;
-    const faces = ['side', 'side', 'top', 'bottom', 'side', 'side'];
-    for (let f = 0; f < 6; f++) {
-      const uv = tileUV(b.tex[faces[f]]);
-      for (let k = 0; k < 4; k++) {
-        const i = f * 4 + k;
-        a.setXY(i, uv[0] + a.getX(i) * (uv[2] - uv[0]), uv[3] - a.getY(i) * (uv[3] - uv[1]));
-      }
-    }
-    held.geometry = g;
-  }
-}
-
-// ---------- State ----------
-const player = new Player();
-const audio = new Audio();
-let world = null, ambient = null;
-let state = 'title';
-let mode = 'wanderer';
-let dayTime = 0.7, dayCount = 1;
-let seedText = '';
-let inventory = new Map();
-let hotbar = new Array(9).fill(0);
-let selected = 0;
-let versesFound = new Set();
-let photoMode = false;
-const isTouch = matchMedia('(pointer: coarse)').matches && (navigator.maxTouchPoints || 0) > 0;
-const settings = Object.assign({ dist: isTouch ? 4 : 6, fov: 75, sens: 1, vol: 70, bloom: true, grain: true }, store.get(SETTINGS_KEY) || {});
-
-const ARCHITECT_BAR = [B.GOTHIC_BRICK, B.MOSSY_BRICK, B.STAINED_GLASS, B.SOUL_LANTERN, B.CANDLES, B.DEADWOOD, B.BLOODLEAF, B.OBSIDIAN, B.VELVET];
-const STARTER_KIT = [[B.CANDLES, 6], [B.SOUL_LANTERN, 2], [B.PLANKS, 16]];
-
-function seedFrom(text) {
-  const t = (text || '').trim();
-  if (!t) return (Math.random() * 2 ** 31) | 0;
-  return /^-?\d+$/.test(t) ? (parseInt(t, 10) >>> 0) : hashString(t);
-}
-
-function createWorld(seed) {
-  if (world) world.dispose();
-  world = new World(seed, scene, materials);
-  world.renderDist = settings.dist;
-  if (!ambient) ambient = new Ambient(scene, world);
-  else { ambient.world = world; ambient.initialized = false; }
-  ambient.onWhisper = () => { audio.whisper(); showWhisper(WHISPERS[(Math.random() * WHISPERS.length) | 0]); };
-  const sp = world.gen.findSpawn();
-  world.spawn = sp;
-  return world;
-}
-
-// Title-screen world: continue the saved realm if there is one
-const save = store.get(SAVE_KEY);
-let titleIsSaved = !!save;
-createWorld(save ? save.seed : seedFrom(''));
-world.renderDist = Math.min(settings.dist, 5);
-if (save) { $('continueBtn').hidden = false; $('startBtn').textContent = 'Enter a new realm'; }
-
-// ---------- Resize ----------
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
   bloom.resolution.set(w / 2, h / 2);
   camera.aspect = w / h;
-  camera.fov = settings.fov;
+  camera.fov = w < h ? 72 : 60;
   camera.updateProjectionMatrix();
-  if (ambient) ambient.setScale(h * renderer.getPixelRatio(), settings.fov);
-  held.position.set(camera.aspect < 1 ? 0.42 : 0.62, -0.55, -1.0);
 }
 window.addEventListener('resize', resize);
 resize();
 
-// ---------- Inventory helpers ----------
-function countOf(id) { return mode === 'architect' ? Infinity : (inventory.get(id) || 0); }
-function addItem(id, n = 1) {
-  if (mode === 'architect' || !id) return;
-  inventory.set(id, (inventory.get(id) || 0) + n);
-  if (!hotbar.includes(id)) { const e = hotbar.indexOf(0); if (e >= 0) hotbar[e] = id; }
-  renderHotbar();
+// ---------- World state ----------
+const mats = makeMaterials();
+const terrain = new Terrain();
+const world = new World(terrain);
+let tmesh = null, flora = null, particles = null, puffDrift = null, player = null, dragon = null, lights = null;
+const npcs = [];
+const wellVisuals = [];
+const audio = new Audio();
+let state = 'loading';
+let found = new Set();
+let met = new Set();
+let firstFrameAt = 0;
+
+async function load() {
+  const bar = $('loadBar'), text = $('loadText');
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  let last = performance.now();
+  for (const p of terrain.generate()) {
+    bar.style.width = (p * 70) + '%';
+    if (performance.now() - last > 30) { await tick(); last = performance.now(); }
+  }
+  text.textContent = 'Raising the castles';
+  bar.style.width = '72%'; await tick();
+
+  tmesh = new TerrainMesh(terrain, scene, mats.terrain);
+  buildPlaces();
+  bar.style.width = '82%'; text.textContent = 'Planting the Witchwood'; await tick();
+  flora = new Flora(scene, mats, terrain, world, settings.quality === 'fast' ? 'low' : 'high');
+  glowFlowers(scene, terrain, world, mats.tex.soft);
+  bar.style.width = '90%'; text.textContent = 'Waking the villagers'; await tick();
+  buildPeople();
+  particles = new Particles(scene, mats.tex.soft, world, terrain);
+  puffDrift = makeCloudPuffs(scene, mats.tex.cloud);
+  lights = new LightPool(scene, HQ() ? 6 : 3);
+  // Warm up terrain near the title camera and the start
+  tmesh.update(-1260, 1450, 400);
+  tmesh.update(0, 340, 400);
+  bar.style.width = '100%';
+  await tick();
+  state = 'title';
+  $('loading').hidden = true;
+  const save = store.get(SAVE_KEY);
+  $('beginBtn').textContent = save ? 'Tap to continue your journey' : 'Tap to begin';
+  $('beginBtn').hidden = false;
+  $('anewBtn').hidden = !save;
 }
-function takeItem(id, n = 1) {
-  if (mode === 'architect') return true;
-  const c = inventory.get(id) || 0;
-  if (c < n) return false;
-  if (c - n <= 0) { inventory.delete(id); const s = hotbar.indexOf(id); if (s >= 0) hotbar[s] = 0; }
-  else inventory.set(id, c - n);
-  renderHotbar();
-  return true;
+
+function buildPlaces() {
+  const T = terrain;
+  // Village
+  let k = new Kit(mats);
+  const cottages = [[-90, 70, 0.3], [-58, 92, 0.1], [-112, 22, -0.2], [-72, -8, 0.5], [-30, 62, 0], [40, 70, -0.2], [92, 58, 0.4], [112, 14, -0.1], [70, -2, 0.2],
+    [32, -6, -0.4], [-24, 6, 0.2], [-130, -40, 0.6], [122, -40, -0.5], [60, -58, 0.1], [-52, -66, -0.3], [-8, 96, 0.05], [-150, 60, 0.3], [150, 40, -0.3]];
+  cottages.forEach(([x, z, r], i) => S.cottage(k, world, T, x, z, r, { w: 6 + (i % 3), d: 5 + (i % 2), h: i % 4 === 0 ? 5.2 : 3.4, slate: i % 5 === 0, plaster: ['#d6c8b0', '#c8c0b8', '#d8ccb8', '#bcb4b0'][i % 4] }));
+  S.cottage(k, world, T, 58, 97, 0.1, { w: 7, d: 6, h: 4.4 });
+  S.chapel(k, world, T, 0, -44, 0);
+  // well
+  const wy = T.heightAt(0, 30);
+  k.cyl('stone', 1.3, 1.4, 1.1, 12, '#958a80', { x: 0, y: wy + 0.4, z: 30 });
+  k.box('wood', 0.15, 2.4, 0.15, '#3a2a20', { x: -1.1, y: wy + 1.2, z: 30 }); k.box('wood', 0.15, 2.4, 0.15, '#3a2a20', { x: 1.1, y: wy + 1.2, z: 30 });
+  k.add('roof', new THREE.ConeGeometry(1.8, 1.2, 4), '#4a3a30', { x: 0, y: wy + 2.8, z: 30, ry: Math.PI / 4 });
+  world.circle(0, 30, 1.4, wy - 1, wy + 3);
+  for (const [x, z] of [[-10, 40], [12, 22], [-40, 30], [45, 30], [0, 80], [-80, 40], [80, 35], [20, -30]]) S.lanternPost(k, world, T, x, z);
+  S.overlook(k, world, T, 0, 336);
+  S.lanternPost(k, world, T, -6, 344);
+  scene.add(k.build());
+  S.waterWheel(scene, mats, world, 58.5, WATER_Y + 1.7, 104.5, 0.1);
+  // Roads
+  k = new Kit(mats); S.roadLanterns(k, world, T); scene.add(k.build({ shadows: false }));
+  // Castle Vaelmoor & gatehouse
+  k = new Kit(mats); S.bigCastle(k, world, T, -380, -560); S.gatehouse(k, world, T, -322, -470); scene.add(k.build());
+  // Goblin Market
+  k = new Kit(mats);
+  const cloths = ['#7a1a2a', '#3a2a6a', '#2a5a3a', '#8a5a1a', '#5a1a5a', '#1a4a5a', '#7a3a1a', '#4a4a7a'];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.2;
+    S.stall(k, world, T, -640 + Math.cos(a) * 24, 140 + Math.sin(a) * 24, Math.atan2(Math.cos(a), Math.sin(a)) + Math.PI, cloths[i]);
+  }
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + 0.5; S.goblinHut(k, world, T, -640 + Math.cos(a) * 52, 140 + Math.sin(a) * 52, Math.atan2(-Math.cos(a), -Math.sin(a))); }
+  const fy = T.heightAt(-640, 140);
+  for (let i = 0; i < 6; i++) { const a = i; k.cyl('wood', 0.2, 0.2, 2.4, 6, '#3a2a20', { x: -640 + Math.cos(a) * 0.9, y: fy + 0.4, z: 140 + Math.sin(a) * 0.9, rz: Math.cos(a) * 1.2, rx: Math.sin(a) * 1.2 }); }
+  k.cone('glow', 1.2, 2.4, 8, '#ff8a30', { x: -640, y: fy + 1.2, z: 140, bright: 2.6 });
+  k.cone('glow', 0.7, 1.8, 7, '#ffd070', { x: -640, y: fy + 1.4, z: 140, bright: 3 });
+  world.lights.push({ x: -640, y: fy + 2, z: 140, color: 0xff9040, intensity: 3, range: 40 });
+  world.circle(-640, 140, 1.4, fy - 2, fy + 3);
+  // string lights between stalls
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.2, b = ((i + 1) / 8) * Math.PI * 2 + 0.2;
+    const x1 = -640 + Math.cos(a) * 22, z1 = 140 + Math.sin(a) * 22, x2 = -640 + Math.cos(b) * 22, z2 = 140 + Math.sin(b) * 22;
+    for (let j = 1; j < 8; j++) {
+      const t = j / 8, x = x1 + (x2 - x1) * t, z = z1 + (z2 - z1) * t;
+      k.sphere('glow', 0.09, ['#ffb45e', '#ff7a5a', '#c890ff', '#7ad0ff'][j % 4], { x, y: T.heightAt(x, z) + 4.2 - Math.sin(t * Math.PI) * 1.2, z, bright: 1.5, ws: 5, hs: 4 });
+    }
+  }
+  world.noTrees(-640, 140, 70);
+  scene.add(k.build());
+  // Witchwood
+  k = new Kit(mats);
+  const pots = [[600, -60, 0.4], [720, 80, 2.2], [560, 120, -0.6], [700, -100, 1.5]].map(([x, z, r]) => S.witchHut(k, world, T, x, z, r));
+  scene.add(k.build());
+  // Graves, circle, tower, lighthouse
+  k = new Kit(mats); S.graves(k, world, T, 430, 500); scene.add(k.build());
+  k = new Kit(mats); S.moonCircle(scene, k, world, T, -280, 540, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 1.8, 4) })); scene.add(k.build());
+  k = new Kit(mats); const towerTop = S.wizardTower(scene, k, world, T, -760, -260, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.8, 0.55, 1.9) })); scene.add(k.build());
+  k = new Kit(mats); S.lighthouse(scene, k, world, T, 120, 1190); scene.add(k.build());
+  // Floating isles & stepping stones
+  S.floatingIsles(scene, mats, world);
+  // Launch updraft at Starfall Point
+  { const ly = T.heightAt(-884, 884); world.wells.push({ x: -884, z: 884, r: 2.2, y: () => ly, boost: 24 }); }
+  // Lifts
+  for (const l of S.liftTargets(world, T, towerTop)) world.wells.push(l);
+  const makeWell = makeWellVisual(scene);
+  for (const w of world.wells) {
+    const v = makeWell(w.x, w.y(), w.z, w.to ? 18 : 12);
+    wellVisuals.push({ w, v });
+  }
+  world.bubbles = pots;
+}
+
+function buildPeople() {
+  for (const def of NPCS) {
+    const model = buildCharacter(mats, def.type, def.o || {});
+    if (def.beh === 'boat') {
+      const bk = new Kit(mats);
+      bk.box('wood', 1.4, 0.5, 4.2, '#4a3526', { y: -0.1 });
+      bk.cone('wood', 0.7, 1.2, 4, '#4a3526', { y: -0.1, z: 2.6, rx: Math.PI / 2, ry: Math.PI / 4, sz: 0.5 });
+      bk.cyl('wood', 0.04, 0.04, 3.2, 5, '#3a2a20', { x: 0.5, y: 1.2, z: 1.2, rx: 0.5 });
+      bk.box('glow', 0.2, 0.28, 0.2, '#ffb060', { x: 0.5, y: 2.5, z: 2.1, bright: 3 });
+      model.add(bk.build());
+    }
+    scene.add(model);
+    const npc = new NPC(def, model, world);
+    npcs.push(npc);
+    if (def.beh !== 'fly' && def.beh !== 'boat') world.talkers.push(npc);
+  }
+  // The dragon Vessryn circles the Moonspire
+  dragon = buildDragon(mats);
+  dragon.g.scale.setScalar(2.2);
+  scene.add(dragon.g);
+  // The player
+  const pm = buildCharacter(mats, 'wizard', { robe: '#2b3372', cloak: '#1f2658', hat: '#1e2456', beard: false, orb: '#a8dcff', skin: '#e6c2a4' });
+  const staffLight = new THREE.PointLight(0x9fd0ff, 3, 12, 1.6);
+  staffLight.position.set(0.52, 2.3, 0.3);
+  pm.add(staffLight);
+  scene.add(pm);
+  player = new Player(pm, world, terrain);
+  player.onStep = () => audio.step(player.swimming);
+  player.onLand = () => audio.land();
+  player.onLift = (label) => { audio.lift(); if (label) showWhisper(label, 2.5); };
+  player.onFallIntoClouds = () => showWhisper('The clouds catch you, and carry you back to solid ground.');
 }
 
 // ---------- HUD ----------
-let itemNameTimer = 0;
-function renderHotbar() {
-  const bar = $('hotbar');
-  bar.innerHTML = '';
-  hotbar.forEach((id, i) => {
-    const b = document.createElement('button');
-    b.className = 'slot' + (i === selected ? ' on' : '');
-    b.setAttribute('aria-label', id ? BLOCKS[id].name : 'Empty slot');
-    b.innerHTML = `<span class="key">${i + 1}</span>` + (id ? `<img src="${ICONS[id]}" alt="">` : '') + (id && mode === 'wanderer' ? `<span class="count">${countOf(id)}</span>` : '');
-    b.addEventListener('click', (e) => { e.stopPropagation(); select(i); });
-    bar.appendChild(b);
-  });
-  setHeld(hotbar[selected]);
+let bannerT = 0, whisperT = 0;
+function showBanner(name, sub, kicker = 'You have found') {
+  $('bannerKicker').textContent = kicker; $('bannerName').textContent = name; $('bannerSub').textContent = sub;
+  $('banner').classList.add('show'); bannerT = 5.5;
 }
-function select(i) {
-  selected = (i + 9) % 9;
-  renderHotbar();
-  const id = hotbar[selected];
-  const el = $('itemName');
-  el.textContent = id ? BLOCKS[id].name : '';
-  el.classList.toggle('show', !!id);
-  itemNameTimer = 2;
+function showWhisper(text, dur = 4.5) { $('whisper').textContent = text; $('whisper').classList.add('show'); whisperT = dur; }
+
+const compassItems = [];
+{
+  const strip = $('compassStrip');
+  for (const [label, ang] of [['N', Math.PI], ['E', Math.PI / 2], ['S', 0], ['W', -Math.PI / 2]]) {
+    const s = document.createElement('span'); s.className = 'dir'; s.textContent = label; strip.appendChild(s);
+    compassItems.push({ el: s, angle: ang });
+  }
+  for (const p of PLACES) {
+    const s = document.createElement('span'); s.className = 'place unknown'; s.textContent = '◆'; strip.appendChild(s);
+    compassItems.push({ el: s, place: p });
+  }
+}
+function updateCompass() {
+  const w = $('compass').clientWidth;
+  const view = player.camYaw + Math.PI; // direction the camera looks
+  for (const it of compassItems) {
+    let a = it.angle;
+    if (it.place) {
+      const d = Math.hypot(it.place.x - player.pos.x, it.place.z - player.pos.z);
+      if (d < it.place.r) { it.el.style.display = 'none'; continue; }
+      a = Math.atan2(it.place.x - player.pos.x, it.place.z - player.pos.z);
+      const known = found.has(it.place.id);
+      it.el.classList.toggle('unknown', !known);
+      it.el.textContent = known ? '◆ ' + it.place.name : '◇';
+      it.el.style.fontSize = '';
+    }
+    let diff = a - view;
+    while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2;
+    const x = w / 2 - diff / (Math.PI / 2) * (w / 2);
+    it.el.style.display = Math.abs(diff) < Math.PI / 1.6 ? '' : 'none';
+    it.el.style.left = x + 'px';
+  }
 }
 
-let areaTimer = 0, whisperTimer = 0;
-function showArea(name, sub) {
-  $('areaName').textContent = name; $('areaSub').textContent = sub;
-  $('area').classList.add('show');
-  areaTimer = 5;
-}
-function showWhisper(text) {
-  $('whisper').textContent = text;
-  $('whisper').classList.add('show');
-  whisperTimer = 6;
-}
-
-const STRUCT_NAMES = {
-  chapel: ['The Roofless Chapel', 'Its god left. Its candles did not.'],
-  shrine: ['A Wayside Shrine', 'Someone still lights these. Nobody has seen who.'],
-  graveyard: ['The Quiet Acre', 'Every stone has a name worn smooth by rain'],
-  obelisk: ['Moon Obelisk', 'It points at her. It is waiting.'],
-  ribcage: ['Remains of the Colossus', 'It lay down to sleep a thousand years ago'],
-};
-let lastBiome = -1, biomeStable = 0, pendingBiome = -1, lastStruct = '';
-function checkArea() {
-  const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
-  const R = 80;
-  const rx = Math.floor(px / R), rz = Math.floor(pz / R);
-  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
-    const s = world.gen.structureIn(rx + dx, rz + dz);
-    if (!s) continue;
-    const key = `${s.x},${s.z}`;
-    if (Math.hypot(s.x - px, s.z - pz) < 14 && key !== lastStruct) {
-      lastStruct = key;
-      const [n, sub] = STRUCT_NAMES[s.type];
-      showArea(n, sub);
-      audio.bell();
+function checkPlaces() {
+  for (const p of PLACES) {
+    if (found.has(p.id)) continue;
+    const dx = p.x - player.pos.x, dz = p.z - player.pos.z;
+    if (dx * dx + dz * dz < p.r * p.r) {
+      found.add(p.id);
+      showBanner(p.name, p.sub);
+      audio.chime();
+      save();
       return;
     }
   }
-  const b = world.gen.biomeAt(px, pz);
-  if (b !== pendingBiome) { pendingBiome = b; biomeStable = 0; }
-  else if (++biomeStable === 3 && b !== lastBiome) {
-    lastBiome = b;
-    showArea(BIOME_NAMES[b], BIOME_SUBTITLES[b]);
-  }
 }
 
-// ---------- Inventory panel ----------
-function openInventory() {
-  if (state !== 'playing') return;
-  state = 'inventory';
-  releaseLook();
-  $('inventory').hidden = false;
-  renderInventory();
-}
-function closePanels() {
-  $('inventory').hidden = true; $('lore').hidden = true; $('pause').hidden = true;
-  state = 'playing';
-  captureLook();
-}
-function renderInventory() {
-  const arch = mode === 'architect';
-  $('invTitle').textContent = arch ? 'The Architect’s Codex' : 'Satchel';
-  $('invHelp').textContent = arch ? 'Every block of the realm, without limit. Pick one for the selected hotbar slot.' : 'Pick a block to put it in the selected hotbar slot. Craft with what you carry.';
-  $('gridLabel').textContent = arch ? 'All blocks' : 'Carried';
-  $('craftSection').hidden = arch;
-  document.querySelector('.inv-body').classList.toggle('crafting', !arch);
-  const grid = $('invGrid');
-  grid.innerHTML = '';
-  const ids = arch ? CATALOG : [...inventory.keys()].sort((a, b) => a - b);
-  if (!ids.length) grid.innerHTML = '<p class="empty-note">Your satchel is empty. Break blocks in the world to gather them.</p>';
-  for (const id of ids) {
-    const c = document.createElement('button');
-    c.className = 'cell';
-    c.setAttribute('aria-label', BLOCKS[id].name);
-    c.innerHTML = `<img src="${ICONS[id]}" alt="">` + (arch ? '' : `<span class="count">${inventory.get(id)}</span>`);
-    c.addEventListener('click', () => { const old = hotbar.indexOf(id); if (old >= 0) hotbar[old] = hotbar[selected]; hotbar[selected] = id; select(selected); renderInventory(); });
-    c.addEventListener('pointerenter', () => tooltip(id));
-    c.addEventListener('focus', () => tooltip(id));
-    grid.appendChild(c);
+// ---------- Dialogue ----------
+let talk = null; // { npc, i, shown, full, t }
+function nearestTalker() {
+  let best = null, bd = 3.8;
+  for (const n of npcs) {
+    if (!n.talkable || !n.model.visible) continue;
+    const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z);
+    if (d < bd && Math.abs(n.pos.y - player.pos.y) < 2.6) { bd = d; best = n; }
   }
-  if (!arch) {
-    const list = $('recipes');
-    list.innerHTML = '';
-    for (const r of RECIPES) {
-      const can = r.in.every(([id, n]) => (inventory.get(id) || 0) >= n);
-      const btn = document.createElement('button');
-      btn.className = 'recipe'; btn.disabled = !can;
-      btn.innerHTML = `<span class="ing">${r.in.map(([id, n]) => `<span class="n">${n}</span><img src="${ICONS[id]}" alt="${BLOCKS[id].name}">`).join('')}</span><span class="arrow">→</span><span class="ing"><span class="n">${r.out[1]}</span><img src="${ICONS[r.out[0]]}" alt=""></span><span class="out-name">${BLOCKS[r.out[0]].name}</span>`;
-      btn.addEventListener('click', () => {
-        if (!r.in.every(([id, n]) => (inventory.get(id) || 0) >= n)) return;
-        for (const [id, n] of r.in) takeItem(id, n);
-        addItem(r.out[0], r.out[1]);
-        audio.chime();
-        renderInventory();
-      });
-      btn.addEventListener('pointerenter', () => tooltip(r.out[0]));
-      list.appendChild(btn);
+  return best;
+}
+function openTalk(n) {
+  talk = { npc: n, i: 0, shown: 0, t: 0 };
+  n.talking = true;
+  met.add(n.name);
+  $('dlgName').textContent = n.name; $('dlgTitle').textContent = n.title;
+  $('dialogue').hidden = false; $('prompt').hidden = true; $('tTalk').hidden = true;
+  $('dlgText').textContent = '';
+  player.facing = Math.atan2(n.pos.x - player.pos.x, n.pos.z - player.pos.z);
+}
+function advanceTalk() {
+  if (!talk) return;
+  const line = talk.npc.lines[talk.i];
+  if (talk.shown < line.length) { talk.shown = line.length; $('dlgText').textContent = line; return; }
+  talk.i++; talk.shown = 0;
+  if (talk.i >= talk.npc.lines.length) closeTalk();
+}
+function closeTalk() {
+  if (!talk) return;
+  talk.npc.talking = false;
+  talk = null;
+  $('dialogue').hidden = true;
+  save();
+}
+function updateTalk(dt) {
+  if (!talk) return;
+  const line = talk.npc.lines[talk.i];
+  if (talk.shown < line.length) {
+    talk.t += dt;
+    while (talk.t > 0.022 && talk.shown < line.length) {
+      talk.t -= 0.022; talk.shown++;
+      if (talk.shown % 3 === 0 && /\w/.test(line[talk.shown])) audio.talk(talk.npc.voice);
     }
+    $('dlgText').textContent = line.slice(0, talk.shown);
   }
+  $('dlgMore').style.visibility = talk.shown >= line.length ? 'visible' : 'hidden';
+  if (Math.hypot(talk.npc.pos.x - player.pos.x, talk.npc.pos.z - player.pos.z) > 7) closeTalk();
 }
-function tooltip(id) { $('ttName').textContent = BLOCKS[id].name; $('ttDesc').textContent = BLOCKS[id].desc || ''; }
+$('dialogue').addEventListener('click', advanceTalk);
 
-function openLore(x, y, z) {
-  const i = Math.floor(hash3(x, y, z, world.seed) * VERSES.length);
-  versesFound.add(i);
-  const [t, text] = VERSES[i];
-  $('loreTitle').textContent = t;
-  $('loreText').textContent = text;
-  document.querySelector('#lore .eyebrow').textContent = `Carved in the rune stone · verse ${versesFound.size} of ${VERSES.length} found`;
-  state = 'lore';
-  releaseLook();
-  $('lore').hidden = false;
-  audio.whisper();
+// ---------- Save ----------
+function save() {
+  if (!player || state === 'title' || state === 'loading') return;
+  store.set(SAVE_KEY, { v: 1, pos: [player.pos.x, player.pos.y, player.pos.z], facing: player.facing, camYaw: player.camYaw, found: [...found], met: [...met] });
 }
+setInterval(() => { if (state === 'play') save(); }, 20000);
+window.addEventListener('pagehide', save);
 
-// ---------- Save / load ----------
-function saveGame() {
-  if (!world || state === 'title' || state === 'loading') return false;
-  const ok = store.set(SAVE_KEY, {
-    v: 1, seed: world.seed, seedText, mode, dayTime, dayCount,
-    pos: [player.pos.x, player.pos.y, player.pos.z], yaw: player.yaw, pitch: player.pitch, flying: player.flying,
-    inventory: [...inventory], hotbar, verses: [...versesFound], edits: world.serializeEdits(),
-  });
-  return ok;
-}
-setInterval(() => { if (state === 'playing') saveGame(); }, 30000);
-window.addEventListener('beforeunload', () => saveGame());
-window.addEventListener('pagehide', () => saveGame());
-
-function beginGame(fromSave) {
-  audio.start(); audio.setVolume(settings.vol / 100);
-  const s = fromSave ? store.get(SAVE_KEY) : null;
+// ---------- Start ----------
+function begin(fresh) {
+  if (state !== 'title') return;
+  if (settings.sound) { audio.start(); audio.setVolume(0.8); }
+  const s = fresh ? null : store.get(SAVE_KEY);
   if (s) {
-    if (s.seed !== world.seed) createWorld(s.seed);
-    world.loadEdits(s.edits || {});
-    // Reapply edits to any chunk the title screen already built
-    for (const c of [...world.chunks.values()]) world.unload(c);
-    mode = s.mode; dayTime = s.dayTime; dayCount = s.dayCount || 1; seedText = s.seedText || '';
-    inventory = new Map(s.inventory || []); hotbar = s.hotbar || new Array(9).fill(0);
-    versesFound = new Set(s.verses || []);
-    player.pos.set(s.pos[0], s.pos[1], s.pos[2]); player.yaw = s.yaw; player.pitch = s.pitch;
-    player.flying = !!s.flying && s.mode === 'architect';
+    found = new Set(s.found || []); met = new Set(s.met || []);
+    player.place(s.pos[0], s.pos[2], s.facing || 0);
+    player.pos.y = Math.max(player.pos.y, s.pos[1]);
+    player.camYaw = s.camYaw ?? player.camYaw;
   } else {
-    const text = $('seedInput').value.trim();
-    seedText = text;
-    const seed = text ? seedFrom(text) : (titleIsSaved ? seedFrom('') : world.seed);
-    if (seed !== world.seed || world.edits.size) createWorld(seed);
-    world.edits.clear();
-    mode = document.querySelector('.mode.on').dataset.mode;
-    dayTime = 0.7; dayCount = 1; versesFound = new Set();
-    inventory = new Map(); hotbar = new Array(9).fill(0);
-    if (mode === 'architect') hotbar = [...ARCHITECT_BAR];
-    else for (const [id, n] of STARTER_KIT) addItem(id, n);
-    const sp = world.spawn;
-    player.pos.set(sp.x, sp.y + 1, sp.z); player.yaw = Math.PI * 0.25; player.pitch = -0.05; player.flying = false;
-    store.set(SAVE_KEY, null);
+    found = new Set(); met = new Set();
+    player.place(-1.6, 347, Math.PI);
+    player.camPitch = 0.12; player.camDist = 6;
   }
-  player.canFly = mode === 'architect';
-  player.autoJump = isTouch;
-  player.vel.set(0, 0, 0);
-  world.renderDist = settings.dist;
-  $('tFly').hidden = mode !== 'architect';
-  $('modeTag').textContent = mode === 'architect' ? 'Architect' : 'Wanderer';
-  lastBiome = -1; lastStruct = '';
-  state = 'loading';
-  $('loading').hidden = false;
-  document.querySelectorAll('#title button').forEach((b) => { b.disabled = true; });
-  renderHotbar();
-}
-
-function finishLoading() {
-  // Make sure we are not stuck inside terrain
-  let guard = 0;
-  while (player.collides(world, player.pos.x, player.pos.y, player.pos.z) && guard++ < 80) player.pos.y += 1;
-  state = 'playing';
-  $('title').hidden = true; $('loading').hidden = true;
-  $('hud').hidden = false; $('hud').classList.add('fresh');
-  setTimeout(() => $('hud').classList.remove('fresh'), 20000);
+  state = 'play';
+  $('title').hidden = true;
+  $('hud').hidden = false;
   $('touch').hidden = !isTouch;
-  document.querySelectorAll('#title button').forEach((b) => { b.disabled = false; });
-  showArea('Ashenveil', 'Wander. Gather. Build. There is no ending here, only further.');
-  lastBiome = world.gen.biomeAt(Math.floor(player.pos.x), Math.floor(player.pos.z));
-  setTimeout(() => { if (areaTimer <= 0) showArea(BIOME_NAMES[lastBiome], BIOME_SUBTITLES[lastBiome]); }, 6500);
-  captureLook();
-  saveGame();
+  $('controlsText').textContent = isTouch
+    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone.'
+    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk. P hides the screen text for photos. Esc for this menu.';
+  if (!s) setTimeout(() => showBanner('Moonveil', 'Walk, glide and meet the folk who live here. Nothing here will hurt you.', 'Welcome to'), 600);
+  captureMouse();
 }
+$('title').addEventListener('click', (e) => { if (e.target.id === 'anewBtn') return; if (state === 'title' && !$('beginBtn').hidden) begin(false); });
+$('anewBtn').addEventListener('click', (e) => { e.stopPropagation(); begin(true); });
 
-function quitToTitle() {
-  saveGame();
-  releaseLook();
-  state = 'title';
-  $('pause').hidden = true; $('hud').hidden = true; $('touch').hidden = true;
-  $('title').hidden = false; $('continueBtn').hidden = false; titleIsSaved = true;
-  world.renderDist = Math.min(settings.dist, 5);
-  document.body.classList.remove('photo'); photoMode = false;
+// ---------- Menu ----------
+function openMenu() {
+  if (state !== 'play') return;
+  closeTalk();
+  state = 'menu';
+  releaseMouse();
+  $('menu').hidden = false;
+  $('foundCount').textContent = `Places found: ${found.size} of ${PLACES.length}`;
+  $('foundList').innerHTML = PLACES.map((p) => `<li class="${found.has(p.id) ? '' : 'no'}">${found.has(p.id) ? p.name : '???'}</li>`).join('');
+  $('metCount').textContent = `Folk met: ${met.size} of ${npcs.filter((n) => n.talkable).length}`;
+  $('soundBtn').textContent = 'Sound: ' + (settings.sound ? 'on' : 'off');
+  $('qualityBtn').textContent = 'Graphics: ' + settings.quality + (settings.quality !== store.get(SET_KEY)?.quality ? '' : '');
+  save();
 }
+function closeMenu() { $('menu').hidden = true; state = 'play'; captureMouse(); }
+$('menuBtn').addEventListener('click', openMenu);
+$('resumeBtn').addEventListener('click', closeMenu);
+$('soundBtn').addEventListener('click', () => {
+  settings.sound = !settings.sound; store.set(SET_KEY, settings);
+  if (settings.sound) { audio.start(); audio.setVolume(0.8); } else audio.setVolume(0);
+  $('soundBtn').textContent = 'Sound: ' + (settings.sound ? 'on' : 'off');
+});
+$('qualityBtn').addEventListener('click', () => {
+  settings.quality = HQ() ? 'fast' : 'beautiful'; store.set(SET_KEY, settings);
+  save();
+  $('qualityBtn').textContent = 'Graphics: ' + settings.quality + ' (reloading…)';
+  setTimeout(() => location.reload(), 400);
+});
 
-// ---------- Title screen wiring ----------
-document.querySelectorAll('.mode').forEach((m) => m.addEventListener('click', () => {
-  document.querySelectorAll('.mode').forEach((o) => { o.classList.toggle('on', o === m); o.setAttribute('aria-checked', String(o === m)); });
-}));
-$('startBtn').addEventListener('click', () => beginGame(false));
-$('continueBtn').addEventListener('click', () => beginGame(true));
-
-// ---------- Pause / settings ----------
-function openPause() {
-  if (state !== 'playing') return;
-  state = 'paused';
-  $('pause').hidden = false;
-  $('savedNote').textContent = '';
-  saveGame();
-}
-$('resume').addEventListener('click', closePanels);
-$('invClose').addEventListener('click', closePanels);
-$('loreClose').addEventListener('click', closePanels);
-$('saveBtn').addEventListener('click', () => { $('savedNote').textContent = saveGame() ? 'Your realm is saved in this browser.' : 'This browser would not let the realm be saved.'; });
-$('quitBtn').addEventListener('click', quitToTitle);
-function bindRange(id, key, fmt, apply) {
-  const el = $(id), out = $(id + 'V');
-  el.value = settings[key]; out.textContent = fmt(settings[key]);
-  el.addEventListener('input', () => { settings[key] = parseFloat(el.value); out.textContent = fmt(settings[key]); apply(); store.set(SETTINGS_KEY, settings); });
-}
-bindRange('optDist', 'dist', (v) => v, () => { if (state !== 'title') world.renderDist = settings.dist; });
-bindRange('optFov', 'fov', (v) => v, resize);
-bindRange('optSens', 'sens', (v) => Number(v).toFixed(1), () => {});
-bindRange('optVol', 'vol', (v) => v, () => audio.setVolume(settings.vol / 100));
-$('optBloom').checked = settings.bloom; $('optGrain').checked = settings.grain;
-$('optBloom').addEventListener('change', (e) => { settings.bloom = e.target.checked; store.set(SETTINGS_KEY, settings); });
-$('optGrain').addEventListener('change', (e) => { settings.grain = e.target.checked; store.set(SETTINGS_KEY, settings); });
-
-// ---------- Look control (pointer lock, with drag fallback) ----------
-let locked = false, lockFailed = false, lockEverWorked = false;
-function lockDenied() { if (!lockEverWorked) lockFailed = true; }
-function captureLook() {
+// ---------- Input ----------
+const keys = new Set();
+let locked = false, lockFailed = false, lockWorked = false, dragging = false;
+function captureMouse() {
   if (isTouch || lockFailed) return;
-  try {
-    const p = canvas.requestPointerLock && canvas.requestPointerLock();
-    if (p && p.catch) p.catch(lockDenied);
-  } catch { lockDenied(); }
+  try { const p = canvas.requestPointerLock && canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { if (!lockWorked) lockFailed = true; }); } catch { lockFailed = true; }
 }
-function releaseLook() { if (document.pointerLockElement) { try { document.exitPointerLock(); } catch { /* ignore */ } } }
+function releaseMouse() { if (document.pointerLockElement) try { document.exitPointerLock(); } catch { /* ignore */ } }
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
-  if (locked) lockEverWorked = true;
-  if (!locked && state === 'playing') openPause();
+  if (locked) lockWorked = true;
+  else if (state === 'play') openMenu();
 });
-document.addEventListener('pointerlockerror', lockDenied);
-
-function look(dx, dy) {
-  const s = 0.0022 * settings.sens;
-  player.yaw -= dx * s;
-  player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - dy * s));
-}
-
-const mouse = { left: false, right: false, downAt: 0, moved: 0, dragging: false };
-canvas.addEventListener('mousedown', (e) => {
-  if (state !== 'playing') return;
-  if (!locked && !lockFailed && !isTouch) { captureLook(); return; }
-  if (e.button === 0) { mouse.left = true; mouse.downAt = performance.now(); mouse.moved = 0; breakRepeat = 0; }
-  if (e.button === 2) { mouse.right = true; placeRepeat = 0; }
-  if (e.button === 1) { e.preventDefault(); pickBlock(); }
-});
-window.addEventListener('mouseup', (e) => {
-  if (e.button === 0) mouse.left = false;
-  if (e.button === 2) mouse.right = false;
-});
+document.addEventListener('pointerlockerror', () => { if (!lockWorked) lockFailed = true; });
+canvas.addEventListener('mousedown', () => { if (state === 'play' && !locked) { if (lockFailed) dragging = true; else captureMouse(); } if (talk) advanceTalk(); });
+window.addEventListener('mouseup', () => { dragging = false; });
 window.addEventListener('mousemove', (e) => {
-  if (state !== 'playing') return;
-  if (locked) look(e.movementX, e.movementY);
-  else if (lockFailed && (mouse.left || mouse.right)) { look(e.movementX, e.movementY); mouse.moved += Math.abs(e.movementX) + Math.abs(e.movementY); }
+  if (state !== 'play') return;
+  if (locked || dragging) look(e.movementX, e.movementY);
 });
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-window.addEventListener('wheel', (e) => { if (state === 'playing') select(selected + (e.deltaY > 0 ? 1 : -1)); }, { passive: true });
-
-// ---------- Keyboard ----------
-const keys = new Set();
-let lastSpace = 0;
+window.addEventListener('wheel', (e) => { if (state === 'play') player.camDist = Math.max(3, Math.min(16, player.camDist + Math.sign(e.deltaY) * 0.8)); }, { passive: true });
+function look(dx, dy) {
+  player.camYaw -= dx * 0.0032;
+  player.camPitch = Math.max(-0.35, Math.min(1.25, player.camPitch + dy * 0.0026));
+}
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement && e.target.type === 'text') return;
   const k = e.code;
-  if (state === 'inventory' && (k === 'KeyE' || k === 'Escape')) { closePanels(); return; }
-  if (state === 'lore' && (k === 'KeyE' || k === 'Escape' || k === 'Space')) { closePanels(); return; }
-  if (state === 'paused' && k === 'Escape' && lockFailed) { closePanels(); return; }
-  if (state !== 'playing') return;
+  if (state === 'title' && (k === 'Space' || k === 'Enter') && !$('beginBtn').hidden) { begin(false); return; }
+  if (state === 'menu' && k === 'Escape') { closeMenu(); return; }
+  if (state !== 'play') return;
   keys.add(k);
-  if (k === 'Space') {
-    const now = performance.now();
-    if (now - lastSpace < 280 && player.canFly) player.toggleFly();
-    lastSpace = now;
-    e.preventDefault();
-  }
-  if (k === 'KeyF') player.toggleFly();
-  if (k === 'KeyE') openInventory();
-  if (k === 'Escape' && lockFailed) openPause();
-  if (k === 'KeyP') { photoMode = !photoMode; document.body.classList.toggle('photo', photoMode); }
-  if (k === 'KeyT' && mode === 'architect') dayTime = (dayTime + 0.125) % 1;
-  if (k.startsWith('Digit')) { const n = parseInt(k.slice(5), 10); if (n >= 1 && n <= 9) select(n - 1); }
+  if (k === 'Space') e.preventDefault();
+  if (talk && (k === 'KeyE' || k === 'Space' || k === 'Enter')) { advanceTalk(); return; }
+  if (k === 'KeyE') { const n = nearestTalker(); if (n) openTalk(n); }
+  if (k === 'Escape') { if (talk) closeTalk(); else if (lockFailed) openMenu(); }
+  if (k === 'KeyP') document.body.classList.toggle('photo');
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
-window.addEventListener('blur', () => { keys.clear(); mouse.left = mouse.right = false; });
+window.addEventListener('blur', () => keys.clear());
 
-// ---------- Touch ----------
-const touch = { stickId: null, sx: 0, sy: 0, lookId: null, lx: 0, ly: 0, lookStart: 0, lookMoved: 0, jump: false, breaking: false };
+// Touch: left stick, drag to look, jump & talk buttons
+const touch = { stick: null, sx: 0, sy: 0, lookId: null, lx: 0, ly: 0, jump: false, mx: 0, mz: 0 };
 if (isTouch) {
-  document.body.classList.add('touch');
   const stick = $('stick'), knob = $('stickKnob');
-  stick.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; touch.stickId = t.identifier; const r = stick.getBoundingClientRect(); touch.sx = r.left + r.width / 2; touch.sy = r.top + r.height / 2; e.preventDefault(); }, { passive: false });
-  const moveStick = (t) => {
-    let dx = t.clientX - touch.sx, dy = t.clientY - touch.sy;
-    const d = Math.hypot(dx, dy), max = 50;
-    if (d > max) { dx *= max / d; dy *= max / d; }
-    knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    player.move.f = -dy / max; player.move.r = dx / max;
-    player.move.sprint = d > max * 0.95;
-  };
+  stick.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; touch.stick = t.identifier; const r = stick.getBoundingClientRect(); touch.sx = r.left + r.width / 2; touch.sy = r.top + r.height / 2; e.preventDefault(); }, { passive: false });
   window.addEventListener('touchmove', (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === touch.stickId) moveStick(t);
-      else if (t.identifier === touch.lookId) {
-        const dx = t.clientX - touch.lx, dy = t.clientY - touch.ly;
-        touch.lx = t.clientX; touch.ly = t.clientY; touch.lookMoved += Math.abs(dx) + Math.abs(dy);
-        if (state === 'playing') look(dx * 1.8, dy * 1.8);
+      if (t.identifier === touch.stick) {
+        let dx = t.clientX - touch.sx, dy = t.clientY - touch.sy; const d = Math.hypot(dx, dy), max = 55;
+        if (d > max) { dx *= max / d; dy *= max / d; }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        touch.mx = dx / max; touch.mz = -dy / max;
+      } else if (t.identifier === touch.lookId) {
+        look((t.clientX - touch.lx) * 1.6, (t.clientY - touch.ly) * 1.6);
+        touch.lx = t.clientX; touch.ly = t.clientY;
       }
     }
   }, { passive: true });
-  const endTouch = (e) => {
+  const end = (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === touch.stickId) { touch.stickId = null; knob.style.transform = ''; player.move.f = player.move.r = 0; player.move.sprint = false; }
-      if (t.identifier === touch.lookId) {
-        touch.lookId = null;
-        if (touch.lookMoved < 10 && performance.now() - touch.lookStart < 300 && state === 'playing') tapAction();
-      }
+      if (t.identifier === touch.stick) { touch.stick = null; touch.mx = touch.mz = 0; knob.style.transform = ''; }
+      if (t.identifier === touch.lookId) touch.lookId = null;
     }
   };
-  window.addEventListener('touchend', endTouch);
-  window.addEventListener('touchcancel', endTouch);
-  canvas.addEventListener('touchstart', (e) => {
-    const t = e.changedTouches[0];
-    if (touch.lookId === null) { touch.lookId = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; touch.lookStart = performance.now(); touch.lookMoved = 0; }
-    e.preventDefault();
-  }, { passive: false });
-  const hold = (id, on, off) => {
-    const el = $(id);
-    el.addEventListener('touchstart', (e) => { e.preventDefault(); on(); el.classList.add('on'); }, { passive: false });
-    el.addEventListener('touchend', (e) => { e.preventDefault(); off(); el.classList.remove('on'); }, { passive: false });
-  };
-  hold('tJump', () => { touch.jump = true; }, () => { touch.jump = false; });
-  hold('tBreak', () => { touch.breaking = true; breakRepeat = 0; }, () => { touch.breaking = false; });
-  hold('tPlace', () => { placeBlock(); }, () => {});
-  hold('tFly', () => { player.toggleFly(); }, () => {});
-  hold('tInv', () => { openInventory(); }, () => {});
-  hold('tMenu', () => { openPause(); }, () => {});
-}
-function tapAction() {
-  const hit = raycast();
-  if (hit && hit.id === B.RUNE_STONE) { openLore(hit.x, hit.y, hit.z); return; }
-  if (mode === 'architect' && hit) breakBlock(hit);
+  window.addEventListener('touchend', end); window.addEventListener('touchcancel', end);
+  canvas.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; if (touch.lookId === null) { touch.lookId = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; } e.preventDefault(); }, { passive: false });
+  const jb = $('tJump');
+  jb.addEventListener('touchstart', (e) => { e.preventDefault(); touch.jump = true; jb.classList.add('on'); if (talk) advanceTalk(); }, { passive: false });
+  jb.addEventListener('touchend', (e) => { e.preventDefault(); touch.jump = false; jb.classList.remove('on'); }, { passive: false });
+  $('tTalk').addEventListener('touchstart', (e) => { e.preventDefault(); const n = nearestTalker(); if (n) openTalk(n); }, { passive: false });
 }
 
-// ---------- Block interaction ----------
-const _eye = new THREE.Vector3(), _dir = new THREE.Vector3();
-function raycast() {
-  player.eye(_eye);
-  _dir.set(0, 0, -1).applyEuler(camera.rotation);
-  return world.raycast(_eye, _dir, REACH);
-}
-let breakTarget = null, breakProgress = 0, breakRepeat = 0, placeRepeat = 0, hitSoundT = 0;
-
-function breakBlock(hit) {
-  const b = BLOCKS[hit.id];
-  if (!b.breakable && mode !== 'architect') return;
-  if (hit.id === B.ABYSSAL && hit.y <= 1) return;
-  const light = world.sampleLight(hit.x + hit.nx + 0.5, hit.y + hit.ny + 0.5, hit.z + hit.nz + 0.5);
-  const lv = Math.min(1.2, 0.08 + light[0] * palette(dayTime).sky[0] * 1.2 + light[1] + light[2] + b.emissive);
-  ambient.burst(hit.x, hit.y, hit.z, TILE_AVG[b.tex.side], lv);
-  // Water seeps into the hole below sea level
-  let fill = B.AIR;
-  if (hit.y <= SEA) for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]]) if (world.getBlock(hit.x + dx, hit.y + dy, hit.z + dz) === B.WATER) fill = B.WATER;
-  world.setBlock(hit.x, hit.y, hit.z, fill);
-  audio.breakSound(hit.id);
-  addItem(b.drop);
-  // Plants and candles resting on top fall with it
-  const above = world.getBlock(hit.x, hit.y + 1, hit.z);
-  if (above && BLOCKS[above].cross && above !== B.CHAINS) { world.setBlock(hit.x, hit.y + 1, hit.z, B.AIR); addItem(BLOCKS[above].drop); }
-  swing = 1;
+// ---------- Environment by region ----------
+const env = { fireflies: 0.8, fireflyColor: [1.4, 1.1, 0.4], snow: 0 };
+function regionEnv(dt) {
+  const x = player ? player.pos.x : 0, z = player ? player.pos.z : 0, y = player ? player.pos.y : 0;
+  const witch = Math.hypot(x - 640, z - 20) < 330, circle = Math.hypot(x + 280, z - 540) < 120, graves = Math.hypot(x - 430, z - 500) < 120;
+  const tc = witch ? [1.2, 0.5, 1.8] : (circle || graves) ? [0.5, 0.8, 1.8] : [1.5, 1.15, 0.4];
+  for (let i = 0; i < 3; i++) env.fireflyColor[i] += (tc[i] - env.fireflyColor[i]) * Math.min(1, dt);
+  const snowT = z < -300 || y > 150 ? 1 : 0;
+  env.snow += (snowT - env.snow) * Math.min(1, dt * 0.5);
+  env.fireflies = z < -350 ? 0.2 : 1;
 }
 
-function placeBlock() {
-  const hit = raycast();
-  if (!hit) return;
-  if (hit.id === B.RUNE_STONE && !keys.has('ShiftLeft') && !keys.has('ShiftRight')) { openLore(hit.x, hit.y, hit.z); return; }
-  const id = hotbar[selected];
-  if (!id || countOf(id) <= 0) return;
-  const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
-  const cur = world.getBlock(x, y, z);
-  if (cur !== B.AIR && cur !== B.WATER && !(BLOCKS[cur].cross && cur !== id)) return;
-  if (SOLID[id] && player.intersectsBlock(x, y, z)) return;
-  if (!takeItem(id)) return;
-  if (cur && BLOCKS[cur].cross) addItem(BLOCKS[cur].drop);
-  world.setBlock(x, y, z, id);
-  audio.placeSound(id);
-  swing = 1;
-}
-
-function pickBlock() {
-  const hit = raycast();
-  if (!hit) return;
-  if (mode === 'architect') { hotbar[selected] = hit.id; select(selected); }
-  else { const s = hotbar.indexOf(hit.id); if (s >= 0) select(s); }
-}
-
-function updateInteraction(dt) {
-  const hit = raycast();
-  outline.visible = !!hit && !photoMode;
-  if (hit) outline.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
-  const breaking = (mouse.left && (!lockFailed || mouse.moved < 6)) || touch.breaking;
-  let ring = 0;
-  if (breaking && hit) {
-    if (mode === 'architect') {
-      breakRepeat -= dt;
-      if (breakRepeat <= 0) { breakBlock(hit); breakRepeat = 0.22; }
-    } else {
-      const key = `${hit.x},${hit.y},${hit.z}`;
-      if (breakTarget !== key) { breakTarget = key; breakProgress = 0; }
-      const hard = BLOCKS[hit.id].hardness;
-      if (!BLOCKS[hit.id].breakable || (hit.id === B.ABYSSAL)) { breakProgress = 0; }
-      else {
-        breakProgress += dt / Math.max(0.05, hard * 0.8);
-        hitSoundT -= dt;
-        if (hitSoundT <= 0) { audio.hit(hit.id); hitSoundT = 0.25; swing = 0.6; }
-        if (breakProgress >= 1) { breakBlock(hit); breakProgress = 0; breakTarget = null; }
-      }
-      ring = breakProgress;
-    }
-  } else { breakProgress = 0; breakTarget = null; }
-  $('breakRing').style.strokeDasharray = `${ring * 100} 100`;
-  if (mouse.right) {
-    placeRepeat -= dt;
-    if (placeRepeat <= 0) { placeBlock(); placeRepeat = 0.25; }
-  }
-}
-
-// ---------- Environment ----------
-const env = { night: 0, dayLight: 1, wind: 0.4, windStrength: 0.4, ashDensity: 0.5, emberDensity: 0.2, wisps: 0.3, fireflies: 0, spirits: 0, underwater: false, cave: false };
-const tmpC = new THREE.Color();
-let biomeHere = BIOME.FOREST, biomeT = 0;
-let whisperClock = 90;
-
-function updateEnvironment(dt, focus) {
-  const pal = palette(dayTime);
-  env.night = pal.night; env.dayLight = 1 - pal.night;
-  const ang = (dayTime - 0.25) * Math.PI * 2;
-  const sun = sky.uniforms.uSunDir.value.set(Math.cos(ang), Math.sin(ang), 0.35).normalize();
-  sky.uniforms.uMoonDir.value.set(-sun.x, -sun.y, -0.25).normalize();
-  sky.uniforms.uZenith.value.setRGB(...pal.zen);
-  sky.uniforms.uHorizon.value.setRGB(...pal.hor);
-  sky.uniforms.uNight.value = pal.night;
-
-  biomeT -= dt;
-  if (biomeT <= 0) { biomeT = 0.5; biomeHere = world.gen.biomeAt(Math.floor(focus.x), Math.floor(focus.z)); }
-  const skyAtEye = world.getLight(SKY, Math.floor(focus.x), Math.floor(focus.y), Math.floor(focus.z));
-  env.cave = skyAtEye < 5 && focus.y < world.gen.height(Math.floor(focus.x), Math.floor(focus.z)) - 2;
-  env.underwater = state !== 'title' && player.headInWater;
-  const ashen = biomeHere === BIOME.ASHEN;
-  const target = {
-    ash: env.cave ? 0 : ashen ? 1 : biomeHere === BIOME.SPIRES ? 0.6 : 0.35,
-    ember: env.cave ? 0.1 : ashen ? 1 : 0.12,
-    wisps: (env.cave ? 0.6 : pal.night * 0.9 + 0.08) * (biomeHere === BIOME.GLADE || biomeHere === BIOME.MARSH ? 1.3 : 0.8),
-    flies: env.cave ? 0 : biomeHere === BIOME.MARSH ? pal.night + 0.2 : biomeHere === BIOME.FOREST ? pal.night * 0.5 : 0.05,
-  };
-  const k = 1 - Math.exp(-dt * 0.8);
-  env.ashDensity += (target.ash - env.ashDensity) * k;
-  env.emberDensity += (target.ember - env.emberDensity) * k;
-  env.wisps += (target.wisps - env.wisps) * k;
-  env.fireflies += (target.flies - env.fireflies) * k;
-  env.spirits = env.cave ? 0 : pal.night > 0.5 ? 4 : (biomeHere === BIOME.MARSH || biomeHere === BIOME.GLADE ? 2 : 1);
-  env.wind = Math.sin(performance.now() / 9000) * 0.8 + (ashen ? 0.8 : 0.3);
-  env.windStrength = env.cave ? 0.05 : Math.min(1, Math.abs(env.wind) * 0.6 + (focus.y > 60 ? 0.4 : 0));
-
-  // Lighting uniforms
-  U.uSkyLight.value.setRGB(...pal.sky);
-  U.uAmbient.value.setRGB(...pal.amb);
-  U.uSoulPulse.value = 0.9 + 0.1 * Math.sin(performance.now() / 700);
-  const R = world.renderDist * 16;
-  let dens = 1.9 / R * (1 + pal.night * 0.25);
-  const fog = tmpC.setRGB(...pal.hor);
-  if (env.cave) { fog.setRGB(0.01, 0.008, 0.015); dens = Math.max(dens, 0.03); }
-  if (env.underwater) { fog.setRGB(0.012, 0.035, 0.045); dens = 0.09; }
-  if (ashen && !env.cave && !env.underwater) { fog.lerp(tmpC.clone().setRGB(0.22, 0.2, 0.19).multiplyScalar(0.25 + env.dayLight * 0.9), 0.5); dens *= 1.35; }
-  U.uFogColor.value.lerp(fog, 1 - Math.exp(-dt * 3));
-  U.uFogDensity.value += (dens - U.uFogDensity.value) * (1 - Math.exp(-dt * 3));
-  sky.uniforms.uUnder.value = env.underwater ? 1 : 0;
-  grade.uniforms.uUnder.value = env.underwater ? 1 : 0;
-  grade.uniforms.uVignette.value = settings.grain ? 1 : 0;
-  grade.uniforms.uGrain.value = settings.grain ? 1 : 0;
-  grade.uniforms.uLetterbox.value += ((photoMode ? 1 : 0) - grade.uniforms.uLetterbox.value) * Math.min(1, dt * 4);
-  bloom.enabled = settings.bloom;
-  bloom.strength = 0.65 + pal.night * 0.35;
-  renderer.setClearColor(fog);
-}
-
-// ---------- Main loop ----------
+// ---------- Loop ----------
 let last = performance.now();
-let titleAngle = 0;
-let areaCheckT = 0;
-let loadStart = 0;
+let areaT = 0, titleT = 0, bubbleT = 0;
+const tmpV = new THREE.Vector3();
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const t = now / 1000;
-  U.uTime.value = t; sky.uniforms.uTime.value = t; grade.uniforms.uTime.value = t;
+  sky.uniforms.uTime.value = t; cloudSea.uniforms.uTime.value = t; lake.uniforms.uTime.value = t; grade.uniforms.uTime.value = t % 10;
 
-  let focus;
-  if (state === 'title' || state === 'loading') {
-    const sp = world.spawn;
-    titleAngle += dt * 0.03;
-    const r = 34;
-    if (state === 'title') {
-      camera.position.set(sp.x + Math.cos(titleAngle) * r, sp.y + 22, sp.z + Math.sin(titleAngle) * r);
-      camera.lookAt(sp.x, sp.y + 6, sp.z);
-      dayTime = (0.74 + Math.sin(t * 0.02) * 0.02);
-    }
-    focus = camera.position;
-    const target = state === 'loading' ? player.pos : sp;
-    world.update(target.x, target.z, state === 'loading' ? 30 : 10);
-    if (state === 'loading') {
-      if (!loadStart) loadStart = now;
-      const p = world.progress(player.pos.x, player.pos.z);
-      $('loadPct').textContent = Math.round(p * 100) + '%';
-      if (p >= 1) { loadStart = 0; finishLoading(); }
-    }
+  if (state === 'loading') {
+    camera.position.set(0, 200, 0); camera.lookAt(0, 200, -100);
+    composer.render(dt);
+    return;
+  }
+
+  if (state === 'title') {
+    // Slow flyover of the Moon Queen's castle with the moon behind it
+    titleT += dt;
+    const a = Math.sin(titleT * 0.05) * 0.35;
+    const cx = -1260, cz = 1270;
+    camera.position.set(cx + Math.sin(a) * 230, 92 + Math.sin(titleT * 0.08) * 6, cz + Math.cos(a) * 230);
+    camera.lookAt(cx, 62, cz - 90);
+    tmesh.update(camera.position.x, camera.position.z, 2);
   } else {
-    if (state === 'playing') {
-      const m = player.move;
-      if (!isTouch) {
-        m.f = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
-        m.r = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
-        const shift = keys.has('ShiftLeft') || keys.has('ShiftRight');
-        const ctrl = keys.has('ControlLeft') || keys.has('ControlRight');
-        m.up = keys.has('Space');
-        m.down = player.flying && shift;
-        m.sprint = player.flying ? ctrl : (shift || ctrl);
-      } else {
-        m.up = touch.jump;
-        m.down = false;
+    if (state === 'play' && !talk) {
+      const inp = player.input;
+      if (isTouch) { inp.x = touch.mx; inp.z = touch.mz; inp.run = Math.hypot(touch.mx, touch.mz) > 0.92; inp.jump = touch.jump; }
+      else {
+        inp.z = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+        inp.x = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+        inp.run = keys.has('ShiftLeft') || keys.has('ShiftRight');
+        inp.jump = keys.has('Space');
       }
-      if (world.isReady(Math.floor(player.pos.x), Math.floor(player.pos.z))) player.update(dt, world);
-      if (player.pos.y < -20) player.pos.y = world.surfaceY(Math.floor(player.pos.x), Math.floor(player.pos.z)) + 2;
-      updateInteraction(dt);
-      areaCheckT -= dt;
-      if (areaCheckT <= 0) { areaCheckT = 0.5; checkArea(); }
-      dayTime += dt / DAY_LENGTH;
-      if (dayTime >= 1) { dayTime -= 1; dayCount++; }
-      whisperClock -= dt * (env.night > 0.5 ? 1 : 0.3);
-      if (whisperClock <= 0) { whisperClock = 150 + Math.random() * 150; showWhisper(WHISPERS[(Math.random() * WHISPERS.length) | 0]); audio.whisper(); }
+    } else if (player) { player.input.x = player.input.z = 0; player.input.jump = false; }
+    if (state === 'play' || state === 'menu') player.update(state === 'menu' ? 0 : dt);
+    player.updateCamera(camera, dt);
+    tmesh.update(player.pos.x, player.pos.z, player.teleported ? 60 : 3);
+    player.teleported = false;
+    if (state === 'play') {
+      areaT -= dt;
+      if (areaT <= 0) { areaT = 0.4; checkPlaces(); }
+      updateCompass();
+      updateTalk(dt);
+      const n = talk ? null : nearestTalker();
+      $('prompt').hidden = !n;
+      if (isTouch) $('tTalk').hidden = !n;
+      if (n) $('promptText').textContent = 'Talk to ' + n.name;
+      // glide trail
+      if (player.gliding && Math.random() < 0.6) particles.sparkle(player.pos.x + (Math.random() - 0.5), player.pos.y + 1.2, player.pos.z + (Math.random() - 0.5), 0, -0.3, 0, [0.5, 0.7, 1.6], 1.2);
     }
-    player.eye(camera.position);
-    camera.rotation.set(player.pitch, player.yaw, 0);
-    focus = camera.position;
-    world.update(player.pos.x, player.pos.z, 5);
-    U.uPlayer.value.copy(camera.position);
-    // Held item bob, swing and lighting
-    swing = Math.max(0, swing - dt * 4);
-    const bob = player.onGround ? Math.sin(player.walkPhase) : 0;
-    held.rotation.set(-0.15 - Math.sin(swing * Math.PI) * 0.9, 0.75, 0.05);
-    held.position.y = -0.55 + Math.abs(bob) * 0.03 - Math.sin(swing * Math.PI) * 0.15;
-    held.scale.setScalar(0.42);
-    const L = world.sampleLight(camera.position.x, camera.position.y, camera.position.z);
-    const pal = palette(dayTime);
-    const e = heldId ? BLOCKS[heldId].emissive : 0;
-    held.material.color.setRGB(
-      Math.min(1.6, 0.12 + L[0] * pal.sky[0] + L[1] * 1.0 + L[2] * 0.35 + e * 0.9),
-      Math.min(1.6, 0.1 + L[0] * pal.sky[1] + L[1] * 0.52 + L[2] * 0.62 + e * 0.9),
-      Math.min(1.6, 0.1 + L[0] * pal.sky[2] + L[1] * 0.2 + L[2] * 1.0 + e * 0.9));
-    held.visible = !!heldId && !photoMode && state !== 'title';
   }
-  sky.mesh.position.copy(camera.position);
-  updateEnvironment(dt, focus);
-  ambient.update(dt, camera.position, env);
-  audio.update(dt, env);
-
-  // HUD timers
-  if (state === 'playing' || state === 'paused') {
-    $('clockName').textContent = timeName(dayTime);
-    $('clockSub').textContent = (env.night > 0.5 ? 'Night ' : 'Day ') + dayCount + (seedText ? ` · ${seedText}` : '');
+  const focus = state === 'title' ? camera.position : player.pos;
+  flora.update(focus.x, focus.z, HQ() ? 1100 : 650);
+  tmesh.far = HQ() ? 1500 : 1050;
+  const viewer = state === 'title' ? { pos: camera.position } : player;
+  for (const n of npcs) n.update(dt, t, viewer);
+  for (const f of world.anim) f(t, dt);
+  // Dragon
+  {
+    const a = t * 0.045;
+    dragon.g.position.set(180 + Math.cos(a) * 320, 470 + Math.sin(a * 3) * 25, -820 + Math.sin(a) * 320);
+    dragon.g.rotation.y = Math.atan2(-Math.sin(a), Math.cos(a));
+    dragon.g.rotation.z = 0.2;
+    const flap = Math.sin(t * 2.2) * 0.55;
+    dragon.wl.rotation.z = flap; dragon.wr.rotation.z = -flap;
   }
-  $('touch').hidden = !(isTouch && state === 'playing');
-  $('clickPrompt').hidden = !(state === 'playing' && !locked && !lockFailed && !isTouch);
-  if (areaTimer > 0) { areaTimer -= dt; if (areaTimer <= 0) $('area').classList.remove('show'); }
-  if (whisperTimer > 0) { whisperTimer -= dt; if (whisperTimer <= 0) $('whisper').classList.remove('show'); }
-  if (itemNameTimer > 0) { itemNameTimer -= dt; if (itemNameTimer <= 0) $('itemName').classList.remove('show'); }
+  // Wells
+  for (const { w, v } of wellVisuals) {
+    const y = w.y();
+    v.beam.position.y = y + v.h / 2; v.ring.position.y = y + 0.1;
+    v.beam.material.opacity = 0.8 + Math.sin(t * 3) * 0.2;
+    const d = Math.hypot(w.x - focus.x, w.z - focus.z);
+    if (d < 80 && Math.random() < 0.5) { const a = Math.random() * 6.28; particles.sparkle(w.x + Math.cos(a) * 1.8, y + 0.2, w.z + Math.sin(a) * 1.8, 0, 3 + Math.random() * 4, 0, [0.4, 0.7, 2.0], 2.5); }
+  }
+  // Cauldron bubbles
+  bubbleT -= dt;
+  if (bubbleT <= 0 && world.bubbles) {
+    bubbleT = 0.15;
+    for (const p of world.bubbles) if (Math.hypot(p.cx - focus.x, p.cz - focus.z) < 60) particles.sparkle(p.cx + (Math.random() - 0.5), p.cy + 1.3, p.cz + (Math.random() - 0.5), 0, 0.8 + Math.random(), 0, [0.4, 1.6, 0.6], 1.5);
+  }
+  regionEnv(dt);
+  particles.update(dt, state === 'title' ? camera.position : player.pos, env);
+  puffDrift(dt);
+  lights.update(dt, world.lights, state === 'title' ? camera.position : player.pos);
 
+  // Sky follows the camera; the moon sits on the dome
+  sky.dome.position.copy(camera.position);
+  sky.moon.position.copy(camera.position).addScaledVector(moonDir, 2600);
+  sky.moon.lookAt(camera.position);
+  sky.moon.scale.setScalar(620);
+  cloudSea.mesh.position.x = camera.position.x; cloudSea.mesh.position.z = camera.position.z;
+  cloudSea.uniforms.uCam.value.copy(camera.position);
+  cloudSea.uniforms.fogColor.value.copy(FOG);
+  // Moon shadows follow the player
+  tmpV.copy(focus);
+  moonLight.target.position.copy(tmpV);
+  moonLight.position.copy(tmpV).addScaledVector(moonDir, 250);
+  grade.uniforms.uLetter.value += ((document.body.classList.contains('photo') ? 1 : 0) - grade.uniforms.uLetter.value) * Math.min(1, dt * 4);
+
+  if (isTouch && state !== 'loading' && state !== 'title') $('touch').hidden = state !== 'play' || !!talk;
+  if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('show'); }
+  if (whisperT > 0) { whisperT -= dt; if (whisperT <= 0) $('whisper').classList.remove('show'); }
+  if (state !== 'loading') audio.update(dt, { windStrength: player && player.pos.y > 120 ? 0.9 : 0.35, night: 1, underwater: false, cave: false });
   composer.render(dt);
+  if (!firstFrameAt) firstFrameAt = now;
 }
-ambient.setScale(window.innerHeight * renderer.getPixelRatio(), settings.fov);
 requestAnimationFrame(frame);
+load();
 
-// Debug/automation hook
-window.__ashenveil = { get world() { return world; }, player, get state() { return state; }, setTime: (t) => { dayTime = t; }, raycast, breakBlock, placeBlock, openInventory, openLore, openPause, closePanels, get inventory() { return inventory; }, select };
+window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera };

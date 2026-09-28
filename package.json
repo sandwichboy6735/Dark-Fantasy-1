@@ -1,7 +1,7 @@
 {
-  "name": "ashenveil",
+  "name": "moonveil",
   "version": "1.0.0",
-  "description": "A dark fantasy voxel sandbox. Explore, gather, build. No combat, no ending.",
+  "description": "A moonlit fantasy realm of floating castles and quiet folk. Wander, glide and talk. No fighting.",
   "private": true,
   "type": "module",
   "scripts": {

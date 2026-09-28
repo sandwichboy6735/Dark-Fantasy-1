@@ -1,70 +1,67 @@
-# Ashenveil
+# Moonveil
 
-A dark fantasy voxel sandbox that runs in your browser. Wander an endless realm under a blood moon, gather what the dead left behind, and build whatever you like. There are no monsters, no fighting and no ending.
+A moonlit fantasy world you explore in your browser. It is a huge floating continent above a sea of glowing clouds, with castles drifting around it. Walk, glide, and meet the people who live there. Nothing will hurt you, there is no fighting, and there is no ending.
 
 ## Play
 
-Open **`docs/index.html`** in a browser (double-click works; it is a single self-contained file).
-To host it on GitHub Pages, set Pages to serve the `docs/` folder of this branch.
+Open **`docs/index.html`** in a browser. It is one self-contained file, so double-clicking it works.
+To put it online with GitHub Pages, set Pages to serve the `docs/` folder of this branch.
 
-On the title screen, choose how you want to play:
-
-| Mode | What it is |
-|---|---|
-| **Wanderer** | Break blocks by hand to gather them, then craft lanterns, stained glass, gothic brick and more in your satchel. |
-| **Architect** | Every block with no limit, instant breaking, and flight. |
-
-Type a **world seed** to share a realm with a friend, or leave it blank for a random one. Your realm autosaves in the browser every 30 seconds. Use **Continue your realm** to return.
+Your progress saves in the browser by itself. Tap to continue where you left off, or choose **Begin a new journey**.
 
 ### Controls
 
-| Action | Keyboard / mouse | Touch |
+| | Keyboard and mouse | Touch |
 |---|---|---|
-| Look | Mouse (click the game to capture it) | Drag on the screen |
-| Move | `W A S D` / arrows | Left joystick |
-| Jump / swim up | `Space` | ⤒ |
-| Sprint | `Shift` or `Ctrl` | Push the joystick all the way |
-| Break block | Hold left click | Hold ⛏ (Architect: tap the screen) |
-| Place block | Right click | ▣ |
-| Read a rune stone | Right click it | Tap it |
-| Pick the block you're looking at | Middle click | |
-| Hotbar | `1`–`9`, mouse wheel | Tap a slot |
-| Satchel / crafting | `E` | ☰ |
-| Fly (Architect) | `F` or double-tap `Space`; `Shift` goes down | ✧ |
-| Skip ahead in time (Architect) | `T` | |
-| Photo mode (hide HUD, cinematic bars) | `P` | |
-| Menu / settings | `Esc` | ❚❚ |
+| Walk | `W A S D` or arrow keys | Left joystick |
+| Run | `Shift` | Push the joystick all the way |
+| Look around | Mouse (click the game first); scroll to zoom | Drag anywhere else on the screen |
+| Jump | `Space` | Jump |
+| Glide | Hold `Space` while falling | Hold Jump while falling |
+| Talk | `E` next to someone | Talk (appears near someone) |
+| Hide the screen text for photos | `P` | |
+| Menu | `Esc` | Moon button, top right |
 
-## The realm
+The compass at the top points to the places you've found, and ◇ marks the ones still waiting.
 
-- **Five regions:** the Blighted Wood with its crimson trees, the ember-lit Ashen Wastes, the Hollow Marsh, the black-glass Obsidian Spires, and the silver Moonlit Glade. Each has its own name card when you enter it.
-- **Ruins to find:** roofless chapels with stained glass and velvet aisles, wayside shrines, graveyards, moon obelisks, and the bones of a sleeping colossus.
-- **24 verses** carved into rune stones. Right-click one to read it. The game counts how many you've found.
-- **Three kinds of light:** sky, warm firelight (candles, ember stone, bloodroot), and cold soul-light (soul crystals, lanterns, wraithleaf). They spread block by block and mix.
-- **Day and night:** a 12-minute cycle from Bleak Dawn through Bloodfall Dusk to the Witching Hour. At night a crimson veil crosses the sky.
-- **Atmosphere:** falling ash, rising embers, soul wisps, fireflies, circling ravens, and the Hollow. The Hollow are silent cloaked spirits carrying lanterns. They watch you from a distance and vanish if you walk up to them. They never harm you.
-- **Sound:** everything is synthesized live, including the drone, wind, the night choir, distant bells, raven calls and whispers.
-- **Caves:** winding tunnels and caverns with soul crystal and ember stone veins, glowing ghostcaps and cobwebs.
+## The world
+
+- **Wayfarer's Rest:** where you start, at a stone wall above the Mirror Lake, next to the witch Morwen.
+- **Emberlight Village:** thatched cottages with glowing windows and chimney smoke, a chapel spire, and a mill with a turning water wheel.
+- **The Mirror Lake:** Charon the ferryman rows across it all night.
+- **Castle Vaelmoor:** a castle full of lit windows on a snowy crag in the Frostfang Mountains. Step into the blue Moonlift at its gate to ride up.
+- **The Moonspire:** the tallest peak. Vessryn the moon dragon circles it.
+- **The Goblin Market:** stalls, string lights and a bonfire in a hollow, run by Grizzleby Quint and friends.
+- **The Witchwood:** glowing mushrooms, witch huts on stilts, bubbling cauldrons, and witches flying on broomsticks.
+- **Stillwater Graves:** a gravedigger and three friendly ghosts.
+- **The Moon Circle:** humming standing stones and a druid.
+- **Archmage Oriel's Tower:** take the Moonlift up, then glide off the top.
+- **Starwatch Light:** a lighthouse on a cliff that sweeps its beam across the clouds.
+- **Starfall Point and the Moon Queen's Castle:** hop across floating stepping stones, riding the blue updrafts, to reach the Moon Queen's island.
+- Drifting castle islands all around the edge of the world.
+
+There are 45 characters to talk to: goblins, witches, wizards, knights, villagers, children, ghosts, a cat, the Moon Queen and more. The menu counts the places you've found and the people you've met.
+
+If you fall off the edge, the clouds catch you and carry you back.
 
 ## Development
 
-The source lives in `src/`. The build bundles it with three.js into single HTML files.
-
 ```sh
 npm install
-npm run build      # writes docs/index.html and dist/ashenveil.html
-npm run dev        # rebuild on every change in src/
+npm run build      # writes docs/index.html (and dist/moonveil.html)
+npm run dev        # rebuild whenever something in src/ changes
 ```
 
-| File | Purpose |
+| File | What it does |
 |---|---|
-| `src/main.js` | Game loop, input, HUD, inventory, crafting, saving |
-| `src/world.js` | Chunks, light propagation, meshing with smooth lighting + AO, raycasting |
-| `src/worldgen.js` | Terrain, biomes, caves, trees and ruins |
-| `src/blocks.js` | Block definitions and crafting recipes |
-| `src/textures.js` | Procedurally painted 16×16 textures and inventory icons |
-| `src/render.js` | Block shaders, sky, day/night palette, cinematic grading |
-| `src/ambient.js` | Particles, ravens and the Hollow |
-| `src/player.js` | Movement, swimming, flight, collision |
-| `src/audio.js` | Procedural soundscape |
-| `src/lore.js` | Rune stone verses and whispers |
+| `src/main.js` | Start-up, title screen, game loop, conversations, menu, saving |
+| `src/layout.js` | The map: places, roads, lifts, stepping stones, floating islands |
+| `src/terrain.js` | Heightmap, painted ground colours, landscape streaming |
+| `src/structures.js` | Castles, cottages, the market, witch huts, graves, towers, floating islands |
+| `src/flora.js` | Forests, glowing mushrooms and flowers |
+| `src/characters.js` | Character models and how they move |
+| `src/npcs.js` | Everyone in the world and what they say |
+| `src/player.js` | Walking, running, gliding, swimming, lifts, camera |
+| `src/fx.js` | Sky, moon, cloud sea, lake, smoke, fireflies, snow, lighting |
+| `src/art.js`, `src/kit.js` | Painted textures, materials, and the shape-building kit |
+| `src/audio.js` | Sound created live: wind, choir, bells, owls, voices |
