@@ -1,25 +1,32 @@
 // Every knob of the retro look lives here.
 export const RETRO = {
   // The scene is rendered at this many lines and blown up with nearest-neighbour
-  // sampling. Width follows the window's aspect ratio (240 lines = 320x240 at 4:3).
-  internalHeight: 240,
+  // sampling. Width follows the window's aspect ratio (240 lines = 320x240 at 4:3;
+  // 288 is a touch cleaner while still chunky).
+  internalHeight: 288,
 
   // Bits per channel after dithering. [5, 6, 5] is 16-bit RGB565 colour.
   // [5, 5, 5] is the PlayStation's 15-bit mode, [8, 8, 8] is 24/32-bit true colour.
   colorBits: [5, 6, 5],
 
   // 0 = plain rounding (banding), 1 = full 8x8 Bayer dither.
-  ditherStrength: 1,
+  ditherStrength: 0.55,
 
   // Linear exposure applied before the colour is quantised.
-  exposure: 1.15,
+  exposure: 1.4,
+
+  // Final grade, in sRGB: `lift` raises the blacks so shadows keep some detail,
+  // `gamma` below 1 opens up the mid-tones, `saturation` above 1 adds colour.
+  lift: 0.035,
+  gamma: 0.88,
+  saturation: 1.12,
 
   // 1 = vertices snap to one internal pixel, 2 = two pixels, 0 = off.
-  jitterStrength: 1,
+  jitterStrength: 0.5,
 
   // Outline strengths used by RenderPixelatedPass.
-  normalEdgeStrength: 0.25,
-  depthEdgeStrength: 0.35,
+  normalEdgeStrength: 0.2,
+  depthEdgeStrength: 0.28,
 };
 
 // RenderPixelatedPass renders at (buffer size / pixelSize). Picking the pixel size

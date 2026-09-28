@@ -24,16 +24,16 @@ import {
   stepHeight,
 } from './layout.js';
 
-const mud = mat({ color: '#8a8a70', map: 'mud' });
+const mud = mat({ color: '#b8b894', map: 'mud' });
 const water = mat({ color: '#7a9a90', map: 'water', type: 'phong', shininess: 70 });
 const plank = mat({ color: '#8a7058', map: 'wood' });
-const rotten = mat({ color: '#5a4a3a', map: 'darkwood' });
+const rotten = mat({ color: '#8a7a64', map: 'wood' });
 const bark = mat({ color: '#3a3428', map: 'darkwood' });
 const reed = mat({ color: '#5a6a30' });
 const reedTop = mat({ color: '#4a3020' });
 const pad = mat({ color: '#3a6a2a' });
-const moss = mat({ color: '#8a9a88', map: 'moss' });
-const mossDark = mat({ color: '#5a665a', map: 'moss' });
+const moss = mat({ color: '#c8d4c0', map: 'moss' });
+const mossDark = mat({ color: '#94a090', map: 'moss' });
 const thatch = mat({ color: '#6a5a38', map: 'dirt' });
 const iron = mat({ color: '#24262a', type: 'phong' });
 const hanging = mat({ color: '#3a4a2a' });
@@ -397,7 +397,7 @@ function Chapel() {
           {[-0.25, 0, 0.25].map((dx) => (
             <Box key={dx} size={[0.06, 0.14, 0.06]} m={glow('#ffd86a')} position={[dx, 1.92, 0]} />
           ))}
-          <FlickerLight intensity={16} distance={11} seed={cx} position={[0, 2.3, 0]} />
+          <FlickerLight intensity={30} distance={15} seed={cx} position={[0, 2.3, 0]} />
         </group>
       ))}
     </group>

@@ -49,7 +49,7 @@ function Daylight() {
     ambient.current.color.copy(colour.copy(NIGHT_AMBIENT).lerp(DAWN_AMBIENT, d));
     ambient.current.intensity = 1.9 + d * 0.9;
     moon.current.intensity = 2.2 * (1 - d);
-    sun.current.intensity = d * 4.5;
+    sun.current.intensity = d * 3.6;
   });
   return (
     <>

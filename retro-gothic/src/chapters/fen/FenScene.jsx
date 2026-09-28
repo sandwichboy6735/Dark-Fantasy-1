@@ -28,9 +28,10 @@ export function FenScene() {
   const goblin = useMemo(() => rattlecart(2, [-3, 0, 15.5], 2.6), []);
   return (
     <>
-      <fog attach="fog" args={[FEN_FOG, 14, 150]} />
-      <ambientLight color="#40605a" intensity={0.7} />
-      <directionalLight color="#b8d8c0" intensity={0.45} position={[40, 60, -200]} />
+      <fog attach="fog" args={[FEN_FOG, 22, 170]} />
+      <ambientLight color="#4a6e66" intensity={1.6} />
+      {/* Moonlight, from high enough to catch the tops of things. */}
+      <directionalLight color="#c8e8d0" intensity={1.1} position={[40, 160, -200]} />
       <NightSky top="#03070a" horizon="#16241f" fog={FEN_FOG} moonDir={[0.25, 0.22, -1]} moonColor="#dfe8c8" moonSize={0.9988} levels={skyLevels} />
       <FenWorld />
       <FenActors />

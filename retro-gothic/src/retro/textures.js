@@ -209,10 +209,10 @@ const painters = {
 
   // Black-green fen mud with a few pale stones and roots.
   mud(ctx, rand) {
-    ctx.fillStyle = '#1e2116';
+    ctx.fillStyle = '#2c3120';
     ctx.fillRect(0, 0, 32, 32);
     for (let i = 0; i < 60; i++) {
-      ctx.fillStyle = shade('#2a2e1c', (rand() - 0.5) * 0.12);
+      ctx.fillStyle = shade('#3a4128', (rand() - 0.5) * 0.12);
       ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1 + Math.floor(rand() * 4), 1 + Math.floor(rand() * 2));
     }
     for (let i = 0; i < 6; i++) {
@@ -228,10 +228,10 @@ const painters = {
 
   // Still black water with pale ripple lines; scrolled slowly to make it drift.
   water(ctx, rand) {
-    ctx.fillStyle = '#0d1a17';
+    ctx.fillStyle = '#132622';
     ctx.fillRect(0, 0, 32, 32);
     for (let i = 0; i < 26; i++) {
-      ctx.fillStyle = rand() < 0.5 ? '#1c3530' : '#12241f';
+      ctx.fillStyle = rand() < 0.5 ? '#244540' : '#1a312b';
       ctx.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 3 + Math.floor(rand() * 7), 1);
     }
     for (let i = 0; i < 5; i++) {

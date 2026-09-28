@@ -64,17 +64,17 @@ function VigilSky() {
     return (
       <>
         <fog attach="fog" args={[MORNING_FOG, 40, 320]} />
-        <ambientLight color="#ffe0c8" intensity={2.2} />
-        <directionalLight color="#ffc080" intensity={3.5} position={[240, 90, -180]} />
+        <ambientLight color="#ffe0c8" intensity={1.9} />
+        <directionalLight color="#ffc080" intensity={2.8} position={[240, 90, -180]} />
         <NightSky top="#10183a" horizon="#8a6a70" fog={MORNING_FOG} sunDir={[0.8, 0.28, -0.6]} levels={morningSky} />
       </>
     );
   }
   return (
     <>
-      <fog attach="fog" args={[FOG_COLOR, 30, 230]} />
-      {/* Barely any fill: the torches and lanterns do the lighting. */}
-      <ambientLight color="#4a4270" intensity={0.5} />
+      <fog attach="fog" args={[FOG_COLOR, 40, 260]} />
+      {/* A soft violet fill so nothing sinks to black; the torches and lanterns do the rest. */}
+      <ambientLight color="#5a5290" intensity={1.35} />
       <Sky />
     </>
   );

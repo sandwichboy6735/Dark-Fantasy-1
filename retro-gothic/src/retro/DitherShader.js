@@ -1,6 +1,6 @@
 import { Vector2, Vector3 } from 'three';
 
-// Final pass: linear -> sRGB, then an 8x8 ordered (Bayer) dither while the colour
+// Final pass: linear -> sRGB and a light grade, then an 8x8 ordered (Bayer) dither while the colour
 // is cut down to a fixed number of bits per channel (RGB565 by default).
 // The Bayer cell is taken on the low-res grid, so each dither dot is one fat pixel.
 export const DitherShader = {
@@ -12,6 +12,9 @@ export const DitherShader = {
     uLevels: { value: new Vector3(31, 63, 31) },
     uStrength: { value: 1 },
     uExposure: { value: 1 },
+    uLift: { value: 0 },
+    uGamma: { value: 1 },
+    uSaturation: { value: 1 },
   },
 
   vertexShader: /* glsl */ `
@@ -28,6 +31,9 @@ export const DitherShader = {
     uniform vec3 uLevels;
     uniform float uStrength;
     uniform float uExposure;
+    uniform float uLift;
+    uniform float uGamma;
+    uniform float uSaturation;
     varying vec2 vUv;
 
     const int BAYER8[64] = int[64](
@@ -49,6 +55,11 @@ export const DitherShader = {
       vec2 cell = floor(vUv * uLowRes);
       vec3 linear = texture2D(tDiffuse, (cell + 0.5) / uLowRes).rgb * uExposure;
       vec3 color = linearToSRGB(clamp(linear, 0.0, 1.0));
+      // Grade: open up the mid-tones, lift the blacks, a little more colour.
+      color = pow(color, vec3(uGamma));
+      color = uLift + color * (1.0 - uLift);
+      float grey = dot(color, vec3(0.299, 0.587, 0.114));
+      color = clamp(mix(vec3(grey), color, uSaturation), 0.0, 1.0);
 
       ivec2 p = ivec2(mod(cell, 8.0));
       float threshold = (float(BAYER8[p.y * 8 + p.x]) + 0.5) / 64.0;
