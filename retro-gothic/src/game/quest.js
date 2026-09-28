@@ -260,8 +260,19 @@ export function linesFor(interact) {
   return lines.map((l) => l.replaceAll('{bells}', String(state.bells.length)).replaceAll('{cats}', String(state.cats.length)));
 }
 
+// A conversation ends (you closed it, or walked away): the story moves on only
+// now, once you've heard what they had to say.
+export function endConversation() {
+  const talking = store.get().talking;
+  if (!talking) return;
+  live.talkClosedAt = performance.now();
+  store.set({ talking: null });
+  advanceQuest(talking.id);
+}
+
 // Talking to the right person moves the story on. Safe to call more than once.
 export function advanceQuest(id) {
+  if (!id) return;
   const state = store.get();
   const key = stageKey(state);
   if (id.startsWith('page-')) {
@@ -281,7 +292,7 @@ export function advanceQuest(id) {
     notify(cats.length === CATS.length ? 'All six cats petted! Truly a hero.' : `Cat petted: ${cats.length} of ${CATS.length}`);
   } else if (id === 'grubnik' && key === STAGE.ARRIVED) {
     store.set({ stage: STAGE.BELLS, bangers: 3 });
-    notify('New quest: find 5 golden bells. Got 3 bangers!');
+    notify('Got 3 bangers! Throw one with ' + (live.touch ? 'BANG' : 'F'));
   } else if (id === 'grubnik' && key === 'ready') {
     store.set({ stage: STAGE.TOAST, spilled: false, bangers: Math.max(3, state.bangers) });
     live.foam = 1;
@@ -353,6 +364,48 @@ export function objective(state) {
   if (stage === STAGE.CASTLE) return 'Enter the castle and ring the Great Bell';
   if (stage === STAGE.ESCAPE) return 'ESCAPE! Run back down the causeway to the court';
   return 'The Eye is closed. Celebrate at the Grinning Tankard!';
+}
+
+// One line on exactly how to do the current objective. `button` is 'E' or 'TALK'.
+export function objectiveHint(state, button) {
+  const key = stageKey(state);
+  if (key === STAGE.ARRIVED) return `Follow the gold arrow east to the tavern. Grubnik has the big ! over his head: walk up to him and press ${button}.`;
+  if (key === STAGE.BELLS) return 'Walk into a bell to pick it up. Hide in torchlight when a blue searchlight comes close.';
+  if (key === 'ready') return `Go back to Grubnik (the ! at the tavern bar) and press ${button}.`;
+  if (key === 'spilled') return `Go back to Grubnik (the ! at the tavern bar) and press ${button} for a fresh one.`;
+  if (key === STAGE.TOAST) return `WALK, don't run. At the castle gate, go up to the stone with the ! and press ${button}.`;
+  if (key === STAGE.CASTLE) return `Go through the open gate. Keep out of the Watchers' blue cones. At the bell with the !, press ${button}.`;
+  if (key === STAGE.ESCAPE) return 'Turn around and sprint back the way you came, all the way to the court!';
+  return 'Talk to everyone at the tavern. Pause to see what you missed.';
+}
+
+// Every step of the story for the journal on the pause screen.
+export function questSteps(state) {
+  const { stage, bells } = state;
+  const at = (s) => (stage > s ? 'done' : stage === s ? 'now' : 'later');
+  const bellsDone = stage > STAGE.BELLS || bells.length === BELLS.length;
+  return [
+    { text: 'Talk to Grubnik at the Grinning Tankard', state: at(STAGE.ARRIVED) },
+    { text: `Find Snaggle's golden bells on the causeway (${Math.min(bells.length, BELLS.length)}/${BELLS.length})`, state: bellsDone ? 'done' : at(STAGE.BELLS) },
+    { text: 'Bring the bells back to Grubnik', state: stage > STAGE.BELLS ? 'done' : bellsDone ? 'now' : 'later' },
+    { text: 'Carry the Toast to the Vigil Stone at the gate', state: at(STAGE.TOAST) },
+    { text: 'Ring the Great Bell inside the castle', state: at(STAGE.CASTLE) },
+    { text: 'Escape down the causeway before it falls', state: at(STAGE.ESCAPE) },
+  ];
+}
+
+// Where the big floating ! goes: over whoever or whatever you need next.
+export function questMarker(state, x, z) {
+  const key = stageKey(state);
+  // In front of the bar: the inn's overhanging upper floor would hide it right above Grubnik.
+  if (key === STAGE.ARRIVED || key === 'ready' || key === 'spilled') return { x: 37.8, y: 3.9, z: 10 };
+  if (key === STAGE.BELLS) {
+    const bell = objectiveTarget(state, x, z);
+    return bell && { x: bell.x, y: BELLS.find((b) => b.x === bell.x && b.z === bell.z).y + 1.6, z: bell.z };
+  }
+  if (key === STAGE.TOAST) return { x: VIGIL_STONE.x, y: VIGIL_STONE.y + 3, z: VIGIL_STONE.z };
+  if (key === STAGE.CASTLE) return { x: GREAT_BELL.x, y: GREAT_BELL.y + 8.6, z: GREAT_BELL.z };
+  return null;
 }
 
 // Where the objective arrow points from (x, z), or null.

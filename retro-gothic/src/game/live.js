@@ -29,4 +29,6 @@ export const live = {
   stunUntil: 0, // knocked down by masonry until this time
   sneaking: false,
   rage: 0, // how angry the Eye looks, 0..1
+  talkClosedAt: 0, // when the last conversation ended, so one press doesn't reopen it
+  touch: false, // playing with touch controls
 };

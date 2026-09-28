@@ -6,7 +6,9 @@ Start in a torchlit court. North, a cobbled causeway climbs over the abyss to a 
 
 ## The story
 
-Your goal: close the giant Eye that has watched this land for a hundred years. The quest banner and the gold arrow at the top of the screen always show what to do next and how far away it is.
+Your goal: close the giant Eye that has watched this land for a hundred years.
+
+**How to advance.** The quest line at the top of the screen says what to do next, with a second line on exactly how. The gold arrow above it points the way and shows the distance. A big gold **!** floats over whoever or whatever you need next. Walk up to them: "E TALK TO GRUBNIK" appears (on a phone, the TALK button shows their name). Press E or TALK to start talking, again to read on, and once more to close. The story moves on when the conversation ends, with a NEW OBJECTIVE banner. Pause at any time for the quest journal: every step, ticked off, with the current one explained.
 
 1. **Find the keeper.** Grubnik Tapfoot runs the Grinning Tankard, east of the court. Snaggle ran up the causeway on a dare, the Eye looked at him, and he came back without the five golden bells from his jester hat.
 2. **Find the five bells.** They're scattered up the causeway to the castle gate, marked by shafts of gold light. Walk into a bell to pick it up.
@@ -64,7 +66,7 @@ Start somewhere else with `?spawn=bridge`, `gate`, `bailey`, `nave`, `dais`, `ta
 | `W A S D` / arrows | Walk |
 | `Shift` | Run |
 | Mouse | Look (click the page to lock the pointer) |
-| `E` / left click | Talk: finish the line, then show the next one |
+| `E` / left click | Talk to whoever you're facing; again to read on; again to close |
 | `F` or `Q` | Throw a banger |
 | `C` or `Ctrl` (hold) | Sneak |
 | `M` | Mute |

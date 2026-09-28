@@ -17,7 +17,7 @@ function Page({ id, x, y, z, rotation }) {
   useFrame(({ clock }) => {
     if (!read) sheet.current.position.y = 1.2 + Math.sin(clock.elapsedTime * 2 + x) * 0.02;
   });
-  const info = { id, name: 'Torn diary page', accent: '#e8d8a8', range: 3.5, lines: PAGE_TEXT[id] };
+  const info = { id, verb: 'READ THE DIARY PAGE', name: 'Torn diary page', accent: '#e8d8a8', range: 3.5, lines: PAGE_TEXT[id] };
   return (
     <group position={[x, y, z]} rotation={[0, rotation, 0]} userData={{ interact: info }}>
       <Box size={[0.12, 1.1, 0.12]} m={oak} position={[0, 0.55, 0]} />

@@ -1,28 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
 import { pressBang, pressTalk, store, talkButton, useStore } from '../store.js';
-import { CATS, DIFFICULTY, PAGES, TORCHES, advanceQuest, hasProgress, linesFor, loadGame, newGame, objective, saveGame, scoreRun, STAGE } from '../game/quest.js';
+import {
+  CATS,
+  DIFFICULTY,
+  PAGES,
+  TORCHES,
+  endConversation,
+  hasProgress,
+  linesFor,
+  loadGame,
+  newGame,
+  objective,
+  objectiveHint,
+  questSteps,
+  saveGame,
+  scoreRun,
+  STAGE,
+} from '../game/quest.js';
 import { MapView } from './MapView.jsx';
 import { live } from '../game/live.js';
 import { sfx, startAudio, toggleMute } from '../game/audio.js';
 import { IS_TOUCH, addLook } from '../player/input.js';
 import { TouchControls } from './TouchControls.jsx';
+import { verbFor } from './verbs.js';
 
 const TYPE_SPEED_MS = 28;
+const BUTTON = IS_TOUCH ? 'TALK' : 'E';
 
 loadGame();
 
+
+
 // Retro text box: the speaker's name on a tab, text typed out a letter at a
-// time. Talk (E, click, TALK) finishes the line, then moves to the next one.
-// What they say is fixed when the conversation opens; opening it may move the story on.
+// time. E / TALK finishes the line, then shows the next one, and after the last
+// one closes the box. What they say is fixed when the conversation opens;
+// opening it may move the story on.
 function Dialogue({ target }) {
   const [lines] = useState(() => linesFor(target));
   const [index, setIndex] = useState(0);
   const [shown, setShown] = useState(0);
-  const text = lines[index % lines.length];
+  const text = lines[Math.min(index, lines.length - 1)];
   const state = useRef({});
-  state.current = { shown, length: text.length };
-
-  useEffect(() => advanceQuest(target.id), [target.id]);
+  state.current = { shown, length: text.length, last: index >= lines.length - 1 };
 
   useEffect(() => {
     setShown(0);
@@ -39,8 +58,9 @@ function Dialogue({ target }) {
 
   useEffect(() => {
     const advance = () => {
-      const { shown: s, length } = state.current;
+      const { shown: s, length, last } = state.current;
       if (s < length) setShown(length);
+      else if (last) endConversation();
       else setIndex((i) => i + 1);
     };
     talkButton.addEventListener('press', advance);
@@ -54,9 +74,64 @@ function Dialogue({ target }) {
       <p>{text.slice(0, shown)}</p>
       {done && (
         <div className="more">
-          {(index % lines.length) + 1}/{lines.length} <span className="arrow" /> {IS_TOUCH ? 'TALK' : 'E'}
+          {Math.min(index, lines.length - 1) + 1}/{lines.length} <span className="key">{BUTTON}</span> {index >= lines.length - 1 ? 'CLOSE' : 'NEXT'}
         </div>
       )}
+    </div>
+  );
+}
+
+// "E  TALK TO GRUBNIK": what you can do with whatever you're facing right now.
+function Prompt({ target }) {
+  const stage = useStore((s) => s.stage);
+  return (
+    <div className="prompt">
+      <span className="key">{BUTTON}</span> {verbFor(target, stage)}
+    </div>
+  );
+}
+
+// A big banner whenever the objective changes, so you never miss the next step.
+function ObjectiveBanner({ goal }) {
+  const first = useRef(true);
+  const [shown, setShown] = useState(null);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return undefined;
+    }
+    setShown(goal);
+    const timer = setTimeout(() => setShown(null), 4500);
+    return () => clearTimeout(timer);
+  }, [goal]);
+  if (!shown) return null;
+  return (
+    <div className="objective-banner" key={shown}>
+      <small>NEW OBJECTIVE</small>
+      {shown}
+    </div>
+  );
+}
+
+// Every step of the story, ticked off, plus the optional extras.
+function Journal() {
+  const state = useStore((s) => s);
+  return (
+    <div className="journal">
+      <h3>QUEST</h3>
+      <ol>
+        {questSteps(state).map((step) => (
+          <li key={step.text} className={step.state}>
+            <span className="tick">{step.state === 'done' ? '✓' : step.state === 'now' ? '▶' : '·'}</span>
+            {step.text}
+          </li>
+        ))}
+      </ol>
+      <p className="now-hint">{objectiveHint(state, BUTTON)}</p>
+      <p className="extras">
+        EXTRAS: torches {state.lit.length}/{TORCHES.filter((t) => !t.startsLit).length} · cats {state.cats.length}/{CATS.length} · pages{' '}
+        {state.pages.length}/{PAGES.length}
+      </p>
     </div>
   );
 }
@@ -103,8 +178,11 @@ function GoalCard() {
         <h2>YOUR QUEST</h2>
         <p className="lead">For a hundred years a giant Eye has watched this land. Close it.</p>
         <ol>
-          <li>Talk to <b>Grubnik</b>, the goblin behind the tavern bar.</li>
-          <li>Follow the <b className="gold">gold arrow</b> at the top of the screen.</li>
+          <li>Follow the <b className="gold">gold arrow</b> at the top of the screen to the tavern.</li>
+          <li>
+            A big <b>!</b> floats over whoever you need. Walk up to them and press <b>{BUTTON}</b> to talk. Keep pressing it to read on.
+          </li>
+          <li>The quest line at the top always says what to do next. Pause any time for your quest journal and a map.</li>
         </ol>
         <p className="danger">
           <b>DANGER:</b> blue searchlights from the Eye sweep the causeway. Stand in one too long and it <b>sees you</b>. Torchlight keeps
@@ -377,6 +455,7 @@ function TitleScreen({ playing }) {
           THE TANKARD
         </h1>
         <p className="blink">{IS_TOUCH ? prompt.replace('CLICK', 'TAP') : prompt}</p>
+        {started && <Journal />}
         {started && <MapView />}
         {saved && !started && (
           <button type="button" className="anew" onClick={restart}>
@@ -420,8 +499,22 @@ export function Overlay() {
   const zone = useStore((s) => s.zone);
   const ending = useStore((s) => s.ending);
   const goal = useStore((s) => objective(s));
+  const hint = useStore((s) => objectiveHint(s, BUTTON));
   const intro = useStore((s) => s.intro);
+  const talking = useStore((s) => s.talking);
   useGlobalInput();
+
+  // E / TALK on whatever you're facing opens a conversation (the open one handles its own presses).
+  useEffect(() => {
+    const open = () => {
+      const s = store.get();
+      if (s.talking || !s.target || s.intro || s.ending || !s.playing) return;
+      if (performance.now() - live.talkClosedAt < 300) return;
+      store.set({ talking: s.target });
+    };
+    talkButton.addEventListener('press', open);
+    return () => talkButton.removeEventListener('press', open);
+  }, []);
 
   return (
     <div className="hud">
@@ -433,12 +526,17 @@ export function Overlay() {
           {zone}
         </div>
       )}
-      <div className="objective" key={goal}>
-        <span className="label">QUEST</span>
-        {goal}
+      <div className="top-stack">
+        <div className="objective" key={goal}>
+          <span className="label">QUEST</span>
+          {goal}
+          <small className="hint">{hint}</small>
+        </div>
+        <Notice />
       </div>
-      <Notice />
-      {target && !ending && !intro && <Dialogue key={target.id} target={target} />}
+      <ObjectiveBanner goal={goal} />
+      {talking && !ending && !intro && <Dialogue key={talking.id ?? talking.name} target={talking} />}
+      {target && !talking && !ending && !intro && playing && mode !== 'touch' && <Prompt target={target} />}
       {playing && intro && !ending && <GoalCard />}
       {ending && <Ending />}
       <TitleScreen playing={playing} />

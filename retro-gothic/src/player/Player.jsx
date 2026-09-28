@@ -24,6 +24,7 @@ import {
   difficulty,
   failEscape,
   finishEscape,
+  endConversation,
 } from '../game/quest.js';
 import { setAmbience, setDanger, setQuake, sfx } from '../game/audio.js';
 import { live } from '../game/live.js';
@@ -45,6 +46,9 @@ const DREAD_RISE = 0.6; // per second in the gaze: about 1.7 s until you're seen
 const DREAD_FALL = 0.35;
 const FOAM_SPILL = 0.16; // per second of running with the Toast
 const TORCH_REACH = 2.6;
+const PROXIMITY_REACH = 4;
+const PROXIMITY_ANGLE = (55 * Math.PI) / 180;
+const spot = new THREE.Vector3();
 const CHECKPOINTS = [
   { x: 0, z: -99, y: 13 },
   { x: 0, z: -130.5, y: 13 },
@@ -104,6 +108,8 @@ export function Player() {
     fallSpeed: 0,
     debrisTimer: 0,
     eye: EYE_HEIGHT,
+    scanAt: -10,
+    interactables: [],
   });
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const look = useMemo(() => new THREE.Euler(), []);
@@ -193,6 +199,7 @@ export function Player() {
     let running = false;
     const keys = getKeys();
     live.sneaking = playing && !escaping && (keys.sneak || input.sneak);
+    live.touch = store.get().mode === 'touch';
     if (playing) {
       const { forward: f, back, left, right, run: shift } = keys;
       const ahead = THREE.MathUtils.clamp((f ? 1 : 0) - (back ? 1 : 0) - input.moveY, -1, 1);
@@ -240,6 +247,33 @@ export function Player() {
     let found = hit ? interactableOf(hit.object) : null;
     // Some things (cats, the bell) only answer when you're close.
     if (found?.range && hit.distance > found.range) found = null;
+
+    // No need to aim precisely: anyone close and roughly in front of you counts.
+    if (live.now - b.scanAt > 1) {
+      b.scanAt = live.now;
+      b.interactables = [];
+      scene.traverse((o) => o.userData.interact && b.interactables.push(o));
+    }
+    const yawNow = look.setFromQuaternion(camera.quaternion, 'YXZ').y;
+    let nearest = null;
+    for (const o of b.interactables) {
+      if (!o.parent) continue;
+      o.getWorldPosition(spot);
+      const dx = spot.x - b.x;
+      const dz = spot.z - b.z;
+      const d = Math.hypot(dx, dz);
+      const facing = Math.abs(Math.atan2(Math.sin(Math.atan2(-dx, -dz) - yawNow), Math.cos(Math.atan2(-dx, -dz) - yawNow)));
+      const reach = Math.min(PROXIMITY_REACH, o.userData.interact.range ?? PROXIMITY_REACH);
+      if (d < reach && facing < PROXIMITY_ANGLE && Math.abs(spot.y - b.ground) < 4 && (!nearest || d < nearest.d)) nearest = { o, d };
+    }
+    if (!found && playing && nearest) found = nearest.o.userData.interact;
+
+    // Walk away from a conversation and it ends.
+    const talking = store.get().talking;
+    if (talking) {
+      const partner = b.interactables.find((o) => o.userData.interact.id === talking.id);
+      if (!partner?.parent || partner.getWorldPosition(spot).distanceTo(camera.position) > TALK_RANGE) endConversation();
+    }
     const now = clock.elapsedTime;
     const current = store.get().target;
     if (found) {

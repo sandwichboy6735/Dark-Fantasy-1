@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 //   playing  the player has control (pointer locked, dragging or touch)
 //   mode     'lock' | 'drag' | 'touch': how you look around
 //   target   { id, name, lines, stages } of the character under the crosshair, or null
+//   talking  the conversation that's open (press E / TALK on a target to start one)
 //   zone     name of the area you're standing in
 //   stage    quest progress, see game/quest.js
 //   bells    ids of the golden bells picked up
@@ -21,6 +22,7 @@ let state = {
   playing: false,
   mode: 'lock',
   target: null,
+  talking: null,
   zone: '',
   stage: 0,
   bells: [],

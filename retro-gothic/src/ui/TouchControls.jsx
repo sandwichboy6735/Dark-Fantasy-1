@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { pressBang, pressTalk, store, useStore } from '../store.js';
 import { STAGE } from '../game/quest.js';
+import { verbFor } from './verbs.js';
 import { addLook, input } from '../player/input.js';
 
 const STICK_RADIUS = 56;
@@ -9,6 +10,8 @@ const STICK_RADIUS = 56;
 // else to look, a TALK button when someone is under the crosshair.
 export function TouchControls() {
   const target = useStore((s) => s.target);
+  const talking = useStore((s) => s.talking);
+  const bangers = useStore((s) => s.bangers);
   const stage = useStore((s) => s.stage);
   const stickPointer = useRef(null);
   const lookPointers = useRef(new Map());
@@ -77,14 +80,21 @@ export function TouchControls() {
         </div>
       )}
       {!stick && <div className="stick-hint">MOVE</div>}
-      {target && (
-        <button type="button" className="touch-button talk" onPointerDown={tap(pressTalk)}>
-          TALK
+      {(target || talking) && (
+        <button type="button" className={`touch-button talk${talking ? '' : ' ready'}`} onPointerDown={tap(pressTalk)}>
+          {talking ? (
+            'NEXT'
+          ) : (
+            <>
+              {verbFor(target, stage).split(' ')[0]}
+              <small>{target.name.split(',')[0]}</small>
+            </>
+          )}
         </button>
       )}
       {stage >= STAGE.BELLS && (
         <button type="button" className="touch-button bang" onPointerDown={tap(pressBang)}>
-          BANG
+          BANG x{bangers}
         </button>
       )}
       <button

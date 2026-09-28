@@ -70,6 +70,8 @@ function Signpost({ position }) {
       position={position}
       userData={{
         interact: {
+          id: 'signpost',
+          verb: 'READ THE SIGNPOST',
           name: 'Weathered Signpost',
           lines: [
             'NORTH: The Mourning Causeway, and the Castle of the Vigil beyond. Pilgrims keep to the middle of the steps.',

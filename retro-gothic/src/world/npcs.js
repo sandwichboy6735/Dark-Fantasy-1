@@ -152,6 +152,8 @@ export const GUARDS = [
 export const VIGIL_STONE_INFO = {
   id: 'vigil-stone',
   name: 'The Vigil Stone',
+  verbs: { 2: 'RAISE THE TOAST AT THE STONE' },
+  verb: 'LOOK AT THE VIGIL STONE',
   accent: '#8fb0ff',
   lines: ['An old altar-stone carved with a lidded eye. A hollow on top is worn smooth, as if a cup was set down here once, and raised.'],
   stages: {
@@ -319,6 +321,8 @@ export const GOBLINS = [
 export const GREAT_BELL_INFO = {
   id: 'great-bell',
   name: 'The Great Bell',
+  verbs: { 3: 'RING THE GREAT BELL' },
+  verb: 'LOOK AT THE GREAT BELL',
   accent: '#e8b830',
   range: 5,
   lines: ['A bronze bell as big as a cottage, green with age. Its rope hangs within reach.'],

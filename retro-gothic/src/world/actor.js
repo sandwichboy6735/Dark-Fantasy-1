@@ -12,7 +12,8 @@ export function useCollider(ref, radius, enabled = true) {
   }, [ref, radius, enabled]);
 }
 
-export const isTalkingTo = (id) => store.get().target?.id === id;
+// Characters stop and face you when you look at them or talk to them.
+export const isTalkingTo = (id) => store.get().target?.id === id || store.get().talking?.id === id;
 
 // Turns `current` towards `target` (radians) at `speed` radians per second.
 export function turnTowards(current, target, speed, dt) {

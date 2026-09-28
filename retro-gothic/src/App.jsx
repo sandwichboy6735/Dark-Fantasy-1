@@ -17,6 +17,7 @@ import { Embers } from './world/Embers.jsx';
 import { Pages } from './world/Pages.jsx';
 import { Debris } from './world/Debris.jsx';
 import { Fireworks } from './world/Fireworks.jsx';
+import { QuestMarker } from './world/QuestMarker.jsx';
 import { Player } from './player/Player.jsx';
 import { Overlay } from './ui/Overlay.jsx';
 
@@ -59,6 +60,7 @@ export default function App() {
         <Pages />
         <Debris />
         <Fireworks />
+        <QuestMarker />
         <Embers />
         <Player />
         <HeldTankard />

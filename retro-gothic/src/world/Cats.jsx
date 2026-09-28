@@ -22,6 +22,7 @@ function Cat({ id, x, y, z, rotation }) {
   const info = {
     id,
     name: found ? 'A contented black cat' : 'A black cat',
+    verb: 'PET THE CAT',
     accent: '#e8d040',
     range: 3.5,
     lines: CAT_LINES,
