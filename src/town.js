@@ -12,7 +12,7 @@ const L = (x, z, rot) => (lx, lz) => [x + lx * Math.cos(rot) + lz * Math.sin(rot
 
 function slab(k, kind, P, rot, lx, y, lz, w, h, d, color, o = {}) {
   const [x, z] = P(lx, lz);
-  k.box(kind, w, h, d, color, { x, y, z, ry: rot + (o.ry || 0), rx: o.rx || 0, rz: o.rz || 0, bright: o.bright });
+  k.box(kind, w, h, d, color, { x, y, z, ry: rot + (o.ry || 0), rx: o.rx || 0, rz: o.rz || 0, bright: o.bright, order: 'YXZ' });
 }
 
 // A window seen on a wall facing local +z at depth fz (sign s = +1 front, -1 back)
@@ -189,7 +189,7 @@ export function props(k, w, T, x, z, rot, seed) {
       const [wx, wz] = P(sx, 0.4);
       k.add('wood', new THREE.TorusGeometry(0.55, 0.07, 6, 16), '#3a2618', { x: wx, y: y + 0.55, z: wz, ry: rot + Math.PI / 2 });
     }
-    for (const sx of [-0.3, 0.3]) { const [hx, hz] = P(sx, 2.3); k.box('wood', 0.08, 0.08, 1.8, '#3a2618', { x: hx, y: y + 0.6, z: hz, ry: rot, rx: 0.3 }); }
+    for (const sx of [-0.3, 0.3]) { const [hx, hz] = P(sx, 2.3); k.box('wood', 0.08, 0.08, 1.8, '#3a2618', { x: hx, y: y + 0.6, z: hz, ry: rot, rx: 0.3, order: 'YXZ' }); }
     slab(k, 'thatch', P, rot, 0, y + 1.3, -0.3, 1.4, 0.4, 1.6, '#b09a6a');
     w.box(x, z, 0.9, 1.4, rot, y - 1, y + 1.5);
   } else {
@@ -255,8 +255,8 @@ export function buildTown(k, w, T, occupied) {
     k.box('stone', 4, H, 4, '#8a8278', { x: tx, y: ty + H / 2, z: tz });
     for (let i = 0; i < 4; i++) {
       const a = (i * Math.PI) / 2, fx = Math.sin(a), fz = Math.cos(a);
-      k.cyl('stone', 1.2, 1.2, 0.2, 24, '#c8bca0', { x: tx + fx * 2.05, y: ty + H - 2.5, z: tz + fz * 2.05, rx: Math.PI / 2, ry: a });
-      k.cyl('glow', 1.0, 1.0, 0.1, 24, '#ffe8b0', { x: tx + fx * 2.12, y: ty + H - 2.5, z: tz + fz * 2.12, rx: Math.PI / 2, ry: a, bright: 1.3 });
+      k.cyl('stone', 1.2, 1.2, 0.2, 24, '#c8bca0', { x: tx + fx * 2.05, y: ty + H - 2.5, z: tz + fz * 2.05, rx: Math.PI / 2, ry: a, order: 'YXZ' });
+      k.cyl('glow', 1.0, 1.0, 0.1, 24, '#ffe8b0', { x: tx + fx * 2.12, y: ty + H - 2.5, z: tz + fz * 2.12, rx: Math.PI / 2, ry: a, bright: 1.3, order: 'YXZ' });
       k.box('metal', 0.08, 0.8, 0.05, '#1a1410', { x: tx + fx * 2.2, y: ty + H - 2.2, z: tz + fz * 2.2, ry: a });
       k.box('metal', 0.6, 0.08, 0.05, '#1a1410', { x: tx + fx * 2.2 + Math.cos(a) * 0.25, y: ty + H - 2.5, z: tz + fz * 2.2 - Math.sin(a) * 0.25, ry: a });
     }

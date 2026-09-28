@@ -187,7 +187,7 @@ export function stall(k, w, T, x, z, rot, cloth) {
     k.cyl('wood', 0.07, 0.07, b > 0 ? 2.6 : 3.1, 5, '#3a2b20', { x: px, y: y + (b > 0 ? 1.3 : 1.55), z: pz });
   }
   const [cx, cz] = P(0, 0.5);
-  k.box('plain', 3.8, 0.08, 2.9, cloth, { x: cx, y: y + 2.85, z: cz, ry: rot, rx: 0.18 });
+  k.box('plain', 3.8, 0.08, 2.9, cloth, { x: cx, y: y + 2.85, z: cz, ry: rot, rx: 0.18, order: 'YXZ' });
   for (let i = 0; i < 4; i++) {
     const [px, pz] = P(-1.2 + i * 0.8, 0);
     const c = ['#7a3a8a', '#c9a860', '#3f7a5a', '#a0402a'][i];
@@ -207,11 +207,11 @@ export function goblinHut(k, w, T, x, z, rot) {
   k.cyl('stone', 3, 3.3, 3.6, 12, STONE_WARM, { x, y: y + 1.8, z });
   k.cone('thatch', 4, 3.8, 12, '#a48c66', { x, y: y + 5.4, z, rz: 0.08 });
   const [dx, dz] = P(0, 3.05);
-  k.cyl('wood', 0.85, 0.85, 0.2, 12, '#6a3a2a', { x: dx, y: y + 1.2, z: dz, rx: Math.PI / 2, ry: rot });
+  k.cyl('wood', 0.85, 0.85, 0.2, 12, '#6a3a2a', { x: dx, y: y + 1.2, z: dz, rx: Math.PI / 2, ry: rot, order: 'YXZ' });
   k.sphere('metal', 0.08, '#d0b060', { x: dx + 0.3, y: y + 1.2, z: dz });
   for (const a of [-0.9, 0.9]) {
     const [px, pz] = [x + Math.sin(rot + a) * 3.02, z + Math.cos(rot + a) * 3.02];
-    k.cyl('glow', 0.35, 0.35, 0.2, 10, WARM, { x: px, y: y + 2.1, z: pz, rx: Math.PI / 2, ry: rot + a, bright: 2.2 });
+    k.cyl('glow', 0.35, 0.35, 0.2, 10, WARM, { x: px, y: y + 2.1, z: pz, rx: Math.PI / 2, ry: rot + a, bright: 2.2, order: 'YXZ' });
   }
   w.circle(x, z, 3.3, y - 2, y + 7);
   w.noTrees(x, z, 7);
@@ -232,7 +232,7 @@ export function witchHut(k, w, T, x, z, rot) {
   const [wx, wz] = P(0, 2.13);
   k.box('glow', 0.9, 1, 0.2, '#86ff9a', { x: wx, y: y + 4.6, z: wz, ry: rot, bright: 2 });
   const [sx, sz] = P(0, 3.8);
-  k.box('wood', 1.2, 0.15, 3.6, '#3a2c24', { x: sx, y: y + 1.5, z: sz, ry: rot, rx: -0.45 });
+  k.box('wood', 1.2, 0.15, 3.6, '#3a2c24', { x: sx, y: y + 1.5, z: sz, ry: rot, rx: -0.45, order: 'YXZ' });
   // cauldron
   const [cx, cz] = P(3.8, 3.6);
   const cy = T.heightAt(cx, cz);

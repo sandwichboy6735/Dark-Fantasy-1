@@ -6,7 +6,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Eule
 const _c = new THREE.Color();
 
 // World-scale texture projection so bricks and slates keep their size on any shape
-const TEX_SCALE = { stone: 3.2, roof: 2.4, thatch: 3, wood: 2.2, plain: 3, cloth: 1.2, terrain: 7, skin: 0.35, velvet: 0.9, lace: 0.25, hide: 0.5 };
+const TEX_SCALE = { stone: 3.2, roof: 2.4, thatch: 3, wood: 2.2, plain: 3, cloth: 1.2, terrain: 7, skin: 0.35, velvet: 0.9, lace: 0.25, hide: 0.5, bark: 1.6 };
 const _up = new THREE.Vector3(0, 1, 0), _d = new THREE.Vector3();
 
 export class Kit {
@@ -19,7 +19,7 @@ export class Kit {
   add(kind, geo, color, o = {}) {
     const g = geo;
     if (o.dir) { _d.set(o.dir[0], o.dir[1], o.dir[2]).normalize(); _q.setFromUnitVectors(_up, _d); }
-    else { _e.set(o.rx || 0, o.ry || 0, o.rz || 0); _q.setFromEuler(_e); }
+    else { _e.set(o.rx || 0, o.ry || 0, o.rz || 0, o.order || 'XYZ'); _q.setFromEuler(_e); }
     _s.set(o.sx ?? 1, o.sy ?? 1, o.sz ?? 1);
     _p.set(o.x || 0, o.y || 0, o.z || 0);
     _m.compose(_p, _q, _s);

@@ -1,6 +1,7 @@
 // Hand-painted look: procedural canvas textures and the shared materials everything is built from.
 import * as THREE from 'three';
 import { mulberry32 } from './noise.js';
+import { foliageMaterials } from './foliage.js';
 
 function canvasTex(size, paint, { repeat = true, srgb = true } = {}) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -205,15 +206,96 @@ export function addRim(mat, strength = 1) {
   return mat;
 }
 
+// Tiling detail maps for the ground (linear, centred on mid-grey so they only add texture)
+function detailTex(paint) {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  let seed = paint.length * 31 + 7; const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, 512, 512);
+  paint(ctx, 512, r);
+  // make it tile: blend edges with a wrapped copy
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 8;
+  return t;
+}
+const grassDetail = () => detailTex((ctx, s, r) => {
+  for (let i = 0; i < 9000; i++) {
+    const x = r() * s, y = r() * s, L = 4 + r() * 12, a = -Math.PI / 2 + (r() - 0.5) * 1.2;
+    const v = 70 + r() * 120, g = v + 20 + r() * 20;
+    ctx.strokeStyle = `rgba(${v * 0.85},${g},${v * 0.7},0.55)`; ctx.lineWidth = 1 + r();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); ctx.stroke();
+    if (x < L || y < L) { ctx.beginPath(); ctx.moveTo(x + s, y + s); ctx.lineTo(x + s + Math.cos(a) * L, y + s + Math.sin(a) * L); ctx.stroke(); }
+  }
+  for (let i = 0; i < 400; i++) { ctx.fillStyle = `rgba(90,70,50,${0.1 + r() * 0.15})`; ctx.beginPath(); ctx.arc(r() * s, r() * s, 2 + r() * 6, 0, 7); ctx.fill(); }
+});
+const soilDetail = () => detailTex((ctx, s, r) => {
+  for (let i = 0; i < 3000; i++) {
+    const x = r() * s, y = r() * s, rad = 1 + Math.pow(r(), 3) * 8, v = 60 + r() * 150;
+    ctx.fillStyle = `rgba(${v},${v * 0.92},${v * 0.82},0.6)`; ctx.beginPath(); ctx.ellipse(x, y, rad, rad * (0.6 + r() * 0.4), r() * 3, 0, 7); ctx.fill();
+  }
+});
+const rockDetail = () => detailTex((ctx, s, r) => {
+  for (let i = 0; i < 260; i++) {
+    const x = r() * s, y = r() * s, w = 20 + r() * 90, h = 10 + r() * 40, v = 90 + r() * 90;
+    ctx.fillStyle = `rgba(${v},${v},${v * 1.04},0.5)`; ctx.beginPath(); ctx.ellipse(x, y, w, h, r() * 0.4, 0, 7); ctx.fill();
+  }
+  for (let i = 0; i < 2000; i++) { const v = 60 + r() * 150; ctx.fillStyle = `rgba(${v},${v * 0.97},${v * 0.93},0.25)`; ctx.fillRect(r() * s, r() * s, 2 + r() * 6, 2 + r() * 4); }
+  for (let i = 0; i < 40; i++) {
+    let x = r() * s, y = r() * s; ctx.strokeStyle = `rgba(20,20,24,${0.2 + r() * 0.25})`; ctx.lineWidth = 1 + r() * 2;
+    ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 40; y += (r() - 0.3) * 20; ctx.lineTo(x, y); } ctx.stroke();
+  }
+});
+
+function terrainDetail(mat) {
+  const g = grassDetail(), so = soilDetail(), ro = rockDetail();
+  const gn = normalFrom(g.image, 2.5), rn = normalFrom(ro.image, 4);
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, { tG: { value: g }, tS: { value: so }, tR: { value: ro }, tGN: { value: gn }, tRN: { value: rn } });
+    sh.vertexShader = 'varying vec3 vTW; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vTW = (modelMatrix * vec4(transformed, 1.0)).xyz; vTN = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = 'uniform sampler2D tG, tS, tR, tGN, tRN; varying vec3 vTW; varying vec3 vTN;\n' + sh.fragmentShader
+      .replace('#include <map_fragment>', `
+        vec2 wuv = vTW.xz;
+        vec3 gd = texture2D(tG, wuv * 0.45).rgb * texture2D(tG, wuv * 0.061).rgb * 2.0;
+        vec3 sd = texture2D(tS, wuv * 0.3).rgb * 1.4;
+        vec3 an = abs(normalize(vTN));
+        vec3 aw = an / (an.x + an.y + an.z);
+        #define TRI(S) (texture2D(tR, vTW.zy * S).rgb * aw.x + texture2D(tR, vTW.xy * S).rgb * aw.z + texture2D(tR, wuv * S).rgb * aw.y)
+        vec3 rd = TRI(0.09) * TRI(0.41) * 2.1;
+        // layered strata and dark cracks on cliffs
+        float strata = texture2D(tS, vec2(vTW.y * 0.35, (vTW.x + vTW.z) * 0.01)).r;
+        rd *= 0.72 + strata * 0.55;
+        float rockW = smoothstep(0.82, 0.6, an.y);
+        float bare = smoothstep(0.1, 0.5, vColor.r - vColor.g + 0.12); // roads, mud, snow read as bare
+        float breakup = texture2D(tS, wuv * 0.013).r;
+        vec3 detail = mix(gd, sd, clamp(bare + (breakup - 0.5) * 0.8, 0.0, 1.0));
+        detail = mix(detail, rd * 1.8, rockW);
+        diffuseColor.rgb *= detail * 1.15;
+        // moss and grass creep over ledges that aren't too steep
+        float moss = rockW * smoothstep(0.35, 0.62, an.y) * smoothstep(0.35, 0.65, breakup + texture2D(tS, wuv * 0.07).r * 0.5 - 0.1) * (1.0 - bare);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.17, 0.21, 0.1) * gd * 1.4, moss * 0.85);
+        #include <map_fragment>`)
+      .replace('#include <normal_fragment_maps>', `
+        vec3 nG = texture2D(tGN, wuv * 0.45).xyz * 2.0 - 1.0;
+        vec3 nR = texture2D(tRN, (an.y > 0.6 ? wuv : (an.x > an.z ? vTW.zy : vTW.xy)) * 0.12).xyz * 2.0 - 1.0;
+        vec3 nb = mix(nG * vec3(0.6, 0.6, 1.0), nR * vec3(1.4, 1.4, 1.0), rockW);
+        normal = normalize(normal + (viewMatrix * vec4(nb.x, 0.0, nb.y, 0.0)).xyz * 0.9);`);
+  };
+  mat.customProgramCacheKey = () => 'terrainDetail';
+  mat.map = null; mat.normalMap = null;
+  return mat;
+}
+
 export function makeMaterials() {
   const grain = grainTex(), stone = stoneTex(), shingle = shingleTex(), thatch = thatchTex(), wood = woodTex();
   const nStone = normalFrom(stone.image, 3.5), nGrain = normalFrom(grain.image, 1.2), nWood = normalFrom(wood.image, 2.5), nRoof = normalFrom(shingle.image, 3), nThatch = normalFrom(thatch.image, 2);
   const nSkin = normalFrom(skinHeight(), 5), nVelvet = normalFrom(velvetHeight(), 3);
   const std = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 0.92, metalness: 0, ...extra });
   const n = (t, s) => ({ normalMap: t, normalScale: new THREE.Vector2(s, s) });
+  const fol = foliageMaterials(normalFrom);
   return {
+    ...fol,
     tex: { grain, soft: softTex(), cloud: cloudTex() },
-    terrain: std(grain, { roughness: 1, ...n(nGrain, 0.6) }),
+    terrain: terrainDetail(std(grain, { roughness: 1 })),
     plain: std(grain, n(nGrain, 0.5)),
     stone: std(stone, n(nStone, 1.2)),
     roof: std(shingle, { roughness: 0.75, ...n(nRoof, 1) }),

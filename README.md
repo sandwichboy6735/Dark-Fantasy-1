@@ -45,6 +45,7 @@ The compass at the top points to the places you've found, and ◇ marks the ones
 - **Old Mossback:** a hill-sized turtle, covered in moss, slowly walking the western meadows with a lantern-lit house on its back.
 - **The yak caravan:** Old Harrow leads three shaggy yaks up the snow road toward the Emberdeep, a dwarven forge glowing in a mountain pass.
 - **Starfall Point and the Moon Queen's Castle:** hop across floating stepping stones, riding the blue updrafts, to reach the Moon Queen's island.
+- **The countryside:** between the big places are old rubble-stone cottages with sagging slate roofs, great chimneys and ivy, little hamlets with lit windows, overgrown ruins, drystone-walled fields, standing stones and wayside shrines. There's one in the glade just below Wayfarer's Rest.
 - Drifting castle islands all around the edge of the world.
 
 There are 45 characters to talk to: goblins, witches, wizards, knights, villagers, children, ghosts, a cat, the Moon Queen and more. The menu counts the places you've found and the people you've met.
@@ -114,6 +115,9 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/terrain.js` | Heightmap, painted ground colours, landscape streaming |
 | `src/structures.js` | Castles, cottages, the market, witch huts, graves, towers, floating islands |
 | `src/flora.js` | Forests, glowing mushrooms and flowers |
+| `src/foliage.js` | Tree models built from painted leaf and needle cards, bark, moss and ivy |
+| `src/settlements.js` | Stone cottages, hamlets, ruins, walled fields, standing stones and shrines |
+| `src/atmosphere.js` | Valley fog, drifting ground mist, moon glow and light shafts |
 | `src/characters.js` | Character models and how they move |
 | `src/npcs.js` | Everyone in the world, what they say, and what they ask |
 | `src/town.js` | Emberlight's houses, streets, clock tower and town walls |

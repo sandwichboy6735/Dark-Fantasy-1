@@ -21,7 +21,7 @@ const flat = (h, x, z, cx, cz, r, w, target) => {
 // sRGB palette
 const C = {
   grassA: [34, 64, 48], grassB: [48, 80, 50], grassDark: [24, 44, 38], meadow: [56, 88, 54],
-  rock: [88, 84, 108], rockDark: [58, 55, 76], snow: [206, 212, 238], snowShade: [160, 168, 210],
+  rock: [98, 94, 90], rockDark: [64, 62, 62], snow: [206, 212, 238], snowShade: [160, 168, 210],
   road: [104, 90, 76], witch: [54, 40, 76], witchDark: [34, 26, 50], shore: [70, 72, 70],
   grave: [42, 58, 56], market: [86, 70, 58], cliff: [66, 62, 82], mud: [40, 38, 28], bog: [38, 50, 34],
 };

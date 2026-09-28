@@ -7,6 +7,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { makePaintShader } from './paint.js';
+import { AtmospherePass } from './atmosphere.js';
 import { rimColor } from './art.js';
 
 import { Terrain, TerrainMesh } from './terrain.js';
@@ -26,6 +27,7 @@ import { drawMap, toMap } from './map.js';
 import { GroundCover } from './groundcover.js';
 import { buildTown } from './town.js';
 import { buildTurtle } from './creatures.js';
+import { buildCountryside, stoneCottage } from './settlements.js';
 import { addCozy, FISH } from './cozy.js';
 import { applyTime, makeWhales, phaseName, DAY_SECONDS } from './daynight.js';
 
@@ -49,11 +51,12 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, HQ() ? 1.5 : 1));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.3;
 renderer.shadowMap.enabled = HQ();
+renderer.info.autoReset = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 const FOG = new THREE.Color(0x1d1b44);
-scene.fog = new THREE.FogExp2(FOG, 0.00062);
+scene.fog = new THREE.FogExp2(FOG, 0.00012);
 scene.background = FOG;
 const camera = new THREE.PerspectiveCamera(60, 1, 0.3, 9000);
 
@@ -84,6 +87,7 @@ scene.add(keyLight, backLight);
 const hemi = new THREE.HemisphereLight(0x6a68c4, 0x2c2a64, 1.55);
 scene.add(hemi);
 const lightDir = moonDir.clone();
+const _glow = new THREE.Color();
 let dayTime = 0.72, lastPhase = '';
 const updWhales = makeWhales(scene);
 
@@ -96,7 +100,10 @@ scene.add(lake.mesh);
 
 // Post-processing: bloom for moon and windows, then a painterly grade
 const composer = new EffectComposer(renderer);
+for (const rt of [composer.renderTarget1, composer.renderTarget2]) { rt.depthTexture = new THREE.DepthTexture(); rt.depthTexture.type = THREE.UnsignedIntType; }
 composer.addPass(new RenderPass(scene, camera));
+const atmo = new AtmospherePass(camera, settings.quality);
+composer.addPass(atmo);
 const bokeh = new BokehPass(scene, camera, { focus: 2, aperture: 0.02, maxblur: 0.01 });
 bokeh.enabled = false;
 composer.addPass(bokeh);
@@ -372,6 +379,22 @@ function buildPlaces() {
     world.lights.push({ x: 140, y: ey + 6, z: -686, color: 0xffa040, intensity: 4, range: 60 });
     world.box(140, -693, 7, 2.2, 0, ey - 2, ey + 14);
   }
+  { // an old stone cottage in the glade below Wayfarer's Rest, like the one in the painting
+    const ck = new Kit(mats);
+    // pick the flattest open spot a short walk below the overlook
+    let best = null;
+    for (let a = 0; a < 40; a++) for (let d = 45; d <= 130; d += 15) {
+      const x = Math.cos(a / 40 * Math.PI * 2) * d, z = 352 + Math.sin(a / 40 * Math.PI * 2) * d;
+      const h = T.heightAt(x, z); if (h < WATER_Y + 3 || T.roadDist(x, z) < 12 || z < 300) continue;
+      let sl = 0; for (let b = 0; b < 6; b++) sl += T.slope(x + Math.cos(b) * 6, z + Math.sin(b) * 6);
+      if (!best || sl < best[2]) best = [x, z, sl];
+    }
+    world.showCottage = best;
+    world.noTrees(best[0], best[1], 26);
+    stoneCottage(ck, world, T, best[0], best[1], Math.atan2(-best[0], 352 - best[1]), 77);
+    scene.add(ck.build());
+  }
+  world.countryside = buildCountryside(scene, Kit, mats, world, T);
   // Launch updraft at Starfall Point
   { const ly = T.heightAt(-884, 884); world.wells.push({ x: -884, z: 884, r: 2.2, y: () => ly, boost: 24 }); }
   // Lifts
@@ -924,6 +947,7 @@ let areaT = 0, titleT = 0, bubbleT = 0, whaleT = 10, lastWhales = [];
 const tmpV = new THREE.Vector3();
 function frame(now) {
   requestAnimationFrame(frame);
+  renderer.info.reset();
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const t = now / 1000;
@@ -931,6 +955,9 @@ function frame(now) {
   else if (state === 'play') dayTime = (dayTime + dt / DAY_SECONDS) % 1;
   const tod = applyTime(dayTime, { sky, fog: FOG, scene, hemi, renderer, light: moonLight, lightDir, cloudSea, lake, moon: sky.moon });
   rimColor.value.copy(moonLight.color).multiplyScalar(0.18 + tod.night * 0.3);
+  atmo.uniforms.uDensity.value = 0.0009 + tod.night * 0.0009;
+  atmo.uniforms.uMist.value = 0.4 + tod.night * 0.8;
+  atmo.update(camera, lightDir, 1, scene.fog.color, _glow.copy(moonLight.color).multiplyScalar(Math.min(0.9, 0.2 + moonLight.intensity * 0.15)), t);
   renderer.toneMappingExposure *= 1 - 0.28 * portraitK;
   sky.uniforms.uTime.value = t; cloudSea.uniforms.uTime.value = t; lake.uniforms.uTime.value = t; grade.uniforms.uTime.value = t % 10;
 
@@ -962,14 +989,15 @@ function frame(now) {
     } else if (player) { player.input.x = player.input.z = 0; player.input.jump = false; }
     if (state === 'play' || state === 'menu') player.update(state === 'menu' ? 0 : dt);
     const portrait = talk && state === 'play' && !(acts && acts.active);
-    if (portrait) portraitCam(dt);
+    if (window.__freeCam) { camera.position.fromArray(window.__freeCam.pos); camera.lookAt(...window.__freeCam.look); }
+    else if (portrait) portraitCam(dt);
     else if (acts && acts.cur && acts.cur.cam) acts.cur.cam(camera, dt); else player.updateCamera(camera, dt);
     portraitK += ((portrait ? 1 : 0) - portraitK) * Math.min(1, dt * 3);
     grade.uniforms.uPortrait.value = portraitK;
     bokeh.enabled = !!(portrait && HQ());
     keyLight.intensity = portraitK * 2.2; backLight.intensity = portraitK * 3;
     document.body.classList.toggle('talking', !!portrait);
-    player.model.visible = !portrait;
+    player.model.visible = !portrait && !window.__freeCam;
     if (!portrait) portraitCamPos = null;
     tmesh.update(player.pos.x, player.pos.z, player.teleported ? 60 : 3);
     player.teleported = false;
@@ -996,6 +1024,7 @@ function frame(now) {
   const focus = state === 'title' ? camera.position : player.pos;
   flora.update(focus.x, focus.z, HQ() ? 2000 : 1100);
   ground.update(t, focus.x, focus.z);
+  mats.wind.value = t;
   tmesh.far = HQ() ? 3200 : 2000;
   const viewer = state === 'title' ? { pos: camera.position } : player;
   for (const n of npcs) n.update(dt, t, viewer);
@@ -1073,4 +1102,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 load();
 
-window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, openMap, travelTo, found: () => found, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dbg() { return { portraitK, pc: portraitCamPos && portraitCamPos.toArray(), state, acts: acts && acts.active }; }, get dayTime() { return dayTime; } };
+window.__df1 = window.__moonveil = { renderer, scene, get atmo() { return atmo; }, composer, get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, openMap, travelTo, found: () => found, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dbg() { return { portraitK, pc: portraitCamPos && portraitCamPos.toArray(), state, acts: acts && acts.active }; }, get dayTime() { return dayTime; } };
