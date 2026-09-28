@@ -6,7 +6,8 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Eule
 const _c = new THREE.Color();
 
 // World-scale texture projection so bricks and slates keep their size on any shape
-const TEX_SCALE = { stone: 3.2, roof: 2.4, thatch: 3, wood: 2.2, plain: 3, cloth: 1.2, terrain: 7 };
+const TEX_SCALE = { stone: 3.2, roof: 2.4, thatch: 3, wood: 2.2, plain: 3, cloth: 1.2, terrain: 7, skin: 0.35, velvet: 0.9, lace: 0.25, hide: 0.5 };
+const _up = new THREE.Vector3(0, 1, 0), _d = new THREE.Vector3();
 
 export class Kit {
   constructor(materials) {
@@ -17,8 +18,8 @@ export class Kit {
   // opts: { x,y,z, rx,ry,rz, sx,sy,sz, color, emissive(multiplier) }
   add(kind, geo, color, o = {}) {
     const g = geo;
-    _e.set(o.rx || 0, o.ry || 0, o.rz || 0);
-    _q.setFromEuler(_e);
+    if (o.dir) { _d.set(o.dir[0], o.dir[1], o.dir[2]).normalize(); _q.setFromUnitVectors(_up, _d); }
+    else { _e.set(o.rx || 0, o.ry || 0, o.rz || 0); _q.setFromEuler(_e); }
     _s.set(o.sx ?? 1, o.sy ?? 1, o.sz ?? 1);
     _p.set(o.x || 0, o.y || 0, o.z || 0);
     _m.compose(_p, _q, _s);
@@ -33,6 +34,7 @@ export class Kit {
     for (let i = 0; i < n; i++) {
       let f = k;
       if (shade) { const y = g.attributes.position.getY(i); f *= 1 + shade * (y - (o.y || 0)); }
+      if (o.vcol) f *= o.vcol[i];
       col[i * 3] = _c.r * f; col[i * 3 + 1] = _c.g * f; col[i * 3 + 2] = _c.b * f;
     }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -47,7 +49,12 @@ export class Kit {
   cyl(kind, rt, rb, h, seg, color, o = {}) { return this.add(kind, new THREE.CylinderGeometry(rt, rb, h, seg, 1, !!o.open), color, o); }
   cone(kind, r, h, seg, color, o = {}) { return this.add(kind, new THREE.ConeGeometry(r, h, seg, 1, !!o.open), color, o); }
   sphere(kind, r, color, o = {}) { return this.add(kind, new THREE.SphereGeometry(r, o.ws || 10, o.hs || 8), color, o); }
-  lathe(kind, pts, seg, color, o = {}) { return this.add(kind, new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg), color, o); }
+  lathe(kind, pts, seg, color, o = {}) { return this.add(kind, new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg, o.phi0 || 0, o.phiLen || Math.PI * 2), color, o); }
+  // A cylinder running from point a to point b
+  limb(kind, a, b, r0, r1, color, o = {}) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.hypot(dx, dy, dz);
+    return this.add(kind, new THREE.CylinderGeometry(r1, r0, len, o.seg || 12, 1, !!o.open), color, { ...o, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, z: (a[2] + b[2]) / 2, dir: [dx, dy, dz] });
+  }
 
   // Merge into meshes. Returns a Group.
   build({ shadows = true, project = true } = {}) {

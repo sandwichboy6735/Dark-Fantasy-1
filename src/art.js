@@ -110,20 +110,114 @@ export const cloudTex = () => canvasTex(256, (ctx, s, r) => {
   }
 }, { repeat: false, srgb: false });
 
+// Turn a greyscale height canvas into a tangent-space normal map
+function normalFrom(srcCanvas, strength = 2) {
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const src = srcCanvas.getContext('2d').getImageData(0, 0, w, h).data;
+  const L = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) L[i] = (src[i * 4] * 0.3 + src[i * 4 + 1] * 0.59 + src[i * 4 + 2] * 0.11) / 255;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const l = L[y * w + ((x - 1 + w) % w)], r = L[y * w + ((x + 1) % w)], u = L[((y - 1 + h) % h) * w + x], b = L[((y + 1) % h) * w + x];
+    let nx = (l - r) * strength, ny = (u - b) * strength, nz = 1;
+    const len = Math.hypot(nx, ny, nz); nx /= len; ny /= len; nz /= len;
+    const k = (y * w + x) * 4;
+    d[k] = (nx * 0.5 + 0.5) * 255; d[k + 1] = (ny * 0.5 + 0.5) * 255; d[k + 2] = (nz * 0.5 + 0.5) * 255; d[k + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4;
+  return t;
+}
+
+function heightCanvas(size, paint) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  let seed = size + paint.length; const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, size, size);
+  paint(ctx, size, r);
+  return c;
+}
+
+// Warty, wrinkled skin: pores, lumps and creases
+const skinHeight = () => heightCanvas(512, (ctx, s, r) => {
+  for (let i = 0; i < 900; i++) {
+    const x = r() * s, y = r() * s, rad = 2 + Math.pow(r(), 3) * 14;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 260; i++) {
+    let x = r() * s, y = r() * s;
+    ctx.strokeStyle = `rgba(0,0,0,${0.25 + r() * 0.3})`; ctx.lineWidth = 1 + r() * 2.5;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let k = 0; k < 5; k++) { x += (r() - 0.5) * 30; y += (r() - 0.3) * 12; ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+  for (let i = 0; i < 6000; i++) { ctx.fillStyle = `rgba(0,0,0,${r() * 0.25})`; ctx.fillRect(r() * s, r() * s, 1.5, 1.5); }
+});
+
+// Crushed velvet: soft folds and bruised patches
+const velvetHeight = () => heightCanvas(512, (ctx, s, r) => {
+  for (let i = 0; i < 160; i++) {
+    const x = r() * s, y = r() * s, rx = 20 + r() * 70, ry = 6 + r() * 20;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(r() * Math.PI);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    const v = r() < 0.5 ? 255 : 0;
+    g.addColorStop(0, `rgba(${v},${v},${v},0.35)`); g.addColorStop(1, `rgba(${v},${v},${v},0)`);
+    ctx.fillStyle = g; ctx.scale(1, ry / rx); ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.filter = 'blur(2px)'; ctx.drawImage(ctx.canvas, 0, 0); ctx.filter = 'none';
+});
+
+// Lace: woven holes and threads
+export const laceTex = () => canvasTex(256, (ctx, s) => {
+  ctx.fillStyle = '#e8e0cc'; ctx.fillRect(0, 0, s, s);
+  ctx.fillStyle = '#9a9080';
+  for (let y = 0; y < s; y += 16) for (let x = (y / 16) % 2 ? 8 : 0; x < s; x += 16) { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#c8bca4'; ctx.lineWidth = 1;
+  for (let i = 0; i < s; i += 8) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + 40, s); ctx.stroke(); }
+});
+
+// Moonlit edge light shared by characters, like the rim light in a painted portrait
+export const rimColor = { value: new THREE.Color(0.35, 0.4, 0.85) };
+export function addRim(mat, strength = 1) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uRim = rimColor;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uRim;')
+      .replace('#include <opaque_fragment>', `float rimF = 1.0 - max(dot(normal, normalize(vViewPosition)), 0.0);
+        outgoingLight += uRim * pow(rimF, 3.0) * ${strength.toFixed(2)};
+        #include <opaque_fragment>`);
+  };
+  mat.customProgramCacheKey = () => 'rim' + strength;
+  return mat;
+}
+
 export function makeMaterials() {
   const grain = grainTex(), stone = stoneTex(), shingle = shingleTex(), thatch = thatchTex(), wood = woodTex();
+  const nStone = normalFrom(stone.image, 3.5), nGrain = normalFrom(grain.image, 1.2), nWood = normalFrom(wood.image, 2.5), nRoof = normalFrom(shingle.image, 3), nThatch = normalFrom(thatch.image, 2);
+  const nSkin = normalFrom(skinHeight(), 5), nVelvet = normalFrom(velvetHeight(), 3);
   const std = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 0.92, metalness: 0, ...extra });
+  const n = (t, s) => ({ normalMap: t, normalScale: new THREE.Vector2(s, s) });
   return {
     tex: { grain, soft: softTex(), cloud: cloudTex() },
-    terrain: std(grain, { roughness: 1 }),
-    plain: std(grain),
-    stone: std(stone),
-    roof: std(shingle, { roughness: 0.75 }),
-    thatch: std(thatch),
-    wood: std(wood),
-    skin: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0 }),
-    cloth: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.05, map: grain }), // velvety robes
-    metal: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6 }),
+    terrain: std(grain, { roughness: 1, ...n(nGrain, 0.6) }),
+    plain: std(grain, n(nGrain, 0.5)),
+    stone: std(stone, n(nStone, 1.2)),
+    roof: std(shingle, { roughness: 0.75, ...n(nRoof, 1) }),
+    thatch: std(thatch, n(nThatch, 1)),
+    wood: std(wood, n(nWood, 0.9)),
+    skin: addRim(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0, ...n(nSkin, 1.1) }), 0.9),
+    hide: addRim(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0, ...n(nSkin, 0.6) }), 0.6),
+    cloth: addRim(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.05, map: grain }), 0.5),
+    velvet: addRim(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.8, metalness: 0, sheen: 0.7, sheenRoughness: 0.35, sheenColor: new THREE.Color(0.55, 0.3, 0.32), side: THREE.DoubleSide, ...n(nVelvet, 1) }), 0.55),
+    lace: addRim(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, map: laceTex(), side: THREE.DoubleSide, ...n(nGrain, 0.8) }), 0.8),
+    enamel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0 }),
+    metal: addRim(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6 }), 0.4),
+    glass: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.05, metalness: 0, transmission: 0, transparent: true, opacity: 0.35, clearcoat: 1 }),
     glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
     ghost: new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }),
   };

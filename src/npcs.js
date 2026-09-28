@@ -64,7 +64,7 @@ export const NPCS = [
     lines: ['Up here the snow falls upward, if you’re patient enough to watch.', 'That mountain is the Moonspire. The dragon Vessryn circles it. She’s shy, not fierce.'] },
 
   // ---- The Goblin Market ----
-  { type: 'goblin', name: 'Grizzleby Quint', title: 'Purveyor of Fine Things', x: -640, z: 118, beh: 'idle', face: 0, voice: 0.75, o: { monocle: true, lantern: true, vest: '#8a1a24' },
+  { type: 'goblin', name: 'Grizzleby Quint', title: 'Purveyor of Fine Things', x: -640, z: 118, beh: 'idle', face: 0, voice: 0.75, o: { monocle: true, lantern: true, vest: '#6a1018', size: 1.2, gesture: true, seed: 3 },
     ask: { q: 'Care to buy something? Everything is free today. Well, for you. Just today.', options: [
       { text: 'What\u2019s the best thing you have?', reply: 'This lantern! It is not for sale. But you may LOOK at it. Marvellous, isn\u2019t it?' },
       { text: 'Just looking.', reply: 'Looking is how all the best deals start.' }] },

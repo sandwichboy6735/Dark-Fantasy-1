@@ -1,16 +1,19 @@
 // Character models built from simple shapes, plus the NPC brain (wander, patrol, fly, float, talk).
 import * as THREE from 'three';
 import { Kit } from './kit.js';
+import { sculpt, eye, ruffle, hand, humanHead } from './sculpt.js';
 
 const V2 = (pts) => pts.map(([x, y]) => [x, y]);
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
-function robe(k, color, h = 1.5, r = 0.44, flare = 1) {
-  k.lathe('cloth', V2([[0.001, 0], [r * flare, 0.02], [r * 0.92, 0.3], [r * 0.72, h * 0.62], [r * 0.52, h * 0.9], [0.2, h], [0.001, h + 0.03]]), 14, color, { shadeY: 0.35, bright: 0.8 });
+function robe(k, color, h = 1.5, r = 0.44, flare = 1, kind = 'velvet') {
+  k.lathe(kind, V2([[0.001, 0], [r * flare, 0.02], [r * 0.92, 0.3], [r * 0.72, h * 0.62], [r * 0.52, h * 0.9], [0.2, h], [0.001, h + 0.03]]), 14, color, { shadeY: 0.35, bright: 0.8 });
 }
-function sleeves(k, color, skin, y = 1.18, spread = 0.55, reach = 0.0) {
+function sleeves(k, color, skin, y = 1.18, spread = 0.55, reach = 0.0, kind = 'velvet', size = 0.75) {
   for (const s of [-1, 1]) {
-    k.cone('cloth', 0.12, 0.62, 7, color, { x: s * 0.3, y, z: reach, rz: s * spread, rx: -0.2 });
-    k.sphere('skin', 0.07, skin, { x: s * (0.3 + Math.sin(spread) * 0.34), y: y - 0.3, z: reach + 0.06 });
+    k.cone(kind, 0.12, 0.62, 12, color, { x: s * 0.3, y, z: reach, rz: s * spread, rx: -0.2 });
+    const hx = s * (0.3 + Math.sin(spread) * 0.34), hy = y - 0.33, hz = reach + 0.08;
+    hand(k, [hx, hy, hz], [s * 0.15, -1, 0.35], [s, 0, 0.3], skin, size, '#c8a898', 0.45);
   }
 }
 function head(k, y, skin, r = 0.16) { k.sphere('skin', r, skin, { y, ws: 12, hs: 10 }); }
@@ -31,11 +34,25 @@ export function buildCharacter(mats, type, o = {}) {
   switch (type) {
     case 'wizard': {
       robe(k, o.robe || '#3a3a7a', 1.52, 0.44);
-      k.lathe('cloth', V2([[0.001, 0.9], [0.5, 0.95], [0.46, 1.3], [0.28, 1.5], [0.001, 1.52]]), 12, o.cloak || o.robe || '#2e2e62', { bright: 0.7, sz: 0.9, z: -0.05 });
+      k.lathe('velvet', V2([[0.52, 0.2], [0.5, 0.95], [0.46, 1.3], [0.3, 1.48], [0.18, 1.56]]), 24, o.cloak || o.robe || '#2e2e62', { bright: 0.7, z: -0.03, phi0: Math.PI * 0.55, phiLen: Math.PI * 0.9 });
       sleeves(k, o.robe || '#3a3a7a', skin, 1.2, 0.5, 0.05);
-      head(k, 1.66, skin);
-      eyes(k, 1.68, 0.14);
-      if (o.beard !== false) k.cone('plain', 0.14, 0.5, 8, o.beardColor || '#d8d4dc', { y: 1.42, z: 0.1, rx: Math.PI + 0.25 });
+      const at = humanHead(k, [0, 1.66, 0], 0.16, skin, { age: o.beard !== false ? 1.4 : 0.3, brow: 1.5, browColor: o.beard !== false ? (o.beardColor || '#d8d4dc') : '#3a2a20', iris: '#3a5a8a', nose: 1.2, seed: 11 });
+      if (o.beard !== false) {
+        const bc = o.beardColor || '#d8d4dc';
+        let sd = 5; const rr = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+        for (let i = 0; i < 46; i++) {
+          const t = -1.25 + (i / 45) * 2.5;
+          const base = at(Math.sin(t) * 0.85, -0.45 - Math.abs(t) * 0.12, Math.cos(t) * 0.85, 0.02);
+          const L = (0.5 - Math.abs(t) * 0.16) * (0.75 + rr() * 0.45);
+          const dir = [Math.sin(t) * 0.25 + (rr() - 0.5) * 0.15, -1, 0.5 + Math.cos(t) * 0.1];
+          const dl = Math.hypot(...dir);
+          k.cone('plain', 0.02 + rr() * 0.012, L, 5, bc, { x: base[0] + dir[0] / dl * L * 0.45, y: base[1] + dir[1] / dl * L * 0.45, z: base[2] + 0.08 + dir[2] / dl * L * 0.45, dir: dir.map((v) => -v), bright: 0.8 + rr() * 0.35 });
+        }
+        for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) {
+          const base = at(sx * 0.12, -0.36, 0.98, 0.03);
+          k.cone('plain', 0.012, 0.13 + i * 0.01, 5, bc, { x: base[0] + sx * 0.05, y: base[1] - 0.02 - i * 0.004, z: base[2], dir: [-sx, 0.4 + i * 0.05, 0], bright: 0.9 });
+        }
+      }
       pointyHat(k, 1.76, o.hat || '#2a2a5c', 0.3, o.hatH || 0.85);
       if (o.staff !== false) {
         k.cyl('wood', 0.025, 0.03, 1.95, 6, '#4a3526', { x: 0.52, y: 0.98, z: 0.12 });
@@ -47,9 +64,8 @@ export function buildCharacter(mats, type, o = {}) {
     case 'witch': {
       robe(k, o.robe || '#2a2240', 1.5, 0.42, 1.1);
       sleeves(k, o.robe || '#2a2240', skin, 1.2, 0.35);
-      head(k, 1.64, skin, 0.15);
-      eyes(k, 1.66, 0.135, '#1a1418');
-      k.cone('plain', 0.2, 0.7, 8, o.hair || '#4a2a2a', { y: 1.35, z: -0.08, rx: Math.PI });
+      humanHead(k, [0, 1.64, 0], 0.15, skin, { hook: true, chin: 1.7, warts: 3, iris: '#3a7a3a', lid: 0.38, seed: 23, age: 0.8 });
+      k.cone('plain', 0.2, 0.7, 12, o.hair || '#4a2a2a', { y: 1.35, z: -0.08, rx: Math.PI });
       k.sphere('plain', 0.17, o.hair || '#4a2a2a', { y: 1.7, z: -0.05, sy: 0.9 });
       pointyHat(k, 1.74, o.hat || '#1e1a30', 0.28, 0.95, 0.55, 0.45);
       if (o.broom) {
@@ -60,32 +76,117 @@ export function buildCharacter(mats, type, o = {}) {
       break;
     }
     case 'goblin': {
-      const vest = o.vest || '#8a1f2a';
-      const g = o.skin || '#6b7a3a';
-      for (const s of [-1, 1]) {
-        k.cyl('cloth', 0.08, 0.09, 0.45, 6, '#2e2a26', { x: s * 0.13, y: 0.22 });
-        k.box('plain', 0.14, 0.08, 0.26, '#2a201a', { x: s * 0.13, y: 0.04, z: 0.05 });
+      const S = o.size || 1;
+      const vest = o.vest || '#6a1420';
+      const g = o.skin || '#56612e';
+      const P = (x, y, z) => [x * S, y * S, z * S];
+      // legs and boots
+      for (const sx of [-1, 1]) {
+        k.limb('cloth', P(sx * 0.16, 0.52, 0), P(sx * 0.18, 0.26, 0.04), 0.12 * S, 0.1 * S, '#2e2a30', { seg: 12 });
+        k.limb('hide', P(sx * 0.18, 0.28, 0.04), P(sx * 0.17, 0.05, 0.02), 0.1 * S, 0.09 * S, '#2a1e16', { seg: 12 });
+        k.sphere('hide', 0.1 * S, '#2a1e16', { x: sx * 0.17 * S, y: 0.05 * S, z: 0.09 * S, sz: 1.7, sy: 0.6, ws: 14, hs: 10 });
       }
-      k.lathe('cloth', V2([[0.001, 0.4], [0.3, 0.42], [0.36, 0.65], [0.34, 0.85], [0.22, 1.0], [0.001, 1.02]]), 12, vest, { bright: 0.9 });
-      k.box('plain', 0.12, 0.4, 0.05, '#e8e0d0', { y: 0.78, z: 0.3 });
-      for (let i = 0; i < 3; i++) k.sphere('metal', 0.022, '#c8a860', { x: 0.07, y: 0.62 + i * 0.1, z: 0.33, ws: 5, hs: 4 });
-      for (const s of [-1, 1]) {
-        k.cone('cloth', 0.11, 0.45, 7, '#e8e0d0', { x: s * 0.33, y: 0.8, rz: s * 0.7 });
-        k.sphere('skin', 0.08, g, { x: s * 0.5, y: 0.62, z: 0.05 });
+      // barrel body: shirt underneath, crushed velvet waistcoat over it
+      const prof = [[0.001, 0.42], [0.36, 0.44], [0.5, 0.6], [0.55, 0.76], [0.53, 0.94], [0.47, 1.08], [0.38, 1.2], [0.22, 1.3], [0.001, 1.33]];
+      const R = (y) => { for (let i = 0; i < prof.length - 1; i++) { const [r0, y0] = prof[i], [r1, y1] = prof[i + 1]; if (y >= y0 && y <= y1) return r0 + (r1 - r0) * (y - y0) / (y1 - y0); } return 0.2; };
+      k.lathe('cloth', prof.map(([r, y]) => [r * S, y * S]), 40, '#b4aa94', {});
+      const vestLow = prof.filter(([, y]) => y >= 0.44 && y <= 0.94).map(([r, y]) => [r * 1.05 * S, y * S]);
+      const vestHigh = prof.filter(([, y]) => y >= 0.9 && y <= 1.25).map(([r, y]) => [r * 1.05 * S, y * S]);
+      vestHigh.unshift([R(0.9) * 1.05 * S, 0.9 * S]);
+      k.lathe('velvet', vestLow, 48, vest, { phi0: 0.12, phiLen: Math.PI * 2 - 0.24 });
+      k.lathe('velvet', vestHigh, 48, vest, { phi0: 0.55, phiLen: Math.PI * 2 - 1.1 });
+      for (const y of [0.56, 0.68, 0.8, 0.92]) k.sphere('metal', 0.028 * S, '#9a9aa4', { x: 0.035 * S, y: y * S, z: (R(y) * 1.05 + 0.012) * S, sz: 0.6, ws: 10, hs: 8 });
+      // lace jabot at the throat
+      ruffle(k, P(0, 1.2, 0.3), [0, -1, 0.35], 0.07 * S, 0.14 * S, '#c8bca2', 10, 2.2);
+      ruffle(k, P(0, 1.1, 0.36), [0, -1, 0.25], 0.06 * S, 0.14 * S, '#bcb098', 10, 2.2);
+      // arms: puffy shirt sleeves, lace cuffs and big clawed hands
+      const arm = (sx, elbow, wrist, fwd, up, curl) => {
+        const sh = P(sx * 0.46, 1.12, 0.0);
+        const el = P(...elbow), wr = P(...wrist);
+        k.sphere('cloth', 0.15 * S, '#b4aa94', { x: sh[0], y: sh[1], z: sh[2], ws: 16, hs: 12 });
+        k.limb('cloth', sh, el, 0.14 * S, 0.12 * S, '#b4aa94', { seg: 16 });
+        k.sphere('cloth', 0.12 * S, '#aca28c', { x: el[0], y: el[1], z: el[2], ws: 14, hs: 10 });
+        k.limb('cloth', el, wr, 0.12 * S, 0.085 * S, '#b4aa94', { seg: 16 });
+        const d = [wr[0] - el[0], wr[1] - el[1], wr[2] - el[2]];
+        const L = Math.hypot(...d);
+        ruffle(k, [wr[0] - d[0] / L * 0.02, wr[1] - d[1] / L * 0.02, wr[2] - d[2] / L * 0.02], d, 0.085 * S, 0.1 * S, '#c8bca2', 11, 1.9);
+        hand(k, [wr[0] + d[0] / L * 0.09 * S, wr[1] + d[1] / L * 0.09 * S, wr[2] + d[2] / L * 0.09 * S], fwd, up, g, 1.45 * S, '#2a2418', curl);
+      };
+      if (o.gesture) arm(1, [0.6, 0.9, 0.3], [0.5, 0.98, 0.66], [-0.2, 0.15, 1], [0, -1, 0.1], 0.35);
+      else arm(1, [0.6, 0.86, 0.12], [0.55, 0.66, 0.3], [0, -0.6, 0.8], [1, 0, 0.3], 0.55);
+      arm(-1, [-0.6, 0.86, 0.12], [-0.55, 0.66, 0.3], [0, -0.6, 0.8], [-1, 0, 0.3], 0.55);
+      // the head
+      const hc = P(0, 1.44, 0.1), hr = 0.27 * S;
+      const head = sculpt({
+        r: hr, scale: [1.12, 1.05, 1.08], wrinkle: 0.045, warts: 60, seed: o.seed || 7, detail: 96,
+        feats: [
+          { d: [0.7, 0.7, 0], a: -0.12, w: [0.4, 0.4, 0.5] }, { d: [-0.7, 0.7, 0], a: -0.12, w: [0.4, 0.4, 0.5] },
+          { d: [0, 0.28, 0.96], a: 0.24, w: [0.8, 0.13, 0.35] }, { d: [0, 0.4, 0.92], a: -0.06, w: [0.1, 0.12, 0.2] },
+          { d: [0.34, 0.12, 0.93], a: -0.16, w: [0.13, 0.1, 0.2] }, { d: [-0.34, 0.12, 0.93], a: -0.16, w: [0.13, 0.1, 0.2] },
+          { d: [0, 0.08, 1], a: 0.25, w: [0.12, 0.25, 0.3] }, { d: [0, -0.18, 1], a: 0.6, w: [0.22, 0.2, 0.3] },
+          { d: [0.17, -0.28, 0.95], a: 0.18, w: [0.1, 0.09, 0.12] }, { d: [-0.17, -0.28, 0.95], a: 0.18, w: [0.1, 0.09, 0.12] },
+          { d: [0.58, -0.12, 0.8], a: 0.24, w: [0.28, 0.24, 0.3] }, { d: [-0.58, -0.12, 0.8], a: 0.24, w: [0.28, 0.24, 0.3] },
+          { d: [0.7, -0.6, 0.35], a: 0.45, w: [0.35, 0.32, 0.4] }, { d: [-0.7, -0.6, 0.35], a: 0.45, w: [0.35, 0.32, 0.4] },
+          { d: [0, -0.82, 0.55], a: 0.32, w: [0.65, 0.25, 0.35] }, { d: [0, -0.95, 0.2], a: 0.25, w: [0.5, 0.2, 0.4] },
+          { d: [0, -0.48, 0.88], a: -0.22, w: [0.7, 0.06, 0.4] }, { d: [0, -0.4, 0.92], a: 0.08, w: [0.45, 0.05, 0.3] },
+          { d: [0, -0.58, 0.85], a: 0.1, w: [0.55, 0.06, 0.3] }, { d: [0, 0.3, -1], a: 0.08, w: [0.6, 0.6, 0.5] },
+        ],
+      });
+      k.add('skin', head.geo, g, { x: hc[0], y: hc[1], z: hc[2], vcol: head.vcol });
+      const at = (x, y, z, push = 0) => { const q = head.surf(x, y, z, push); return [hc[0] + q[0], hc[1] + q[1], hc[2] + q[2]]; };
+      // eyes under the heavy brow
+      for (const sx of [-1, 1]) eye(k, at(sx * 0.34, 0.13, 0.93, -0.1), 0.042 * S, o.eyes || '#b0401a', g, 0.44, [-sx * 0.08, -0.05, 1]);
+      // teeth: an underbite of fangs and a row of crooked upper teeth
+      for (let i = 0; i <= 12; i++) {
+        const t = -0.55 + (i / 12) * 1.1;
+        const lower = at(Math.sin(t), -0.53, Math.cos(t), 0.03);
+        const canine = Math.abs(Math.abs(t) - 0.35) < 0.06;
+        const len = (canine ? 0.12 : 0.045 + ((i * 7) % 3) * 0.012) * S;
+        k.cone('enamel', (canine ? 0.02 : 0.013) * S, len, 7, '#d8c890', { x: lower[0], y: lower[1] + len * 0.35, z: lower[2], dir: [Math.sin(t) * 0.2, 1, 0.25 + ((i * 3) % 2) * 0.1] });
+        if (i % 2 === 0 && Math.abs(t) < 0.45) {
+          const upper = at(Math.sin(t), -0.44, Math.cos(t), 0.0);
+          const ul = (0.03 + ((i * 5) % 3) * 0.01) * S;
+          k.cone('enamel', 0.012 * S, ul, 7, '#cfbd84', { x: upper[0], y: upper[1] - ul * 0.3, z: upper[2], dir: [0, -1, 0.15] });
+        }
       }
-      k.sphere('skin', 0.27, g, { y: 1.2, sx: 1.1, ws: 12, hs: 10 });
-      k.sphere('skin', 0.2, g, { y: 1.08, z: 0.1, sx: 1.2, sy: 0.7 });
-      for (const s of [-1, 1]) k.cone('skin', 0.09, 0.5, 6, g, { x: s * 0.42, y: 1.28, rz: s * -1.3, rx: 0.2 });
-      k.cone('skin', 0.06, 0.2, 6, g, { y: 1.18, z: 0.3, rx: Math.PI / 2 + 0.3 });
-      eyes(k, 1.28, 0.23, o.eyes || '#ffcc40', 0.1, 0.035, 'glow');
-      for (let i = 0; i < 4; i++) k.cone('plain', 0.02, 0.07, 4, '#eee6cc', { x: -0.09 + i * 0.06, y: 1.03, z: 0.27, rx: Math.PI });
-      if (o.monocle) k.add('metal', new THREE.TorusGeometry(0.06, 0.012, 6, 14), '#d8b860', { x: 0.1, y: 1.28, z: 0.27 });
+      // long ears, angled out and back
+      for (const sx of [-1, 1]) {
+        const base = at(sx, 0.18, -0.05, -0.05);
+        const dir = [sx, 0.42, -0.3], L = 0.6 * S;
+        const dl = Math.hypot(...dir);
+        const c = [base[0] + dir[0] / dl * L * 0.45, base[1] + dir[1] / dl * L * 0.45, base[2] + dir[2] / dl * L * 0.45];
+        k.cone('skin', 0.12 * S, L, 16, g, { x: c[0], y: c[1], z: c[2], dir, sz: 0.3, bright: 0.95 });
+        k.cone('hide', 0.08 * S, L * 0.75, 12, '#6a4a34', { x: c[0], y: c[1] - 0.01, z: c[2] + 0.02 * S, dir, sz: 0.2 });
+        for (let h = 0; h < 3; h++) k.cone('plain', 0.006 * S, 0.1 * S, 4, '#8a8a80', { x: c[0] + dir[0] / dl * L * 0.3, y: c[1] + h * 0.015, z: c[2], dir: [dir[0], dir[1] + 0.6, dir[2]] });
+      }
+      // wiry hair tufts
+      for (let h = 0; h < 14; h++) {
+        const a = (h / 14) * Math.PI * 2;
+        const p = at(Math.cos(a) * 0.5, 0.8, Math.sin(a) * 0.5 - 0.2, -0.02);
+        k.cone('plain', 0.008 * S, (0.1 + (h % 3) * 0.04) * S, 4, '#6a6a60', { x: p[0], y: p[1], z: p[2], dir: [Math.cos(a) * 0.6, 1, Math.sin(a) * 0.6 - 0.3] });
+      }
+      if (o.monocle) {
+        const m = at(0.34, 0.13, 0.93, 0.06);
+        k.add('metal', new THREE.TorusGeometry(0.058 * S, 0.008 * S, 8, 28), '#d8b860', { x: m[0], y: m[1], z: m[2] });
+        k.cyl('glass', 0.055 * S, 0.055 * S, 0.004, 20, '#ffffff', { x: m[0], y: m[1], z: m[2], rx: Math.PI / 2 });
+        const curve = new THREE.CatmullRomCurve3([V3(m[0] + 0.058 * S, m[1], m[2]), V3(m[0] + 0.14 * S, m[1] - 0.14 * S, m[2] - 0.02), V3(0.3 * S, 1.02 * S, 0.34 * S), V3(0.06 * S, 0.92 * S, R(0.92) * 1.06 * S)]);
+        k.add('metal', new THREE.TubeGeometry(curve, 40, 0.004 * S, 5), '#d8b860', {});
+      }
       if (o.lantern) {
-        k.box('metal', 0.16, 0.03, 0.16, '#2a2622', { x: 0.52, y: 0.56, z: 0.12 }); k.box('metal', 0.16, 0.03, 0.16, '#2a2622', { x: 0.52, y: 0.34, z: 0.12 });
-        k.box('glow', 0.12, 0.2, 0.12, '#ffa040', { x: 0.52, y: 0.45, z: 0.12, bright: 3 });
+        const lx = -0.62 * S, ly = 0.42 * S, lz = 0.36 * S;
+        k.cyl('metal', 0.07 * S, 0.09 * S, 0.04 * S, 10, '#2a2622', { x: lx, y: ly + 0.14 * S, z: lz });
+        k.cyl('metal', 0.09 * S, 0.09 * S, 0.03 * S, 10, '#2a2622', { x: lx, y: ly - 0.12 * S, z: lz });
+        for (let b = 0; b < 4; b++) { const a = b * Math.PI / 2 + 0.4; k.cyl('metal', 0.006 * S, 0.006 * S, 0.26 * S, 4, '#2a2622', { x: lx + Math.cos(a) * 0.08 * S, y: ly, z: lz + Math.sin(a) * 0.08 * S }); }
+        k.cyl('glow', 0.065 * S, 0.065 * S, 0.2 * S, 12, '#ffa040', { x: lx, y: ly, z: lz, bright: 1.6 });
+        k.add('metal', new THREE.TorusGeometry(0.04 * S, 0.006 * S, 6, 16), '#2a2622', { x: lx, y: ly + 0.2 * S, z: lz });
       }
-      if (o.hat) k.cyl('cloth', 0.16, 0.2, 0.3, 10, o.hat, { y: 1.52, rz: 0.15 });
-      height = 1.6; radius = 0.4;
+      if (o.hat) {
+        const t = at(0, 1, -0.1, 0);
+        k.cyl('velvet', 0.2 * S, 0.2 * S, 0.02 * S, 20, o.hat, { x: t[0], y: t[1], z: t[2], rz: 0.12 });
+        k.cyl('velvet', 0.13 * S, 0.15 * S, 0.28 * S, 20, o.hat, { x: t[0] + 0.02, y: t[1] + 0.15 * S, z: t[2], rz: 0.12 });
+      }
+      height = 1.78 * S; radius = 0.55 * S;
+      k.headY = 1.44 * S; k.headZ = 0.1 * S;
       break;
     }
     case 'villager': {
@@ -94,8 +195,7 @@ export function buildCharacter(mats, type, o = {}) {
       robe(k, c, 1.45 * s, 0.4 * s);
       if (o.apron) k.box('plain', 0.4 * s, 0.7 * s, 0.05, o.apron, { y: 0.55 * s, z: 0.3 * s });
       sleeves(k, c, skin, 1.15 * s, 0.4);
-      head(k, 1.6 * s, skin, 0.16 * s);
-      eyes(k, 1.62 * s, 0.14 * s);
+      humanHead(k, [0, 1.6 * s, 0], 0.16 * s, skin, { seed: Math.floor((o.robe || '#1').charCodeAt(2) || 5), nose: o.child ? 0.6 : 1, age: o.child ? 0 : 0.6, iris: '#4a3a2a', browColor: o.hair || '#4a3a2a' });
       if (o.hood !== false) k.sphere('cloth', 0.21 * s, o.hoodColor || c, { y: 1.63 * s, z: -0.05, sy: 1.1, bright: 0.8 });
       else k.sphere('plain', 0.17 * s, o.hair || '#6a4a30', { y: 1.66 * s, z: -0.04 });
       if (o.hat) { k.cyl('cloth', 0.36, 0.36, 0.03, 14, o.hat, { y: 1.76 }); k.cyl('cloth', 0.17, 0.19, 0.2, 12, o.hat, { y: 1.86 }); if (o.feather) k.cone('plain', 0.03, 0.4, 5, o.feather, { x: 0.15, y: 1.98, rz: -0.6 }); }
@@ -137,8 +237,7 @@ export function buildCharacter(mats, type, o = {}) {
       k.lathe('cloth', V2([[0.001, 0], [0.62, 0.02], [0.5, 0.35], [0.3, 1.0], [0.22, 1.35], [0.2, 1.5], [0.001, 1.55]]), 18, c, { shadeY: 0.3 });
       k.lathe('glow', V2([[0.625, 0.03], [0.625, 0.09]]), 18, o.trim || '#b8c8ff', { bright: 1.6 });
       sleeves(k, c, o.skin || '#e8e0f0', 1.25, 0.35);
-      head(k, 1.7, o.skin || '#e8e0f0', 0.15);
-      eyes(k, 1.72, 0.135, '#3a3a6a');
+      humanHead(k, [0, 1.7, 0], 0.15, o.skin || '#e8e0f0', { nose: 0.7, chin: 0.8, iris: '#5a6ab8', lid: 0.3, lip: '#9a5a7a', browColor: o.hair || '#c8c8e0', seed: 41 });
       k.cone('plain', 0.22, 1.0, 10, o.hair || '#e0e0f4', { y: 1.35, z: -0.1, rx: Math.PI });
       k.sphere('plain', 0.17, o.hair || '#e0e0f4', { y: 1.75, z: -0.03 });
       for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; k.cone('glow', 0.03, 0.18, 4, o.crown || '#e8f0ff', { x: Math.cos(a) * 0.13, y: 1.93, z: Math.sin(a) * 0.13, bright: 2.5 }); }
@@ -157,9 +256,12 @@ export function buildCharacter(mats, type, o = {}) {
     }
     default: break;
   }
+  const headY = { wizard: 1.66, witch: 1.64, villager: 1.6 * (o.child ? 0.62 : 1), knight: 1.78, ghost: 1.62, queen: 1.7, cat: 0.36 }[type];
   const g = k.build();
   g.userData.height = height;
   g.userData.radius = radius;
+  g.userData.headY = k.headY ?? headY ?? height * 0.85;
+  g.userData.headZ = k.headZ ?? 0;
   return g;
 }
 

@@ -34,6 +34,7 @@ h1 { font-family: var(--display); font-weight: 400; margin: 0; font-size: clamp(
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; pointer-events: none; }
 body.photo #hud, body.photo #touch { display: none !important; }
+body.talking #banner, body.talking #whisper, body.talking #compass, body.talking #timeLabel { opacity: 0 !important; }
 #compass { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 140px)); height: 34px; overflow: hidden;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent); }
 #compassStrip { position: absolute; inset: 0; }

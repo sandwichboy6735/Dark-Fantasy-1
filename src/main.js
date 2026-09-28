@@ -5,6 +5,9 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+import { makePaintShader } from './paint.js';
+import { rimColor } from './art.js';
 
 import { Terrain, TerrainMesh } from './terrain.js';
 import { World } from './world.js';
@@ -71,6 +74,9 @@ moonLight.shadow.mapSize.set(2048, 2048);
 Object.assign(moonLight.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 10, far: 500 });
 moonLight.shadow.bias = -0.0006; moonLight.shadow.normalBias = 0.6;
 scene.add(moonLight, moonLight.target);
+const keyLight = new THREE.PointLight(0xffa860, 0, 6, 1.5);
+const backLight = new THREE.PointLight(0x8aa0ff, 0, 6, 1.5);
+scene.add(keyLight, backLight);
 const hemi = new THREE.HemisphereLight(0x6a68c4, 0x2c2a64, 1.55);
 scene.add(hemi);
 const lightDir = moonDir.clone();
@@ -87,19 +93,28 @@ scene.add(lake.mesh);
 // Post-processing: bloom for moon and windows, then a painterly grade
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
+const bokeh = new BokehPass(scene, camera, { focus: 2, aperture: 0.02, maxblur: 0.01 });
+bokeh.enabled = false;
+composer.addPass(bokeh);
+const paint = new ShaderPass(makePaintShader());
+paint.enabled = HQ();
+composer.addPass(paint);
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.8, 0.6, 0.86);
 composer.addPass(bloom);
 const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uLetter: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uLetter: { value: 0 }, uPortrait: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uLetter; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uLetter, uPortrait; varying vec2 vUv;
     float rnd(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uTime) * 43758.5453); }
     void main(){
       vec3 c = texture2D(tDiffuse, vUv).rgb;
       float l = dot(c, vec3(0.3,0.59,0.11));
       c += vec3(0.006, 0.004, 0.02) * (1.0 - smoothstep(0.0, 0.2, l));
-      c = mix(vec3(l), c, 1.08);
-      vec2 q = vUv - 0.5; c *= clamp(1.0 - dot(q,q) * 1.1, 0.0, 1.0);
+      c = mix(vec3(l), c, 1.14);
+      // old-master contrast: deeper shadows, warm highlights
+      c = pow(max(c, 0.0), vec3(1.08)) * 1.06;
+      c *= mix(vec3(0.94, 0.95, 1.04), vec3(1.05, 1.0, 0.92), smoothstep(0.05, 0.6, l));
+      vec2 q = vUv - 0.5; c *= clamp(1.0 - dot(q,q) * (1.1 + uPortrait * 1.6), 0.0, 1.0);
       c += (rnd(vUv * 700.0) - 0.5) * 0.018;
       float bar = uLetter * 0.1; if (vUv.y < bar || vUv.y > 1.0 - bar) c = vec3(0.0);
       gl_FragColor = vec4(max(c, 0.0), 1.0);
@@ -113,6 +128,8 @@ function resize() {
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
   bloom.resolution.set(w / 2, h / 2);
+  const pr = renderer.getPixelRatio();
+  paint.uniforms.uRes.value.set(w * pr, h * pr);
   camera.aspect = w / h;
   camera.fov = w < h ? 72 : 60;
   camera.updateProjectionMatrix();
@@ -229,6 +246,31 @@ function buildPlaces() {
       const t = j / 8, x = x1 + (x2 - x1) * t, z = z1 + (z2 - z1) * t;
       k.sphere('glow', 0.09, ['#ffb45e', '#ff7a5a', '#c890ff', '#7ad0ff'][j % 4], { x, y: T.heightAt(x, z) + 4.2 - Math.sin(t * Math.PI) * 1.2, z, bright: 1.5, ws: 5, hs: 4 });
     }
+  }
+  { // Grizzleby's counter under a stone arch
+    const gx = -640, gz = 118, gy = T.heightAt(gx, gz);
+    k.box('wood', 2.6, 1.0, 0.7, '#4a3222', { x: gx, y: gy + 0.5, z: gz + 1.3 });
+    k.box('wood', 2.8, 0.08, 0.85, '#5e402a', { x: gx, y: gy + 1.04, z: gz + 1.3 });
+    k.box('plain', 0.42, 0.03, 0.55, '#e4d6b0', { x: gx + 0.2, y: gy + 1.1, z: gz + 1.3, rz: 0.08, ry: 0.1 });
+    k.box('plain', 0.42, 0.03, 0.55, '#dccca4', { x: gx + 0.62, y: gy + 1.1, z: gz + 1.3, rz: -0.08, ry: 0.1 });
+    k.box('velvet', 0.9, 0.04, 0.6, '#3a1a14', { x: gx + 0.41, y: gy + 1.08, z: gz + 1.3, ry: 0.1 });
+    k.cyl('plain', 0.07, 0.07, 0.5, 14, '#d8c8a0', { x: gx - 0.5, y: gy + 1.13, z: gz + 1.55, rz: Math.PI / 2, ry: 0.3 });
+    k.cyl('glass', 0.04, 0.05, 0.08, 12, '#203040', { x: gx + 0.1, y: gy + 1.12, z: gz + 1.05 });
+    k.cone('plain', 0.012, 0.35, 5, '#e8e0d0', { x: gx + 0.12, y: gy + 1.28, z: gz + 1.05, rz: -0.3 });
+    for (let i = 0; i < 6; i++) k.cyl('metal', 0.03, 0.03, 0.008, 12, '#d8b050', { x: gx + 0.6 + (i % 3) * 0.02, y: gy + 1.09 + i * 0.009, z: gz + 1.2 + (i % 2) * 0.02 });
+    // lantern on the counter
+    const lx = gx - 1.05, lz = gz + 1.3, ly = gy + 1.08;
+    k.cyl('metal', 0.1, 0.12, 0.05, 10, '#2a2622', { x: lx, y: ly + 0.03, z: lz });
+    k.cyl('glow', 0.08, 0.08, 0.26, 12, '#ffa040', { x: lx, y: ly + 0.19, z: lz, bright: 2.4 });
+    for (let b = 0; b < 4; b++) { const a = b * Math.PI / 2 + 0.4; k.cyl('metal', 0.008, 0.008, 0.3, 4, '#2a2622', { x: lx + Math.cos(a) * 0.1, y: ly + 0.19, z: lz + Math.sin(a) * 0.1 }); }
+    k.cone('metal', 0.12, 0.12, 10, '#2a2622', { x: lx, y: ly + 0.39, z: lz });
+    world.lights.push({ x: lx, y: ly + 0.8, z: lz + 0.4, color: 0xff9a40, intensity: 0.35, range: 8 });
+    // stone arch behind him
+    for (const sx of [-1.7, 1.7]) k.box('stone', 0.6, 3.2, 0.7, '#6e6660', { x: gx + sx, y: gy + 1.6, z: gz - 1.2 });
+    k.add('stone', new THREE.TorusGeometry(1.7, 0.32, 10, 24, Math.PI), '#6e6660', { x: gx, y: gy + 3.2, z: gz - 1.2 });
+    k.box('stone', 4.2, 4.8, 0.4, '#3a3432', { x: gx, y: gy + 2.4, z: gz - 1.6 });
+    world.box(gx, gz + 1.3, 1.3, 0.35, 0, gy - 1, gy + 1.1);
+    world.box(gx, gz - 1.5, 2.1, 0.4, 0, gy - 1, gy + 5);
   }
   world.noTrees(-640, 140, 70);
   scene.add(k.build());
@@ -541,6 +583,26 @@ function toggleBroom() {
 }
 $('dialogue').addEventListener('click', advanceTalk);
 
+// ---------- Portrait camera while talking ----------
+let portraitK = 0, portraitCamPos = null;
+const _pt = new THREE.Vector3(), _pc = new THREE.Vector3();
+function portraitCam(dt) {
+  const n = talk.npc, ud = n.model.userData;
+  const f = [Math.sin(n.facing), Math.cos(n.facing)], side = [Math.cos(n.facing), -Math.sin(n.facing)];
+  const hy = ud.headY || 1.6, hz = ud.headZ || 0;
+  const head = _pt.set(n.pos.x + f[0] * hz, n.pos.y + hy, n.pos.z + f[1] * hz);
+  const dist = 0.75 + (ud.radius || 0.4) * 1.9;
+  _pc.set(head.x + f[0] * dist + side[0] * dist * 0.22, head.y - 0.08, head.z + f[1] * dist + side[1] * dist * 0.22);
+  if (!portraitCamPos) portraitCamPos = camera.position.clone().lerp(_pc, 0.85);
+  portraitCamPos.lerp(_pc, window.__snapCam ? 1 : 1 - Math.exp(-dt * 4));
+  camera.position.copy(portraitCamPos);
+  camera.lookAt(head.x, head.y - dist * 0.22, head.z);
+  // warm lantern key light low on one side, cool moonlit rim from behind
+  keyLight.position.set(head.x + f[0] * 1.3 - side[0] * 0.9, head.y + 0.15, head.z + f[1] * 1.3 - side[1] * 0.9);
+  backLight.position.set(head.x - f[0] * 0.9 + side[0] * 0.5, head.y + 0.6, head.z - f[1] * 0.9 + side[1] * 0.5);
+  bokeh.uniforms.focus.value = camera.position.distanceTo(head);
+}
+
 // ---------- Save ----------
 function save() {
   if (!player || state === 'title' || state === 'loading') return;
@@ -732,6 +794,8 @@ function frame(now) {
   if (state === 'title') dayTime = 0.765;
   else if (state === 'play') dayTime = (dayTime + dt / DAY_SECONDS) % 1;
   const tod = applyTime(dayTime, { sky, fog: FOG, scene, hemi, renderer, light: moonLight, lightDir, cloudSea, lake, moon: sky.moon });
+  rimColor.value.copy(moonLight.color).multiplyScalar(0.18 + tod.night * 0.3);
+  renderer.toneMappingExposure *= 1 - 0.28 * portraitK;
   sky.uniforms.uTime.value = t; cloudSea.uniforms.uTime.value = t; lake.uniforms.uTime.value = t; grade.uniforms.uTime.value = t % 10;
 
   if (state === 'loading') {
@@ -761,7 +825,16 @@ function frame(now) {
       }
     } else if (player) { player.input.x = player.input.z = 0; player.input.jump = false; }
     if (state === 'play' || state === 'menu') player.update(state === 'menu' ? 0 : dt);
-    if (acts && acts.cur && acts.cur.cam) acts.cur.cam(camera, dt); else player.updateCamera(camera, dt);
+    const portrait = talk && state === 'play' && !(acts && acts.active);
+    if (portrait) portraitCam(dt);
+    else if (acts && acts.cur && acts.cur.cam) acts.cur.cam(camera, dt); else player.updateCamera(camera, dt);
+    portraitK += ((portrait ? 1 : 0) - portraitK) * Math.min(1, dt * 3);
+    grade.uniforms.uPortrait.value = portraitK;
+    bokeh.enabled = portrait && HQ();
+    keyLight.intensity = portraitK * 2.2; backLight.intensity = portraitK * 3;
+    document.body.classList.toggle('talking', !!portrait);
+    player.model.visible = !portrait;
+    if (!portrait) portraitCamPos = null;
     tmesh.update(player.pos.x, player.pos.z, player.teleported ? 60 : 3);
     player.teleported = false;
     if (state === 'play') {
@@ -863,4 +936,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 load();
 
-window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dayTime() { return dayTime; } };
+window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dbg() { return { portraitK, pc: portraitCamPos && portraitCamPos.toArray(), state, acts: acts && acts.active }; }, get dayTime() { return dayTime; } };
