@@ -20,8 +20,12 @@ import { buildCharacter, buildDragon, NPC } from './characters.js';
 import { NPCS } from './npcs.js';
 import { Player } from './player.js';
 import { Audio } from './audio.js';
-import { PLACES, WATER_Y } from './layout.js';
+import { PLACES, WATER_Y, BAYOU } from './layout.js';
 import { Activities } from './activities.js';
+import { drawMap, toMap } from './map.js';
+import { GroundCover } from './groundcover.js';
+import { buildTown } from './town.js';
+import { buildTurtle } from './creatures.js';
 import { addCozy, FISH } from './cozy.js';
 import { applyTime, makeWhales, phaseName, DAY_SECONDS } from './daynight.js';
 
@@ -49,9 +53,9 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 const FOG = new THREE.Color(0x1d1b44);
-scene.fog = new THREE.FogExp2(FOG, 0.0012);
+scene.fog = new THREE.FogExp2(FOG, 0.00062);
 scene.background = FOG;
-const camera = new THREE.PerspectiveCamera(60, 1, 0.3, 6000);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.3, 9000);
 
 // Moonlit image-based light: a violet sky with a bright moon
 {
@@ -141,7 +145,7 @@ resize();
 const mats = makeMaterials();
 const terrain = new Terrain();
 const world = new World(terrain);
-let stars = null, acts = null;
+let stars = null, acts = null, ground = null;
 const data = { hasBroom: false, raceBest: 0, fish: [], lanterns: 0, snowmen: [] };
 { const s0 = store.get(SAVE_KEY); if (s0) { data.snowmen = s0.snowmen || []; data.lanterns = s0.lanterns || 0; } }
 let tmesh = null, flora = null, particles = null, puffDrift = null, player = null, dragon = null, lights = null;
@@ -165,10 +169,34 @@ async function load() {
   bar.style.width = '72%'; await tick();
 
   tmesh = new TerrainMesh(terrain, scene, mats.terrain);
+  const mapCanvas = drawMap(terrain);
+  $('mapHolder').prepend(mapCanvas);
   buildPlaces();
+  { // waving flags on the towers
+    const fg = new THREE.PlaneGeometry(2.2, 1.3, 12, 4); fg.translate(1.1, 0, 0);
+    const flagTime = { value: 0 };
+    const fm = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.75 });
+    fm.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = flagTime;
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float ph = instanceMatrix[3][0] * 0.13 + instanceMatrix[3][2] * 0.07;
+        transformed.z += sin(position.x * 2.6 - uTime * 5.0 + ph) * 0.22 * position.x;
+        transformed.y -= position.x * position.x * 0.04;`);
+    };
+    const flags = new THREE.InstancedMesh(fg, fm, Math.max(1, world.flags.length));
+    const m4 = new THREE.Matrix4(), c = new THREE.Color();
+    world.flags.forEach((f, i) => {
+      m4.compose(new THREE.Vector3(f.x, f.y, f.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.6, 0)), new THREE.Vector3(f.size, f.size, f.size));
+      flags.setMatrixAt(i, m4); flags.setColorAt(i, c.set(f.color));
+    });
+    flags.count = world.flags.length;
+    scene.add(flags);
+    world.anim.push((t) => { flagTime.value = t; });
+  }
   bar.style.width = '82%'; text.textContent = 'Planting the Witchwood'; await tick();
   flora = new Flora(scene, mats, terrain, world, settings.quality === 'fast' ? 'low' : 'high');
   glowFlowers(scene, terrain, world, mats.tex.soft);
+  ground = new GroundCover(scene, terrain, world, settings.quality === 'fast' ? 'low' : 'high');
   bar.style.width = '90%'; text.textContent = 'Waking the villagers'; await tick();
   buildPeople();
   particles = new Particles(scene, mats.tex.soft, world, terrain);
@@ -204,9 +232,20 @@ function buildPlaces() {
   const T = terrain;
   // Village
   let k = new Kit(mats);
-  const cottages = [[-90, 70, 0.3], [-58, 92, 0.1], [-112, 22, -0.2], [-72, -8, 0.5], [-30, 62, 0], [40, 70, -0.2], [92, 58, 0.4], [112, 14, -0.1], [70, -2, 0.2],
-    [32, -6, -0.4], [-24, 6, 0.2], [-130, -40, 0.6], [122, -40, -0.5], [60, -58, 0.1], [-52, -66, -0.3], [-8, 96, 0.05], [-150, 60, 0.3], [150, 40, -0.3]];
-  cottages.forEach(([x, z, r], i) => S.cottage(k, world, T, x, z, r, { w: 6 + (i % 3), d: 5 + (i % 2), h: i % 4 === 0 ? 5.2 : 3.4, slate: i % 5 === 0, plaster: ['#d6c8b0', '#c8c0b8', '#d8ccb8', '#bcb4b0'][i % 4] }));
+  world.flags = [];
+  const occupied = [[0, -44, 22], [0, 30, 23], [58, 99, 9], [0, 336, 30]];
+  for (const n of NPCS) if (Math.hypot(n.x, n.z - 30) < 140) occupied.push([n.x, n.z, 4.5]);
+  buildTown(k, world, T, occupied);
+  for (let x = -170; x <= 170; x += 20) { world.noTrees(x, 100, 16); world.noTrees(x * 0.9, 80, 14); }
+  // open trails for the wandering turtle and the yak caravan
+  for (const n of NPCS) if (n.path && (n.type === 'turtle' || n.name === 'Old Harrow')) {
+    const rad = n.type === 'turtle' ? 26 : 9;
+    for (let i = 0; i < n.path.length; i++) {
+      const [ax, az] = n.path[i], [bx, bz] = n.path[(i + 1) % n.path.length];
+      const len = Math.hypot(bx - ax, bz - az);
+      for (let d = 0; d <= len; d += rad * 0.6) world.noTrees(ax + (bx - ax) * d / len, az + (bz - az) * d / len, rad);
+    }
+  }
   S.cottage(k, world, T, 58, 97, 0.1, { w: 7, d: 6, h: 4.4 });
   S.chapel(k, world, T, 0, -44, 0);
   // well
@@ -309,6 +348,30 @@ function buildPlaces() {
   k = new Kit(mats); S.lighthouse(scene, k, world, T, 120, 1190); scene.add(k.build());
   // Floating isles & stepping stones
   S.floatingIsles(scene, mats, world);
+  { // the bayou's dark water shares the lake's shader
+    const bw = new THREE.Mesh(new THREE.PlaneGeometry(BAYOU.r * 2 + 160, BAYOU.r * 2 + 160).rotateX(-Math.PI / 2), lake.mesh.material);
+    bw.position.set(BAYOU.x, BAYOU.water, BAYOU.z);
+    scene.add(bw);
+    // a low ember glow behind the cypresses, like a sunset that never quite ends
+    const glowTex = mats.tex.soft;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(2.2, 0.55, 0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    sprite.scale.set(160, 70, 1); sprite.position.set(BAYOU.x + 120, BAYOU.water + 22, BAYOU.z + 150);
+    scene.add(sprite);
+    world.lights.push({ x: BAYOU.x + 90, y: BAYOU.water + 10, z: BAYOU.z + 110, color: 0xff5a20, intensity: 3, range: 70 });
+    // the Emberdeep: a forge-glow in a mountain pass
+    const ey = T.heightAt(140, -690);
+    const eg = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(3, 1.6, 0.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    eg.scale.set(90, 60, 1); eg.position.set(140, ey + 20, -690);
+    scene.add(eg);
+    const ek = new Kit(mats);
+    ek.box('stone', 14, 16, 4, '#5a5048', { x: 140, y: ey + 6, z: -694 });
+    ek.box('glow', 6, 9, 0.3, '#ffb040', { x: 140, y: ey + 4, z: -691.8, bright: 2.5 });
+    for (const sx of [-5, 5]) { ek.box('stone', 2.6, 14, 2.6, '#6a5e54', { x: 140 + sx, y: ey + 6, z: -691 }); ek.cone('glow', 0.6, 1.4, 6, '#ff8a30', { x: 140 + sx, y: ey + 13.6, z: -690, bright: 3 }); }
+    ek.box('stone', 14, 2.2, 3, '#6a5e54', { x: 140, y: ey + 11.5, z: -691 });
+    scene.add(ek.build());
+    world.lights.push({ x: 140, y: ey + 6, z: -686, color: 0xffa040, intensity: 4, range: 60 });
+    world.box(140, -693, 7, 2.2, 0, ey - 2, ey + 14);
+  }
   // Launch updraft at Starfall Point
   { const ly = T.heightAt(-884, 884); world.wells.push({ x: -884, z: 884, r: 2.2, y: () => ly, boost: 24 }); }
   // Lifts
@@ -324,7 +387,7 @@ function buildPlaces() {
 
 function buildPeople() {
   for (const def of NPCS) {
-    const model = buildCharacter(mats, def.type, def.o || {});
+    const model = def.type === 'turtle' ? buildTurtle(mats) : buildCharacter(mats, def.type, def.o || {});
     if (def.beh === 'boat') {
       const bk = new Kit(mats);
       bk.box('wood', 1.4, 0.5, 4.2, '#4a3526', { y: -0.1 });
@@ -337,6 +400,19 @@ function buildPeople() {
     const npc = new NPC(def, model, world);
     npcs.push(npc);
     if (def.beh !== 'fly' && def.beh !== 'boat') world.talkers.push(npc);
+    if (def.type === 'turtle') {
+      let walk = 0;
+      npc.onUpdate = (dt) => {
+        walk += dt * (npc.target ? 1.2 : 0);
+        model.userData.legs.forEach((leg, i) => { leg.rotation.x = Math.sin(walk + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.22; });
+        model.rotation.z = Math.sin(walk * 2) * 0.012;
+      };
+    }
+  }
+  // Leaders keep a trail that their followers walk along
+  for (const n of npcs) if (n.def.beh === 'follow') {
+    n.leader = npcs.find((m) => m.name === n.def.leader);
+    if (n.leader && !n.leader.trail) n.leader.trail = [];
   }
   // The dragon Vessryn circles the Moonspire
   dragon = buildDragon(mats);
@@ -489,8 +565,8 @@ function nearestTalker() {
   let best = null, bd = 3.8;
   for (const n of npcs) {
     if (!n.talkable || !n.model.visible) continue;
-    const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z);
-    if (d < bd && Math.abs(n.pos.y - player.pos.y) < 2.6) { bd = d; best = n; }
+    const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z) - Math.max(0, n.radius - 0.5);
+    if (d < bd && Math.abs(n.pos.y - player.pos.y) < 2.6 + n.radius) { bd = d; best = n; }
   }
   return best;
 }
@@ -562,7 +638,7 @@ function updateTalk(dt) {
     if (talk.shown >= line.length && talk.choosing) $('dlgChoices').hidden = false;
   }
   $('dlgMore').style.visibility = talk.shown >= line.length && !talk.choosing ? 'visible' : 'hidden';
-  if (Math.hypot(talk.npc.pos.x - player.pos.x, talk.npc.pos.z - player.pos.z) > 7) closeTalk();
+  if (Math.hypot(talk.npc.pos.x - player.pos.x, talk.npc.pos.z - player.pos.z) - Math.max(0, talk.npc.radius - 0.5) > 7) closeTalk();
 }
 function giveBroom(mount) {
   if (!data.hasBroom) {
@@ -603,6 +679,52 @@ function portraitCam(dt) {
   bokeh.uniforms.focus.value = camera.position.distanceTo(head);
 }
 
+// ---------- Map ----------
+function openMap() {
+  if (state !== 'play') return;
+  closeTalk();
+  if (acts.active) acts.stop();
+  state = 'map';
+  releaseMouse();
+  const pins = $('mapPins'); pins.innerHTML = '';
+  for (const p of PLACES) {
+    const known = found.has(p.id);
+    const el = document.createElement(known ? 'button' : 'div');
+    el.className = 'pin' + (known ? '' : ' unknown');
+    el.textContent = known ? p.name : '?';
+    const [mx, my] = toMap(p.x, p.z);
+    el.style.left = (mx / 10.24) + '%'; el.style.top = (my / 10.24) + '%';
+    if (known) {
+      el.setAttribute('aria-label', 'Travel to ' + p.name);
+      el.addEventListener('click', () => travelTo(p));
+    }
+    pins.appendChild(el);
+  }
+  const [px, py] = toMap(player.pos.x, player.pos.z);
+  const me = $('mapMe');
+  me.style.left = `calc(${px / 10.24}% - 8px)`; me.style.top = `calc(${py / 10.24}% - 12px)`;
+  me.style.transform = `rotate(${(Math.PI - player.facing) * 180 / Math.PI}deg)`;
+  $('mapPanel').hidden = false;
+}
+function closeMap() { if (state !== 'map') return; $('mapPanel').hidden = true; state = 'play'; captureMouse(); }
+const TRAVEL = { bayou: [520, 620], emberdeep: [120, -660], overlook: [-1.6, 347], lake: [60, 300], village: [0, 60], castle: [-380, -548], moonspire: [60, -600], witchwood: [600, 30], market: [-640, 124], graves: [430, 530], circle: [-272, 560], tower: [-752, -244], lighthouse: [126, 1170], starfall: [-852, 852], queen: [-1258, 1296] };
+function travelTo(p) {
+  $('mapPanel').hidden = true;
+  state = 'play';
+  $('fade').style.opacity = 1;
+  audio.lift();
+  if (player.broom) toggleBroom();
+  setTimeout(() => {
+    const [x, z] = TRAVEL[p.id] || [p.x, p.z];
+    player.place(x, z, player.facing);
+    player._cam = null;
+    setTimeout(() => { $('fade').style.opacity = 0; showWhisper('You travel by moonlight to ' + p.name + '.', 3); }, 500);
+    captureMouse();
+  }, 900);
+}
+$('mapBtn').addEventListener('click', (e) => { e.stopPropagation(); openMap(); });
+$('mapPanel').addEventListener('click', (e) => { if (e.target.id === 'mapPanel') closeMap(); });
+
 // ---------- Save ----------
 function save() {
   if (!player || state === 'title' || state === 'loading') return;
@@ -635,8 +757,8 @@ function begin(fresh) {
   $('touch').hidden = !isTouch;
   $('tBroom').hidden = !data.hasBroom;
   $('controlsText').textContent = isTouch
-    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone, or Use near something that glows or hums. Once you have a broom, tap Broom to fly: look where you want to go and hold Jump to climb.'
-    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk, answer with 1 or 2, and use things. B rides your broom once you have one (Space climbs, C dives, Shift is fast). P hides the screen text for photos. Esc for this menu.';
+    ? 'Left thumb: walk (push far to run). Drag anywhere else to look around. Jump, and hold it while falling to glide. Tap Talk near someone, or Use near something that glows or hums. Once you have a broom, tap Broom to fly: look where you want to go and hold Jump to climb. The map button (top right) shows where you are; tap a place you have found to travel there.'
+    : 'WASD to walk, Shift to run. Mouse to look, scroll to zoom. Space to jump; hold it while falling to glide. E to talk, answer with 1 or 2, and use things. B rides your broom once you have one (Space climbs, C dives, Shift is fast). M opens the map; click a place you have found to travel there. P hides the screen text for photos. Esc for this menu.';
   if (!s) setTimeout(() => showBanner('Moonfall', 'A night in the realm of Moonveil. Walk, fly, play and rest. Nothing here will hurt you.', 'Welcome to'), 600);
   captureMouse();
 }
@@ -701,12 +823,14 @@ window.addEventListener('keydown', (e) => {
   const k = e.code;
   if (state === 'title' && (k === 'Space' || k === 'Enter') && !$('beginBtn').hidden) { begin(false); return; }
   if (state === 'menu' && k === 'Escape') { closeMenu(); return; }
+  if (state === 'map' && (k === 'Escape' || k === 'KeyM')) { closeMap(); return; }
   if (state !== 'play') return;
   keys.add(k);
   if (k === 'Space') e.preventDefault();
   if (talk && talk.choosing && (k === 'Digit1' || k === 'Digit2' || k === 'Digit3')) { choose(+k.slice(5) - 1); return; }
   if (talk && (k === 'KeyE' || k === 'Space' || k === 'Enter')) { advanceTalk(); return; }
   if (k === 'KeyB') toggleBroom();
+  if (k === 'KeyM') { openMap(); return; }
   if (k === 'KeyE') doAction();
   if (k === 'Escape') { if (talk) closeTalk(); else if (lockFailed) openMenu(); }
   if (k === 'KeyP') document.body.classList.toggle('photo');
@@ -830,7 +954,7 @@ function frame(now) {
     else if (acts && acts.cur && acts.cur.cam) acts.cur.cam(camera, dt); else player.updateCamera(camera, dt);
     portraitK += ((portrait ? 1 : 0) - portraitK) * Math.min(1, dt * 3);
     grade.uniforms.uPortrait.value = portraitK;
-    bokeh.enabled = portrait && HQ();
+    bokeh.enabled = !!(portrait && HQ());
     keyLight.intensity = portraitK * 2.2; backLight.intensity = portraitK * 3;
     document.body.classList.toggle('talking', !!portrait);
     player.model.visible = !portrait;
@@ -858,8 +982,9 @@ function frame(now) {
     }
   }
   const focus = state === 'title' ? camera.position : player.pos;
-  flora.update(focus.x, focus.z, HQ() ? 1100 : 650);
-  tmesh.far = HQ() ? 1500 : 1050;
+  flora.update(focus.x, focus.z, HQ() ? 2000 : 1100);
+  ground.update(t, focus.x, focus.z);
+  tmesh.far = HQ() ? 3200 : 2000;
   const viewer = state === 'title' ? { pos: camera.position } : player;
   for (const n of npcs) n.update(dt, t, viewer);
   for (const f of world.anim) f(t, dt);
@@ -936,4 +1061,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 load();
 
-window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dbg() { return { portraitK, pc: portraitCamPos && portraitCamPos.toArray(), state, acts: acts && acts.active }; }, get dayTime() { return dayTime; } };
+window.__df1 = window.__moonveil = { get player() { return player; }, get state() { return state; }, npcs, world, terrain, begin, openTalk, nearestTalker, camera, things, useThing, nearestThing, get acts() { return acts; }, data, giveBroom, toggleBroom, choose, get talk() { return talk; }, openMap, travelTo, found: () => found, setTime: (v) => { dayTime = v; }, get whales() { return lastWhales; }, get dbg() { return { portraitK, pc: portraitCamPos && portraitCamPos.toArray(), state, acts: acts && acts.active }; }, get dayTime() { return dayTime; } };

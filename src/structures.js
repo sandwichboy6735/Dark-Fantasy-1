@@ -29,9 +29,25 @@ export function tower(k, w, x, y, z, r, h, o = {}) {
   const roofH = o.roofH ?? r * 2.2;
   k.cyl('stone', r, r * 1.06, h + 4, 16, color, { x, y: y + h / 2 - 2, z });
   k.cyl('stone', r * 1.15, r * 1.02, 1.6, 16, color, { x, y: y + h - 0.4, z });
+  // corbels under the parapet and bands of darker stone
+  const nc = Math.max(10, Math.round(r * 3.2));
+  for (let i = 0; i < nc; i++) {
+    const a = (i / nc) * Math.PI * 2;
+    k.box('stone', 0.35, 0.6, 0.5, '#6e6860', { x: x + Math.cos(a) * r * 1.03, y: y + h - 1.45, z: z + Math.sin(a) * r * 1.03, ry: Math.PI / 2 - a });
+  }
+  k.cyl('stone', r * 1.03, r * 1.07, 0.35, 16, '#6e6860', { x, y: y + 1.2, z });
+  // arrow slits
+  for (let row = 0; row < Math.max(1, Math.floor(h / 6)); row++) for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4 + row * 0.8;
+    k.box('plain', 0.16, 1.2, 0.2, '#0c0a10', { x: x + Math.cos(a) * (r + 0.01), y: y + 2.5 + row * 6, z: z + Math.sin(a) * (r + 0.01), ry: Math.PI / 2 - a });
+  }
   if (o.roof !== false) {
     k.cone('roof', r * 1.32, roofH, 16, o.roofColor || SLATE, { x, y: y + h + roofH / 2 + 0.3, z });
     k.cone('metal', 0.12, 2.2, 6, '#c9a860', { x, y: y + h + roofH + 1.2, z });
+    if (w.flags && o.flag !== false) {
+      k.cyl('metal', 0.05, 0.05, 3, 5, '#3a3430', { x, y: y + h + roofH + 2.8, z });
+      w.flags.push({ x, y: y + h + roofH + 3.9, z, color: o.flagColor || (rnd() < 0.5 ? '#7a1420' : '#1e2a6a'), size: Math.max(1, r * 0.4) });
+    }
   } else {
     const n = Math.max(8, Math.round(r * 2.2));
     for (let i = 0; i < n; i++) {

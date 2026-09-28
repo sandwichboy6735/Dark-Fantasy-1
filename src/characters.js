@@ -16,6 +16,21 @@ function sleeves(k, color, skin, y = 1.18, spread = 0.55, reach = 0.0, kind = 'v
     hand(k, [hx, hy, hz], [s * 0.15, -1, 0.35], [s, 0, 0.3], skin, size, '#c8a898', 0.45);
   }
 }
+function strandBeard(k, at, bc, n = 46) {
+  let sd = 5; const rr = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+  for (let i = 0; i < n; i++) {
+    const t = -1.25 + (i / (n - 1)) * 2.5;
+    const base = at(Math.sin(t) * 0.85, -0.45 - Math.abs(t) * 0.12, Math.cos(t) * 0.85, 0.02);
+    const L = (0.5 - Math.abs(t) * 0.16) * (0.75 + rr() * 0.45);
+    const dir = [Math.sin(t) * 0.25 + (rr() - 0.5) * 0.15, -1, 0.5 + Math.cos(t) * 0.1];
+    const dl = Math.hypot(...dir);
+    k.cone('plain', 0.02 + rr() * 0.012, L, 5, bc, { x: base[0] + dir[0] / dl * L * 0.45, y: base[1] + dir[1] / dl * L * 0.45, z: base[2] + 0.08 + dir[2] / dl * L * 0.45, dir: dir.map((v) => -v), bright: 0.8 + rr() * 0.35 });
+  }
+  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) {
+    const base = at(sx * 0.12, -0.36, 0.98, 0.03);
+    k.cone('plain', 0.012, 0.13 + i * 0.01, 5, bc, { x: base[0] + sx * 0.05, y: base[1] - 0.02 - i * 0.004, z: base[2], dir: [-sx, 0.4 + i * 0.05, 0], bright: 0.9 });
+  }
+}
 function head(k, y, skin, r = 0.16) { k.sphere('skin', r, skin, { y, ws: 12, hs: 10 }); }
 function eyes(k, y, z, color = '#1a1418', sep = 0.055, r = 0.022, kind = 'plain') {
   for (const s of [-1, 1]) k.sphere(kind, r, color, { x: s * sep, y, z, ws: 6, hs: 5, bright: kind === 'glow' ? 2.5 : 1 });
@@ -37,23 +52,8 @@ export function buildCharacter(mats, type, o = {}) {
       k.lathe('velvet', V2([[0.52, 0.2], [0.5, 0.95], [0.46, 1.3], [0.3, 1.48], [0.18, 1.56]]), 24, o.cloak || o.robe || '#2e2e62', { bright: 0.7, z: -0.03, phi0: Math.PI * 0.55, phiLen: Math.PI * 0.9 });
       sleeves(k, o.robe || '#3a3a7a', skin, 1.2, 0.5, 0.05);
       const at = humanHead(k, [0, 1.66, 0], 0.16, skin, { age: o.beard !== false ? 1.4 : 0.3, brow: 1.5, browColor: o.beard !== false ? (o.beardColor || '#d8d4dc') : '#3a2a20', iris: '#3a5a8a', nose: 1.2, seed: 11 });
-      if (o.beard !== false) {
-        const bc = o.beardColor || '#d8d4dc';
-        let sd = 5; const rr = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
-        for (let i = 0; i < 46; i++) {
-          const t = -1.25 + (i / 45) * 2.5;
-          const base = at(Math.sin(t) * 0.85, -0.45 - Math.abs(t) * 0.12, Math.cos(t) * 0.85, 0.02);
-          const L = (0.5 - Math.abs(t) * 0.16) * (0.75 + rr() * 0.45);
-          const dir = [Math.sin(t) * 0.25 + (rr() - 0.5) * 0.15, -1, 0.5 + Math.cos(t) * 0.1];
-          const dl = Math.hypot(...dir);
-          k.cone('plain', 0.02 + rr() * 0.012, L, 5, bc, { x: base[0] + dir[0] / dl * L * 0.45, y: base[1] + dir[1] / dl * L * 0.45, z: base[2] + 0.08 + dir[2] / dl * L * 0.45, dir: dir.map((v) => -v), bright: 0.8 + rr() * 0.35 });
-        }
-        for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) {
-          const base = at(sx * 0.12, -0.36, 0.98, 0.03);
-          k.cone('plain', 0.012, 0.13 + i * 0.01, 5, bc, { x: base[0] + sx * 0.05, y: base[1] - 0.02 - i * 0.004, z: base[2], dir: [-sx, 0.4 + i * 0.05, 0], bright: 0.9 });
-        }
-      }
-      pointyHat(k, 1.76, o.hat || '#2a2a5c', 0.3, o.hatH || 0.85);
+      if (o.beard !== false) strandBeard(k, at, o.beardColor || '#d8d4dc');
+    pointyHat(k, 1.76, o.hat || '#2a2a5c', 0.3, o.hatH || 0.85);
       if (o.staff !== false) {
         k.cyl('wood', 0.025, 0.03, 1.95, 6, '#4a3526', { x: 0.52, y: 0.98, z: 0.12 });
         k.sphere('glow', 0.09, o.orb || '#9fd0ff', { x: 0.52, y: 2.0, z: 0.12, bright: 3 });
@@ -195,7 +195,8 @@ export function buildCharacter(mats, type, o = {}) {
       robe(k, c, 1.45 * s, 0.4 * s);
       if (o.apron) k.box('plain', 0.4 * s, 0.7 * s, 0.05, o.apron, { y: 0.55 * s, z: 0.3 * s });
       sleeves(k, c, skin, 1.15 * s, 0.4);
-      humanHead(k, [0, 1.6 * s, 0], 0.16 * s, skin, { seed: Math.floor((o.robe || '#1').charCodeAt(2) || 5), nose: o.child ? 0.6 : 1, age: o.child ? 0 : 0.6, iris: '#4a3a2a', browColor: o.hair || '#4a3a2a' });
+      const vat = humanHead(k, [0, 1.6 * s, 0], 0.16 * s, skin, { seed: Math.floor((o.robe || '#1').charCodeAt(2) || 5), nose: o.child ? 0.6 : 1, age: o.child ? 0 : 0.6, iris: '#4a3a2a', browColor: o.hair || '#4a3a2a' });
+      if (o.beard) strandBeard(k, vat, o.beard, 40);
       if (o.hood !== false) k.sphere('cloth', 0.21 * s, o.hoodColor || c, { y: 1.63 * s, z: -0.05, sy: 1.1, bright: 0.8 });
       else k.sphere('plain', 0.17 * s, o.hair || '#6a4a30', { y: 1.66 * s, z: -0.04 });
       if (o.hat) { k.cyl('cloth', 0.36, 0.36, 0.03, 14, o.hat, { y: 1.76 }); k.cyl('cloth', 0.17, 0.19, 0.2, 12, o.hat, { y: 1.86 }); if (o.feather) k.cone('plain', 0.03, 0.4, 5, o.feather, { x: 0.15, y: 1.98, rz: -0.6 }); }
@@ -243,6 +244,61 @@ export function buildCharacter(mats, type, o = {}) {
       for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; k.cone('glow', 0.03, 0.18, 4, o.crown || '#e8f0ff', { x: Math.cos(a) * 0.13, y: 1.93, z: Math.sin(a) * 0.13, bright: 2.5 }); }
       k.add('glow', new THREE.TorusGeometry(0.4, 0.015, 6, 36), o.crown || '#c0d0ff', { y: 1.9, z: -0.25, bright: 1.8 });
       height = 2.2;
+      break;
+    }
+    case 'yak': {
+      const fur = o.fur || '#5a3a22';
+      const body = sculpt({ r: 0.9, scale: [0.85, 0.85, 1.55], warts: 0, wrinkle: 0.05, seed: o.seed || 2, detail: 40, feats: [{ d: [0, 0.8, 0.5], a: 0.35, w: [0.4, 0.3, 0.4] }, { d: [0, -1, 0], a: -0.1, w: [0.6, 0.3, 0.8] }] });
+      k.add('velvet', body.geo, fur, { y: 1.35, vcol: body.vcol });
+      let sd = (o.seed || 2) * 31; const rr = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+      for (let i = 0; i < 140; i++) { // long shaggy fur hanging from the body
+        const a = rr() * Math.PI * 2, zz = (rr() - 0.5) * 2.6;
+        const x = Math.cos(a) * 0.72, y = 1.25 + Math.sin(a) * 0.62;
+        if (Math.sin(a) > 0.6) continue;
+        const L = 0.5 + rr() * 0.6;
+        k.cone('velvet', 0.07, L, 5, fur, { x, y: y - L / 2, z: zz, rx: Math.PI, bright: 0.7 + rr() * 0.5 });
+      }
+      for (const [x, z] of [[-0.4, 0.9], [0.4, 0.9], [-0.4, -0.9], [0.4, -0.9]]) {
+        k.limb('hide', [x, 1.0, z], [x, 0.08, z], 0.14, 0.11, '#2a1c14', { seg: 8 });
+        k.cyl('hide', 0.12, 0.13, 0.12, 8, '#1a1410', { x, y: 0.06, z });
+      }
+      const hd = sculpt({ r: 0.38, scale: [0.9, 0.9, 1.3], wrinkle: 0.03, seed: 5, detail: 32, feats: [{ d: [0, -0.3, 1], a: 0.2, w: [0.4, 0.3, 0.3] }, { d: [0, 0.6, 0.2], a: 0.2, w: [0.5, 0.3, 0.5] }] });
+      k.add('velvet', hd.geo, '#3a2616', { y: 1.2, z: 1.75, vcol: hd.vcol });
+      k.sphere('hide', 0.16, '#2a1c18', { y: 1.02, z: 2.2, sx: 1.3, sy: 0.8 });
+      for (const sx of [-1, 1]) {
+        eye(k, [sx * 0.24, 1.32, 2.02], 0.045, '#2a1a10', '#3a2616', 0.3, [sx * 0.5, 0, 1]);
+        const horn = new THREE.TorusGeometry(0.28, 0.06, 8, 16, Math.PI * 0.9);
+        k.add('enamel', horn, '#c8b898', { x: sx * 0.42, y: 1.55, z: 1.7, ry: sx > 0 ? 0 : Math.PI, rz: -0.3 * sx });
+        k.cone('velvet', 0.07, 0.18, 5, '#3a2616', { x: sx * 0.36, y: 1.42, z: 1.62, rz: sx * 1.4 });
+      }
+      for (let i = 0; i < 30; i++) k.cone('velvet', 0.05, 0.35 + rr() * 0.2, 5, fur, { x: (rr() - 0.5) * 0.5, y: 1.45 - 0.1 + rr() * 0.2, z: 1.6 + rr() * 0.3, rx: 2.4 + rr() * 0.4 });
+      if (o.pack) {
+        k.box('cloth', 0.9, 0.5, 1.1, '#6a5a3a', { y: 2.05, z: -0.2 });
+        for (const sx of [-1, 1]) k.box('cloth', 0.3, 0.6, 0.9, '#5a4a30', { x: sx * 0.7, y: 1.7, z: -0.2 });
+        k.box('wood', 1.9, 0.06, 0.06, '#3a2a1a', { y: 2.33, z: -0.2 });
+      }
+      height = 2.3; radius = 1.0;
+      k.headY = 1.3; k.headZ = 1.8;
+      break;
+    }
+    case 'heron': {
+      const g = '#6a7288';
+      const body = sculpt({ r: 0.3, scale: [0.75, 0.8, 1.4], wrinkle: 0.01, seed: 9, detail: 32, feats: [{ d: [0, -0.3, -1], a: 0.4, w: [0.4, 0.3, 0.5] }] });
+      k.add('velvet', body.geo, g, { y: 1.1, vcol: body.vcol });
+      const neck = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 1.25, 0.3), new THREE.Vector3(0, 1.55, 0.35), new THREE.Vector3(0, 1.75, 0.15), new THREE.Vector3(0, 1.95, 0.3)]);
+      k.add('velvet', new THREE.TubeGeometry(neck, 20, 0.055, 8), '#8a90a4', {});
+      k.sphere('velvet', 0.09, '#9aa0b4', { y: 1.97, z: 0.34, sz: 1.3, ws: 12, hs: 10 });
+      k.cone('enamel', 0.035, 0.5, 8, '#c8a040', { y: 1.97, z: 0.64, rx: Math.PI / 2 });
+      k.box('plain', 0.05, 0.03, 0.2, '#1a1a22', { y: 2.03, z: 0.3 });
+      eye(k, [0.07, 1.99, 0.4], 0.02, '#d8b030', '#9aa0b4', 0.2, [1, 0, 0.3]);
+      eye(k, [-0.07, 1.99, 0.4], 0.02, '#d8b030', '#9aa0b4', 0.2, [-1, 0, 0.3]);
+      for (const sx of [-1, 1]) {
+        k.limb('hide', [sx * 0.08, 0.9, 0], [sx * 0.08, 0.02, 0.05], 0.018, 0.014, '#3a3024', { seg: 6 });
+        for (const a of [-0.5, 0, 0.5]) k.limb('hide', [sx * 0.08, 0.02, 0.05], [sx * 0.08 + Math.sin(a) * 0.12, 0.01, 0.05 + Math.cos(a) * 0.12], 0.01, 0.006, '#3a3024', { seg: 4 });
+      }
+      for (let i = 0; i < 10; i++) k.cone('velvet', 0.05, 0.4, 4, '#4a5064', { x: (i - 4.5) * 0.04, y: 1.08, z: -0.45, rx: -1.9 + (i % 3) * 0.1 });
+      height = 2.1; radius = 0.4;
+      k.headY = 1.95; k.headZ = 0.35;
       break;
     }
     case 'cat': {
@@ -303,6 +359,7 @@ export class NPC {
     this.pos = new THREE.Vector3(def.x, 0, def.z);
     this.home = new THREE.Vector3(def.x, 0, def.z);
     this.radius = model.userData.radius || 0.4;
+    this.baseScale = model.scale.y;
     this.facing = def.face ?? Math.random() * Math.PI * 2;
     this.target = null; this.wait = Math.random() * 3; this.phase = Math.random() * 10;
     this.pathI = 0;
@@ -328,10 +385,26 @@ export class NPC {
     if (far && d.beh !== 'fly') return;
     this.phase += dt;
     let moving = false;
-    const near = pd < 6 && Math.abs(player.pos.y - this.pos.y) < 4;
+    const near = pd - Math.max(0, this.radius - 0.5) < 6 && Math.abs(player.pos.y - this.pos.y) < 4 + this.radius;
     if (this.override) { this.override(dt, t); m.position.copy(this.pos); m.rotation.y = this.facing; return; }
 
-    if (this.talking || (near && d.beh !== 'fly' && d.beh !== 'boat')) {
+    if (d.beh === 'path' && this.trail) {
+      this.trailT = (this.trailT || 0) - dt;
+      if (this.trailT <= 0) { this.trailT = 0.25; this.trail.push(this.pos.clone()); if (this.trail.length > 120) this.trail.shift(); }
+    }
+    if (d.beh === 'follow' && this.leader) {
+      const tr = this.leader.trail;
+      const idx = tr.length - 1 - d.gap * 14;
+      const tgt = idx >= 0 ? tr[idx] : this.leader.pos;
+      const tx = tgt.x - this.pos.x, tz = tgt.z - this.pos.z, td = Math.hypot(tx, tz);
+      if (td > 0.4) {
+        this.turnTo(Math.atan2(tx, tz), dt * 3);
+        const sp = Math.min(td, this.leader.speed * 1.15 * dt * (td > 3 ? 1.6 : 1));
+        this.pos.x += Math.sin(this.facing) * sp; this.pos.z += Math.cos(this.facing) * sp;
+        moving = true;
+      }
+      this.pos.y = this.ground(this.pos.x, this.pos.z);
+    } else if (this.talking || (near && d.beh !== 'fly' && d.beh !== 'boat' && d.type !== 'turtle')) {
       this.turnTo(Math.atan2(dx, dz), dt * 4);
     } else if (d.beh === 'wander' || d.beh === 'path') {
       if (!this.target) {
@@ -377,7 +450,7 @@ export class NPC {
       m.position.y += Math.abs(Math.sin(this.phase * 7)) * 0.06;
       m.rotation.z = Math.sin(this.phase * 7) * 0.05;
     } else if (d.beh !== 'fly' && d.beh !== 'boat') {
-      m.scale.y = 1 + Math.sin(this.phase * 1.6) * 0.012;
+      m.scale.y = (this.baseScale || 1) * (1 + Math.sin(this.phase * 1.6) * 0.012);
     }
     m.rotation.y = this.facing;
     if (this.onUpdate) this.onUpdate(dt, t);

@@ -2,7 +2,7 @@
 <meta name="description" content="Moonfall: a moonlit dark fantasy realm of floating castles, goblin markets and quiet folk. Wander, glide and talk. No fighting.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almendra+Display&family=Almendra:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap">
 <style>/*STYLE*/</style>
 
 <div id="game">
@@ -22,7 +22,15 @@
       <div id="dlgChoices" hidden></div>
       <p class="more" id="dlgMore">&#9656;</p>
     </div>
+    <button id="mapBtn" aria-label="Open the map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z M9 4v14 M15 6v14"/></svg></button>
     <button id="menuBtn" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3a8.5 8.5 0 1 0 5.5 15A9.5 9.5 0 0 1 15.5 3z"/></svg></button>
+  </div>
+
+  <div id="mapPanel" hidden>
+    <div class="map-wrap">
+      <div id="mapHolder"><div id="mapPins"></div><div id="mapMe"></div></div>
+      <p class="map-help" id="mapHelp">Click a place you have found to travel there by moonlight. Press M or Esc to close.</p>
+    </div>
   </div>
 
   <div id="menu" hidden>

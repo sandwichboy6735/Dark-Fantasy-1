@@ -141,6 +141,24 @@ export const NPCS = [
   { type: 'villager', name: 'Captain Rook', title: 'Retired Sky-Sailor', x: -852, z: 852, beh: 'idle', face: -2.4, voice: 0.85, o: { robe: '#2a2a3a', hood: false, hat: '#1a1a22', feather: '#c0d0ff', hair: '#5a4a3a' },
     lines: ['Those stones float all the way out to the Moon Queen’s island.', 'Jump, then hold Jump to glide. The blue lights on the stones will lift you back up.', 'And if you fall? The clouds are soft. They’ll send you back here, more or less.'] },
 
+  // ---- The Weeping Bayou ----
+  { type: 'heron', name: 'Grey Wisdom', title: 'Heron of the Weeping Bayou', x: 640, z: 742, beh: 'idle', face: 2.6, voice: 1.5,
+    lines: ['...', 'You are standing very loudly. The fish can hear you.', 'The cypresses are older than the moon. They told me so. Slowly. Over about forty years.', 'Stay for the sunset. The water here catches fire, and nothing burns.'] },
+  { type: 'witch', name: 'Old Nan Bog', title: 'Bayou Hermit', x: 560, z: 650, beh: 'idle', face: 0.7, voice: 0.8, o: { robe: '#3a3a2a', hat: '#2a2a1e', hair: '#8a8a7a' },
+    lines: ['Mind the knees. The cypress knees, I mean. Mine are fine.', 'The heron out there is the wisest creature in Moonveil. He has never once said anything useful.'] },
+
+  // ---- The Frostfang caravan ----
+  { type: 'villager', name: 'Old Harrow', title: 'Yak Herder of the Frostfangs', x: -120, z: -420, beh: 'path', path: [[-120, -420], [-40, -500], [40, -560], [100, -630], [40, -560], [-40, -500]], speed: 0.9, voice: 0.7,
+    o: { robe: '#5a3a22', hoodColor: '#4a301c', lantern: true, beard: '#b8b0a4', skin: '#c89a78' },
+    lines: ['Easy there, traveller. The yaks spook at wizards.', 'We carry salt and wool up to the Emberdeep, where the dwarves keep their forge burning.', 'See that golden glow in the pass? That is where we are headed. It has been there longer than the mountains.', 'Bumble is the one in front. Bumble is in charge. I just carry the lantern.'] },
+  { type: 'yak', name: 'Bumble', title: 'Lead yak', x: -124, z: -424, beh: 'follow', leader: 'Old Harrow', gap: 1, voice: 0.35, o: { fur: '#5a3a22', seed: 3, pack: true }, lines: ['(Bumble snorts a cloud of frost and looks at you as if you are very small.)'] },
+  { type: 'yak', name: 'Thistle', title: 'Middle yak', x: -128, z: -428, beh: 'follow', leader: 'Old Harrow', gap: 2, voice: 0.4, o: { fur: '#2e2420', seed: 5, pack: true }, lines: ['(Thistle chews thoughtfully. Thistle is always chewing.)'] },
+  { type: 'yak', name: 'Moss', title: 'Youngest yak', x: -132, z: -432, beh: 'follow', leader: 'Old Harrow', gap: 3, voice: 0.5, o: { fur: '#6a4a2a', seed: 7 }, lines: ['(Moss nuzzles your pocket, hoping for an apple.)'] },
+
+  // ---- Old Mossback ----
+  { type: 'turtle', name: 'Old Mossback', title: 'The walking hill', x: -420, z: 300, beh: 'path', path: [[-420, 300], [-360, 380], [-440, 450], [-530, 380], [-500, 300]], speed: 0.7, voice: 0.3,
+    lines: ['...Hello... little... one...', 'I have... carried this house... for three hundred years... The hermit inside... still has not... paid rent.', 'I am... going... that way. I will... get there... eventually.', 'Climb aboard... sometime... The view... is lovely... and very... slow.'] },
+
   // ---- The Moon Queen's island ----
   { type: 'queen', name: 'Selene', title: 'The Moon Queen', x: -1260, z: 1290, beh: 'isle', face: 0.8, voice: 1.2,
     ask: { q: 'Would you like the moon to sing for you?', options: [

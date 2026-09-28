@@ -22,11 +22,11 @@ function canvasWeave() {
 
 export function makePaintShader() {
   return {
-    uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uAmount: { value: 1 }, tCanvas: { value: canvasWeave() } },
+    uniforms: { tDiffuse: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uAmount: { value: 0.55 }, tCanvas: { value: canvasWeave() } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: /* glsl */`
       uniform sampler2D tDiffuse, tCanvas; uniform vec2 uRes; uniform float uAmount; varying vec2 vUv;
-      #define R 3
+      #define R 2
       vec3 fetch(vec2 o) { return min(texture2D(tDiffuse, vUv + o / uRes).rgb, vec3(3.0)); }
       void main() {
         vec3 orig = texture2D(tDiffuse, vUv).rgb;

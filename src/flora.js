@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Kit } from './kit.js';
 import { Simplex, mulberry32 } from './noise.js';
-import { HALF, WATER_Y } from './layout.js';
+import { HALF, WATER_Y, BAYOU } from './layout.js';
 
 const CELL = 256;
 const sm = (a, b, x) => { let t = (x - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
@@ -19,23 +19,82 @@ function species(mats) {
   const r = mulberry32(5);
   return {
     pine: merged(mats, (k) => {
-      k.cyl('wood', 0.12, 0.2, 2, 5, '#3a2c24', { y: 1 });
-      for (let i = 0; i < 4; i++) k.cone('plain', 1.5 - i * 0.3, 2.6 - i * 0.3, 7, i % 2 ? '#1f3a30' : '#24423a', { y: 2.2 + i * 1.35, ry: i });
+      k.cyl('wood', 0.1, 0.24, 3, 7, '#3a2c24', { y: 1.4 });
+      for (let i = 0; i < 7; i++) {
+        const t = i / 6;
+        k.cone('plain', 1.7 - t * 1.35, 1.9 - t * 0.7, 11, i % 2 ? '#1c3a2e' : '#244638', { y: 1.9 + i * 0.95, ry: i * 0.9, rx: (r() - 0.5) * 0.08, bright: 0.8 + t * 0.35 });
+      }
+    }),
+    spruce: merged(mats, (k) => {
+      k.cyl('wood', 0.1, 0.26, 4, 7, '#34281f', { y: 2 });
+      for (let i = 0; i < 10; i++) {
+        const t = i / 9;
+        k.cone('plain', 1.35 - t * 1.15, 1.5 - t * 0.6, 10, i % 2 ? '#183028' : '#203a30', { y: 1.8 + i * 0.95, ry: i * 1.3, bright: 0.75 + t * 0.4 });
+      }
     }),
     snowPine: merged(mats, (k) => {
-      k.cyl('wood', 0.12, 0.2, 2, 5, '#3a2c24', { y: 1 });
-      for (let i = 0; i < 4; i++) {
-        k.cone('plain', 1.5 - i * 0.3, 2.6 - i * 0.3, 7, '#22403a', { y: 2.2 + i * 1.35, ry: i });
-        k.cone('plain', 1.1 - i * 0.24, 1.2 - i * 0.12, 7, '#d6dcf2', { y: 2.9 + i * 1.35, ry: i + 0.3 });
+      k.cyl('wood', 0.1, 0.24, 3, 7, '#3a2c24', { y: 1.4 });
+      for (let i = 0; i < 7; i++) {
+        const t = i / 6;
+        k.cone('plain', 1.7 - t * 1.35, 1.9 - t * 0.7, 11, '#22403a', { y: 1.9 + i * 0.95, ry: i * 0.9 });
+        k.cone('plain', (1.7 - t * 1.35) * 0.72, 0.8 - t * 0.2, 11, '#d6dcf2', { y: 2.35 + i * 0.95, ry: i * 0.9 + 0.3 });
       }
     }),
     oak: merged(mats, (k) => {
-      k.cyl('wood', 0.22, 0.38, 3.4, 6, '#3d2f28', { y: 1.7 });
-      k.cyl('wood', 0.12, 0.2, 2, 5, '#3d2f28', { x: 0.6, y: 3.4, rz: -0.6 });
-      for (let i = 0; i < 6; i++) {
-        const a = i * 1.1;
-        k.sphere('plain', 1.3 + r() * 0.5, i % 2 ? '#2c4a3a' : '#33523e', { x: Math.cos(a) * 1.1, y: 4.2 + r() * 1.3, z: Math.sin(a) * 1.1, sy: 0.75, ws: 7, hs: 5 });
+      k.cyl('wood', 0.22, 0.42, 3.4, 8, '#3d2f28', { y: 1.7 });
+      k.cyl('wood', 0.1, 0.2, 2.4, 6, '#3d2f28', { x: 0.7, y: 3.6, rz: -0.7 });
+      k.cyl('wood', 0.1, 0.18, 2.2, 6, '#3d2f28', { x: -0.6, y: 3.7, rz: 0.75, rx: 0.3 });
+      for (let i = 0; i < 13; i++) {
+        const a = i * 2.39, rr = 0.6 + (i % 4) * 0.45;
+        k.sphere('plain', 0.95 + r() * 0.6, ['#2c4a3a', '#33523e', '#3a5a40', '#28432f'][i % 4], { x: Math.cos(a) * rr, y: 3.9 + r() * 2.2, z: Math.sin(a) * rr, sy: 0.72, ws: 9, hs: 7, bright: 0.8 + r() * 0.35 });
       }
+    }),
+    birch: merged(mats, (k) => {
+      k.cyl('plain', 0.1, 0.16, 6, 7, '#d8d4cc', { y: 3 });
+      for (let i = 0; i < 8; i++) k.box('plain', 0.2, 0.05, 0.2, '#2a2626', { y: 0.6 + i * 0.7, ry: i, x: 0.02 });
+      for (let i = 0; i < 9; i++) {
+        const a = i * 2.2, rr = 0.4 + (i % 3) * 0.35;
+        k.sphere('plain', 0.7 + r() * 0.4, ['#5a7a44', '#6a8a4a', '#4e6e3e'][i % 3], { x: Math.cos(a) * rr, y: 5 + r() * 2, z: Math.sin(a) * rr, sy: 0.9, ws: 8, hs: 6 });
+      }
+    }),
+    bush: merged(mats, (k) => {
+      for (let i = 0; i < 6; i++) { const a = i * 1.9; k.sphere('plain', 0.45 + r() * 0.3, i % 2 ? '#26402e' : '#2e4a34', { x: Math.cos(a) * 0.45, y: 0.4 + r() * 0.3, z: Math.sin(a) * 0.45, sy: 0.8, ws: 8, hs: 6 }); }
+      for (let i = 0; i < 5; i++) k.sphere('plain', 0.05, '#8a1e2a', { x: (r() - 0.5) * 1.2, y: 0.5 + r() * 0.4, z: (r() - 0.5) * 1.2, ws: 5, hs: 4 });
+    }),
+    fern: merged(mats, (k) => {
+      for (let i = 0; i < 9; i++) { const a = i * 0.7; k.cone('plain', 0.12, 1.1, 4, i % 2 ? '#2e5234' : '#3a6440', { x: Math.cos(a) * 0.35, y: 0.35, z: Math.sin(a) * 0.35, dir: [Math.cos(a), 0.9, Math.sin(a)], sz: 0.2 }); }
+    }),
+    cypress: merged(mats, (k) => {
+      // flared, buttressed trunk
+      k.lathe('wood', [[3.2, -0.5], [2.2, 0.4], [1.3, 1.6], [0.95, 3.5], [0.8, 7], [0.65, 11], [0.45, 15], [0.2, 17]], 14, '#3a3028', { });
+      for (let i = 0; i < 9; i++) { const a = i * 0.7 + r(); k.cone('wood', 0.55, 3.6, 6, '#342a22', { x: Math.cos(a) * 1.7, y: 0.4, z: Math.sin(a) * 1.7, dir: [-Math.cos(a), 1.3, -Math.sin(a)] }); }
+      // crooked limbs
+      const tips = [];
+      for (let i = 0; i < 6; i++) {
+        const a = i * 1.1 + r() * 0.5, y0 = 8 + i * 1.3, len = 4 + r() * 3;
+        const tip = [Math.cos(a) * len, y0 + 2 + r() * 2, Math.sin(a) * len];
+        k.limb('wood', [0, y0, 0], tip, 0.35, 0.12, '#3a3028', { seg: 7 });
+        tips.push(tip);
+      }
+      tips.push([0, 17, 0]);
+      // sparse canopy and long curtains of hanging moss
+      for (const t of tips) {
+        for (let j = 0; j < 3; j++) k.sphere('plain', 1.4 + r(), ['#2e3a24', '#36422a', '#283220'][j], { x: t[0] + (r() - 0.5) * 2, y: t[1] + r(), z: t[2] + (r() - 0.5) * 2, sy: 0.45, ws: 8, hs: 5 });
+        for (let j = 0; j < 9; j++) {
+          const L = 2 + r() * 4.5;
+          k.cone('plain', 0.22, L, 4, ['#7a8468', '#6a7458', '#8a9076'][j % 3], { x: t[0] + (r() - 0.5) * 3, y: t[1] - L / 2, z: t[2] + (r() - 0.5) * 3, rx: Math.PI, bright: 0.8 + r() * 0.3 });
+        }
+      }
+    }),
+    knee: merged(mats, (k) => { for (let i = 0; i < 4; i++) k.cone('wood', 0.25, 0.9 + r() * 0.6, 6, '#3a3028', { x: (r() - 0.5) * 2, y: 0.3, z: (r() - 0.5) * 2 }); }),
+    stump: merged(mats, (k) => {
+      k.cyl('wood', 0.38, 0.5, 0.6, 9, '#3d2f28', { y: 0.3 });
+      k.cyl('wood', 0.36, 0.36, 0.02, 9, '#8a6a4a', { y: 0.61 });
+      for (let i = 0; i < 3; i++) { const a = i * 2.1; k.cyl('wood', 0.06, 0.12, 0.7, 5, '#3d2f28', { x: Math.cos(a) * 0.45, y: 0.1, z: Math.sin(a) * 0.45, dir: [Math.cos(a), -0.3, Math.sin(a)] }); }
+    }),
+    log: merged(mats, (k) => {
+      k.cyl('wood', 0.3, 0.34, 4.5, 9, '#3a2c24', { y: 0.3, rz: Math.PI / 2 });
+      for (let i = 0; i < 4; i++) k.sphere('plain', 0.18, '#3a6440', { x: -1.8 + i * 1.1, y: 0.58, z: (r() - 0.5) * 0.2, sy: 0.4, ws: 6, hs: 4 });
     }),
     dead: merged(mats, (k) => {
       k.cyl('wood', 0.16, 0.34, 5, 6, '#2e2630', { y: 2.5, rz: 0.08 });
@@ -78,10 +137,18 @@ export class Flora {
       b.push(x, y, z, s, rot, tilt);
     };
     const T = terrain;
-    const step = quality === 'low' ? 11 : 8.5;
+    const step = quality === 'low' ? 10 : 7;
     for (let z = -HALF; z < HALF; z += step) for (let x = -HALF; x < HALF; x += step) {
       const px = x + (rand() - 0.5) * step * 0.9, pz = z + (rand() - 0.5) * step * 0.9;
       const h = T.heightAt(px, pz);
+      const bay = sm(BAYOU.r + 60, BAYOU.r - 40, Math.hypot(px - BAYOU.x, pz - BAYOU.z));
+      if (bay > 0.2 && h > 2) {
+        const rb = rand();
+        if (rb < 0.16 * bay) push('cypress', px, h - 0.4, pz, 0.9 + rand() * 0.8, rand() * 6, (rand() - 0.5) * 0.12);
+        else if (rb < 0.3 * bay) push('knee', px, h - 0.2, pz, 0.7 + rand() * 0.6, rand() * 6);
+        else if (rb < 0.36 * bay && h > BAYOU.water) push('fern', px, h - 0.1, pz, 0.8 + rand() * 0.6, rand() * 6);
+        if (bay > 0.6) continue;
+      }
       if (h < WATER_Y + 1 || h < 2) continue;
       const slope = T.slope(px, pz);
       if (slope > 0.9) { if (rand() < 0.05 && h > 5) push('rock', px, h - 0.3, pz, 1.5 + rand() * 3, rand() * 6); continue; }
@@ -106,10 +173,22 @@ export class Flora {
       if (snowy) pPine *= 0.5;
       pPine *= 1 - village * 0.8;
       const pOak = villageRing * 0.25 + sm(0.05, 0.3, forest) * 0.1 * (1 - north) * (1 - village);
-      if (r < pPine) push(snowy || north > 0.6 ? 'snowPine' : 'pine', px, h - 0.2, pz, 2.2 + rand() * 1.8, rand() * 6);
-      else if (r < pPine + pOak) push('oak', px, h - 0.2, pz, 1.1 + rand() * 0.7, rand() * 6);
+      if (r < pPine) push(snowy || north > 0.6 ? 'snowPine' : rand() < 0.35 ? 'spruce' : 'pine', px, h - 0.2, pz, 1.4 + rand() * 1.3, rand() * 6);
+      else if (r < pPine + pOak) push(rand() < 0.3 && north < 0.3 ? 'birch' : 'oak', px, h - 0.2, pz, 1.0 + rand() * 0.7, rand() * 6);
       else if (r < pPine + pOak + 0.012) push('rock', px, h - 0.2, pz, 0.6 + rand() * 1.4, rand() * 6);
       else if (r < pPine + pOak + 0.016 && north < 0.5) push('dead', px, h - 0.2, pz, 0.9 + rand() * 0.4, rand() * 6);
+      // Undergrowth: ferns, bushes, stumps and fallen logs fill the forest floor; bushes dot the meadows
+      if (!snowy && h < 200) {
+        const under = sm(-0.2, 0.3, forest) * (1 - village * 0.7);
+        const u = rand();
+        const ox = px + (rand() - 0.5) * 5, oz = pz + (rand() - 0.5) * 5, oy = T.heightAt(ox, oz) - 0.1;
+        if (T.roadDist(ox, oz) > 5 && world.treeFree(ox, oz)) {
+          if (u < under * 0.55) push('fern', ox, oy, oz, 0.7 + rand() * 0.7, rand() * 6);
+          else if (u < under * 0.75 + 0.05) push('bush', ox, oy, oz, 0.7 + rand() * 0.9, rand() * 6);
+          else if (u < under * 0.8 + 0.055) push('stump', ox, oy, oz, 0.8 + rand() * 0.5, rand() * 6);
+          else if (u < under * 0.84 + 0.057) push('log', ox, oy, oz, 0.8 + rand() * 0.5, rand() * 6);
+        }
+      }
     }
     // Build instanced meshes
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
@@ -117,7 +196,7 @@ export class Flora {
     for (const [key, arr] of buckets) {
       const [cellKey, name] = key.split('|');
       const [ci, cj] = cellKey.split(',').map(Number);
-      const cell = { cx: -HALF + (ci + 0.5) * CELL, cz: -HALF + (cj + 0.5) * CELL, meshes: [], shadow: name !== 'mushroom' && name !== 'rock' };
+      const cell = { cx: -HALF + (ci + 0.5) * CELL, cz: -HALF + (cj + 0.5) * CELL, meshes: [], shadow: !['mushroom', 'rock', 'fern', 'bush', 'stump', 'log'].includes(name) };
       const count = arr.length / 6;
       for (const part of sp[name]) {
         const im = new THREE.InstancedMesh(part.geo, part.mat, count);
@@ -134,8 +213,8 @@ export class Flora {
         cell.meshes.push(im);
       }
       this.count += count;
-      if (name === 'pine' || name === 'snowPine' || name === 'oak' || name === 'witch' || name === 'dead') {
-        for (let i = 0; i < count; i++) world.circle(arr[i * 6], arr[i * 6 + 2], 0.35 * arr[i * 6 + 3] * 0.6, arr[i * 6 + 1] - 2, arr[i * 6 + 1] + 12);
+      if (['pine', 'spruce', 'snowPine', 'oak', 'birch', 'witch', 'dead', 'cypress'].includes(name)) {
+        for (let i = 0; i < count; i++) world.circle(arr[i * 6], arr[i * 6 + 2], (name === 'cypress' ? 1.6 : 0.35) * arr[i * 6 + 3] * 0.6, arr[i * 6 + 1] - 2, arr[i * 6 + 1] + 12);
       }
       this.cells.push(cell);
     }

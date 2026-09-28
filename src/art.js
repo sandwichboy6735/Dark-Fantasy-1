@@ -30,27 +30,36 @@ export const grainTex = () => canvasTex(256, (ctx, s, r) => {
 
 // Irregular fieldstone masonry
 export const stoneTex = () => canvasTex(512, (ctx, s, r) => {
-  ctx.fillStyle = '#2c2b30'; ctx.fillRect(0, 0, s, s);
-  const rowH = 38;
-  for (let y = -rowH; y < s + rowH; y += rowH) {
-    let x = -r() * 60;
-    const hh = rowH * (0.8 + r() * 0.25);
+  // mortar
+  ctx.fillStyle = '#3a3632'; ctx.fillRect(0, 0, s, s);
+  for (let i = 0; i < 4000; i++) { ctx.fillStyle = `rgba(${r() < 0.5 ? 0 : 255},${r() < 0.5 ? 0 : 255},${r() < 0.5 ? 0 : 255},0.05)`; ctx.fillRect(r() * s, r() * s, 2, 2); }
+  // coursed rubble: rows of cut stones of varying length and height, with chipped corners
+  let y = 0;
+  while (y < s) {
+    const hh = 26 + Math.floor(r() * 3) * 8;
+    let x = -r() * 50;
     while (x < s) {
-      const w = 40 + r() * 55, v = 150 + r() * 80, tint = (r() - 0.5) * 20;
-      const g = ctx.createLinearGradient(x, y, x + w * 0.3, y + hh);
-      g.addColorStop(0, `rgb(${v + 20 + tint},${v + 18},${v + 24 - tint})`);
-      g.addColorStop(1, `rgb(${v - 40 + tint},${v - 42},${v - 30 - tint})`);
-      ctx.fillStyle = g;
-      const rr = 8 + r() * 6;
-      ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(x + 3, y + 3, w - 6, hh - 6, rr) : ctx.rect(x + 3, y + 3, w - 6, hh - 6);
-      ctx.fill();
-      for (let k = 0; k < 6; k++) { ctx.fillStyle = `rgba(0,0,0,${r() * 0.12})`; ctx.fillRect(x + r() * w, y + r() * hh, 3 + r() * 8, 2 + r() * 5); }
+      const w = 34 + r() * 70;
+      const base = 118 + r() * 70, warm = (r() - 0.3) * 18;
+      const pts = [[x + 2 + r() * 4, y + 2 + r() * 3], [x + w - 2 - r() * 4, y + 2 + r() * 3], [x + w - 2 - r() * 3, y + hh - 2 - r() * 4], [x + 2 + r() * 3, y + hh - 2 - r() * 4]];
+      ctx.beginPath(); ctx.moveTo(...pts[0]);
+      for (let i = 1; i <= 4; i++) { const p = pts[i % 4], q = pts[i - 1]; ctx.lineTo(q[0] + (p[0] - q[0]) * 0.5 + (r() - 0.5) * 3, q[1] + (p[1] - q[1]) * 0.5 + (r() - 0.5) * 3); ctx.lineTo(...p); }
+      const g = ctx.createLinearGradient(x, y, x + w * 0.4, y + hh);
+      g.addColorStop(0, `rgb(${base + 22 + warm},${base + 18},${base + 12 - warm})`);
+      g.addColorStop(1, `rgb(${base - 30 + warm},${base - 32},${base - 34 - warm})`);
+      ctx.fillStyle = g; ctx.fill();
+      // pits, speckle and a lit top edge
+      for (let k = 0; k < 40; k++) { ctx.fillStyle = `rgba(${r() < 0.6 ? 0 : 255},${r() < 0.6 ? 0 : 255},${r() < 0.6 ? 0 : 255},${0.06 + r() * 0.1})`; ctx.fillRect(x + r() * w, y + r() * hh, 1 + r() * 3, 1 + r() * 2); }
+      ctx.strokeStyle = 'rgba(255,245,225,0.18)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(...pts[0]); ctx.lineTo(...pts[1]); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); ctx.stroke();
+      // lichen and moss
+      if (r() < 0.25) { ctx.fillStyle = `rgba(${90 + r() * 40},${110 + r() * 40},${60 + r() * 20},${0.15 + r() * 0.2})`; ctx.beginPath(); ctx.ellipse(x + r() * w, y + hh * 0.8, 6 + r() * 14, 3 + r() * 5, 0, 0, Math.PI * 2); ctx.fill(); }
       x += w;
     }
+    y += hh;
   }
-  // wrap seams
-  ctx.drawImage(ctx.canvas, 0, 0, s, 4, 0, s - 4, s, 4);
+  // rain streaks
+  for (let i = 0; i < 40; i++) { const x = r() * s; const g = ctx.createLinearGradient(0, 0, 0, s); g.addColorStop(0, 'rgba(0,0,0,0.12)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, 0, 2 + r() * 6, s * (0.3 + r() * 0.7)); }
 });
 
 // Overlapping roof slates

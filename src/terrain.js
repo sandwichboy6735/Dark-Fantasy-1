@@ -1,7 +1,7 @@
 // Heightmap terrain for the floating continent, painted per-vertex and streamed in LOD chunks.
 import * as THREE from 'three';
 import { Simplex } from './noise.js';
-import { HALF, ROADS, WATER_Y } from './layout.js';
+import { HALF, ROADS, WATER_Y, BAYOU } from './layout.js';
 
 export const N = 1025;             // heightmap nodes per side
 export const CELL = (HALF * 2) / (N - 1); // 3 m
@@ -23,7 +23,7 @@ const C = {
   grassA: [34, 64, 48], grassB: [48, 80, 50], grassDark: [24, 44, 38], meadow: [56, 88, 54],
   rock: [88, 84, 108], rockDark: [58, 55, 76], snow: [206, 212, 238], snowShade: [160, 168, 210],
   road: [104, 90, 76], witch: [54, 40, 76], witchDark: [34, 26, 50], shore: [70, 72, 70],
-  grave: [42, 58, 56], market: [86, 70, 58], cliff: [66, 62, 82],
+  grave: [42, 58, 56], market: [86, 70, 58], cliff: [66, 62, 82], mud: [40, 38, 28], bog: [38, 50, 34],
 };
 
 export class Terrain {
@@ -73,6 +73,13 @@ export class Terrain {
     const dm = Math.hypot(x + 640, z - 140);
     if (dm < 190) h += 34 * sm(95, 125, dm) * sm(190, 150, dm); // its rim
     h = flat(h, x, z, 430, 500, 60, 50, 36);         // graves
+    { // the Weeping Bayou: a shallow basin with muddy hummocks
+      const db = Math.hypot(x - BAYOU.x, z - BAYOU.z) + n[1].noise2(x / 60, z / 60) * 25;
+      if (db < BAYOU.r + 90) {
+        const hum = BAYOU.water - 1.6 + Math.max(0, n[9].fbm2(x / 38, z / 38, 3)) * 5;
+        h = lerp(h, hum, sm(BAYOU.r + 90, BAYOU.r - 30, db));
+      }
+    }
     h = flat(h, x, z, -280, 540, 38, 60, 58);        // moon circle hilltop
     h = flat(h, x, z, -760, -260, 40, 80, 88);       // tower hill
     h = flat(h, x, z, 120, 1190, 40, 60, 46);        // lighthouse headland
@@ -143,6 +150,7 @@ export class Terrain {
     const dw = Math.hypot(x - 640, z - 20);
     c = mix(c, mix(C.witch, C.witchDark, sm(-0.2, 0.5, v)), sm(330, 230, dw));
     c = mix(c, C.grave, sm(110, 60, Math.hypot(x - 430, z - 500)));
+    c = mix(c, mix(C.bog, C.mud, sm(BAYOU.water + 1.5, BAYOU.water - 0.5, y)), sm(BAYOU.r + 80, BAYOU.r, Math.hypot(x - BAYOU.x, z - BAYOU.z)));
     c = mix(c, C.market, sm(100, 70, Math.hypot(x + 640, z - 140)) * 0.8);
     // Lake shore
     if (y < WATER_Y + 2.5) c = mix(c, C.shore, sm(WATER_Y + 2.5, WATER_Y + 0.5, y));
@@ -257,7 +265,7 @@ export class TerrainMesh {
     const todo = [];
     for (const ch of this.chunks) {
       const d = Math.hypot(ch.cx - px, ch.cz - pz);
-      const want = d > this.far ? -1 : d < 280 ? 0 : d < 620 ? 1 : d < 1000 ? 2 : 3;
+      const want = d > this.far ? -1 : d < 320 ? 0 : d < 760 ? 1 : d < 1400 ? 2 : 3;
       if (want === ch.lod) continue;
       if (want === -1) { if (ch.mesh) ch.mesh.visible = false; ch.lod = -1; continue; }
       todo.push([d, ch, want]);

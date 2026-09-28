@@ -3,6 +3,7 @@
 
 export const HALF = 1536;       // heightmap covers x,z in [-HALF, HALF]
 export const WATER_Y = 18;      // Mirror Lake surface
+export const BAYOU = { x: 660, z: 780, r: 200, water: 14 };
 export const CLOUD_Y = -30;     // the cloud sea
 
 // Where the moon hangs: low in the north, just above the Moonspire when seen from the start.
@@ -21,6 +22,8 @@ export const PLACES = [
   { id: 'tower', name: 'Archmage Oriel’s Tower', sub: 'Knock, and the door decides', x: -760, z: -260, r: 80 },
   { id: 'lighthouse', name: 'Starwatch Light', sub: 'A lighthouse for ships that sail the clouds', x: 120, z: 1190, r: 70 },
   { id: 'starfall', name: 'Starfall Point', sub: 'The stones float. So can you.', x: -860, z: 860, r: 70 },
+  { id: 'bayou', name: 'The Weeping Bayou', sub: 'The cypresses remember every sunset', x: 660, z: 780, r: 190 },
+  { id: 'emberdeep', name: 'The Emberdeep', sub: 'A dwarven forge that has burned for a thousand years', x: 140, z: -690, r: 60 },
   { id: 'queen', name: 'The Moon Queen’s Castle', sub: 'Built on the last island the moon let go of', x: -1260, z: 1270, r: 170 },
 ];
 
@@ -35,6 +38,7 @@ export const ROADS = [
   [[40, 360], [70, 600], [95, 900], [115, 1150]],
   [[-260, 540], [-520, 700], [-800, 840]],
   [[-420, 150], [-600, -40], [-730, -220]],
+  [[400, 480], [470, 560], [540, 640]],
 ];
 
 // Magic updrafts. Step into one to be carried: either straight up, or along an arc to a destination.
