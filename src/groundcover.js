@@ -150,6 +150,7 @@ export class GroundCover {
         if (T.slope(x, z) > 0.75) continue;
         if (T.roadDist(x, z) < 3.2) continue;
         if (!world.treeFree(x, z) && hash(gx, gz + 5) < 0.75) continue; // sparser around buildings
+        if (world.bare && world.bare.some(([bx, bz, br]) => (x - bx) ** 2 + (z - bz) ** 2 < br * br) && hash(gx, gz + 9) < 0.85) continue; // trampled ground
         // colour from the painted ground
         const fx = (x + 1536) / 3, fz = (z + 1536) / 3;
         const k = (Math.round(fz) * 1025 + Math.round(fx)) * 3;

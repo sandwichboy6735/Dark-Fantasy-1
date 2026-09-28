@@ -32,10 +32,10 @@ The compass at the top points to the places you've found, and ◇ marks the ones
 
 - **Wayfarer's Rest:** where you start, at a stone wall above the Mirror Lake, next to the witch Morwen.
 - **Emberlight:** a walled town of timber-framed houses with mossy thatch and slate roofs, glowing windows and chimney smoke, cobbled streets, a square with a clock tower, a chapel spire, and a mill with a turning water wheel.
-- **The Mirror Lake:** Charon the ferryman rows across it all night.
+- **The Mirror Lake:** Charon the ferryman rows across it all night. The water really mirrors the shore, the trees, the village lights and the moon.
 - **Castle Vaelmoor:** a castle full of lit windows on a snowy crag in the Frostfang Mountains. Step into the blue Moonlift at its gate to ride up.
 - **The Moonspire:** the tallest peak. Vessryn the moon dragon circles it.
-- **The Goblin Market:** stalls, string lights and a bonfire in a hollow, run by Grizzleby Quint and friends.
+- **The Goblin Market:** striped stalls heaped with fruit, potions and curios, tents with lamps glowing inside, carts, barrels, string lights and a crackling bonfire in a hollow, run by Grizzleby Quint and friends.
 - **The Witchwood:** glowing mushrooms, witch huts on stilts, bubbling cauldrons, and witches flying on broomsticks.
 - **Stillwater Graves:** a gravedigger and three friendly ghosts.
 - **The Moon Circle:** humming standing stones and a druid.
@@ -116,6 +116,7 @@ npm run dev        # rebuild whenever something in src/ changes
 | `src/structures.js` | Castles, cottages, the market, witch huts, graves, towers, floating islands |
 | `src/flora.js` | Forests, glowing mushrooms and flowers |
 | `src/foliage.js` | Tree models built from painted leaf and needle cards, bark, moss and ivy |
+| `src/bazaar.js` | The Goblin Market's stalls, tents, carts, barrels, crates and sacks |
 | `src/settlements.js` | Stone cottages, hamlets, ruins, walled fields, standing stones and shrines |
 | `src/atmosphere.js` | Valley fog, drifting ground mist, moon glow and light shafts |
 | `src/characters.js` | Character models and how they move |

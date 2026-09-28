@@ -8,6 +8,8 @@ export class World {
     this.platforms = [];
     this.lights = [];     // { x, y, z, color, intensity, range }
     this.chimneys = [];   // { x, y, z }
+    this.fires = [];      // [x, y, z, size] flames
+    this.bare = [];       // [x, z, r] trampled ground with little grass
     this.exclude = [];    // [x, z, r] no trees here
     this.anim = [];       // functions (t, dt) => void
     this.wells = [];      // updrafts

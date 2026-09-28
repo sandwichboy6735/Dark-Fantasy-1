@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { Kit } from './kit.js';
 import { WATER_Y } from './layout.js';
-import { moonDir } from './fx.js';
+import { moonDir, firePit } from './fx.js';
 
 const DREAMS = [
   'You dream you are a lantern, drifting up and up, and the moon waves at you.',
@@ -39,12 +39,13 @@ export function addCozy(acts, getDragon) {
   // ---------- Beds ----------
   const bed = (x, z, rot, fire) => {
     const y = T.heightAt(x, z);
-    k.box('cloth', 0.9, 0.18, 2.1, '#2e3a6e', { x, y: y + 0.09, z, ry: rot });
-    k.box('cloth', 0.7, 0.16, 0.4, '#d8d0c0', { x: x - Math.sin(rot) * 0.8, y: y + 0.24, z: z - Math.cos(rot) * 0.8, ry: rot });
+    // a quilted bedroll with a rolled blanket at the foot and a lumpy pillow
+    k.add('velvet', new THREE.CapsuleGeometry(0.42, 1.3, 4, 12).rotateX(Math.PI / 2).scale(1, 0.28, 1), '#2e3a6e', { x, y: y + 0.1, z, ry: rot, bright: 0.9 });
+    k.add('velvet', new THREE.CapsuleGeometry(0.16, 0.7, 4, 10).rotateZ(Math.PI / 2), '#6a3a3a', { x: x + Math.sin(rot) * 0.95, y: y + 0.2, z: z + Math.cos(rot) * 0.95, ry: rot });
+    k.add('cloth', new THREE.SphereGeometry(0.3, 12, 8).scale(1.2, 0.4, 0.7), '#d8d0c0', { x: x - Math.sin(rot) * 0.72, y: y + 0.22, z: z - Math.cos(rot) * 0.72, ry: rot });
     if (fire) {
       const fx = x + Math.cos(rot) * 2, fz = z - Math.sin(rot) * 2, fy = T.heightAt(fx, fz);
-      for (let i = 0; i < 4; i++) k.cyl('wood', 0.07, 0.07, 1, 5, '#3a2a20', { x: fx, y: fy + 0.12, z: fz, rz: Math.PI / 2, ry: i * 0.8 });
-      k.cone('glow', 0.35, 0.8, 7, '#ff9a3a', { x: fx, y: fy + 0.45, z: fz, bright: 2.4 });
+      firePit(k, fx, fy, fz, 0.55); world.fires.push([fx, fy + 0.05, fz, 0.55]);
       world.lights.push({ x: fx, y: fy + 0.8, z: fz, color: 0xff9040, intensity: 1.4, range: 14 });
       world.chimneys.push({ x: fx, y: fy + 1, z: fz });
     }

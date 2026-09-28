@@ -152,7 +152,7 @@ export function makeCloudSea() {
 }
 
 export function makeLake() {
-  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uMoon: { value: moonDir.clone() }, uGlint: { value: new THREE.Color(0.75, 0.78, 1.3) }, uDeepW: { value: new THREE.Color(0.015, 0.025, 0.07) }, uSkyW: { value: new THREE.Color(0.09, 0.09, 0.26) }, uNight: { value: 1 } }]);
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uMoon: { value: moonDir.clone() }, uGlint: { value: new THREE.Color(0.75, 0.78, 1.3) }, uDeepW: { value: new THREE.Color(0.015, 0.025, 0.07) }, uSkyW: { value: new THREE.Color(0.09, 0.09, 0.26) }, uNight: { value: 1 }, tRefl: { value: null }, uTexM: { value: new THREE.Matrix4() }, uReflY: { value: -999 }, uReflOn: { value: 0 } }]);
   const mat = new THREE.ShaderMaterial({
     uniforms, fog: true, transparent: true,
     vertexShader: `#include <fog_pars_vertex>
@@ -162,7 +162,7 @@ export function makeLake() {
       }`,
     fragmentShader: NOISE_GLSL + /* glsl */`
       #include <fog_pars_fragment>
-      uniform float uTime, uNight; uniform vec3 uMoon, uGlint, uDeepW, uSkyW; varying vec3 vW;
+      uniform float uTime, uNight, uReflY, uReflOn; uniform vec3 uMoon, uGlint, uDeepW, uSkyW; uniform sampler2D tRefl; uniform mat4 uTexM; varying vec3 vW;
       void main(){
         vec2 p = vW.xz;
         float n1 = vnoise(p * 0.35 + vec2(uTime * 0.3, 0.0)) - 0.5, n2 = vnoise(p * 0.8 - vec2(0.0, uTime * 0.4)) - 0.5;
@@ -171,6 +171,15 @@ export function makeLake() {
         vec3 r = reflect(-v, nrm);
         float fres = pow(1.0 - max(v.y, 0.0), 4.0);
         vec3 col = mix(uDeepW, uSkyW, fres);
+        // mirrored shore, trees and sky when this is the water being reflected
+        float useR = uReflOn * step(abs(vW.y - uReflY), 0.5);
+        if (useR > 0.0) {
+          vec4 pc = uTexM * vec4(vW.x, uReflY, vW.z, 1.0);
+          vec2 ruv = clamp(pc.xy / pc.w + vec2(nrm.x, nrm.z) * 0.035, 0.001, 0.999);
+          vec3 refl = texture2D(tRefl, ruv).rgb;
+          float f2 = mix(0.45, 1.0, pow(1.0 - max(v.y, 0.0), 3.0));
+          col = mix(uDeepW, refl * 0.85, f2);
+        }
         float glint = pow(max(dot(r, uMoon), 0.0), 300.0) * 1.1 + pow(max(dot(r, uMoon), 0.0), 40.0) * 0.12;
         col += uGlint * glint;
         // Glowing plankton drifts in the lake at night
@@ -417,4 +426,100 @@ export class ShootingStars {
       s.head.position.copy(s.pos); s.head.visible = true;
     }
   }
+}
+
+// ---------- Planar reflections for the lake and the bayou ----------
+// The scene is drawn a second time from a camera mirrored under the water plane, at reduced
+// resolution, with an oblique near plane so nothing below the surface leaks into it.
+export class WaterReflection {
+  constructor(renderer, scale = 0.5) {
+    this.renderer = renderer; this.scale = scale;
+    this.rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType });
+    this.cam = new THREE.PerspectiveCamera();
+    this.texMatrix = new THREE.Matrix4();
+    this.plane = new THREE.Plane(); this.clip = new THREE.Vector4(); this.q = new THREE.Vector4();
+    this._p = new THREE.Vector3(); this._t = new THREE.Vector3(); this._u = new THREE.Vector3(); this._d = new THREE.Vector3(); this._s = new THREE.Vector2();
+  }
+
+  render(scene, camera, y, hide) {
+    const r = this.renderer, c = this.cam;
+    r.getDrawingBufferSize(this._s);
+    const w = Math.max(16, Math.round(this._s.x * this.scale)), h = Math.max(16, Math.round(this._s.y * this.scale));
+    if (this.rt.width !== w || this.rt.height !== h) this.rt.setSize(w, h);
+    // mirror the camera position, look target and up vector about the plane y = const
+    camera.updateMatrixWorld();
+    const cp = this._p.setFromMatrixPosition(camera.matrixWorld);
+    const look = this._t.set(0, 0, -1).applyQuaternion(camera.quaternion).add(cp);
+    const up = this._u.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    cp.y = 2 * y - cp.y; look.y = 2 * y - look.y; up.y = -up.y;
+    c.position.copy(cp); c.up.copy(up); c.lookAt(look);
+    c.fov = camera.fov; c.aspect = camera.aspect; c.near = camera.near; c.far = camera.far;
+    c.updateMatrixWorld(); c.updateProjectionMatrix();
+    this.texMatrix.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1).multiply(c.projectionMatrix).multiply(c.matrixWorldInverse);
+    // oblique near plane: clip everything under the water
+    this.plane.setFromNormalAndCoplanarPoint(this._d.set(0, 1, 0), this._t.set(0, y, 0)).applyMatrix4(c.matrixWorldInverse);
+    const cl = this.clip.set(this.plane.normal.x, this.plane.normal.y, this.plane.normal.z, this.plane.constant);
+    const pm = c.projectionMatrix.elements, q = this.q;
+    q.x = (Math.sign(cl.x) + pm[8]) / pm[0]; q.y = (Math.sign(cl.y) + pm[9]) / pm[5]; q.z = -1; q.w = (1 + pm[10]) / pm[14];
+    cl.multiplyScalar(2 / cl.dot(q));
+    pm[2] = cl.x; pm[6] = cl.y; pm[10] = cl.z + 1 - 0.003; pm[14] = cl.w;
+    c.projectionMatrixInverse.copy(c.projectionMatrix).invert();
+    const vis = hide.map((o) => o && o.visible);
+    hide.forEach((o) => { if (o) o.visible = false; });
+    const prevTarget = r.getRenderTarget(), prevShadow = r.shadowMap.autoUpdate;
+    r.shadowMap.autoUpdate = false;
+    r.setRenderTarget(this.rt); r.clear(); r.render(scene, c);
+    r.setRenderTarget(prevTarget); r.shadowMap.autoUpdate = prevShadow;
+    hide.forEach((o, i) => { if (o) o.visible = vis[i]; });
+  }
+}
+
+// ---------- Fires: crossed flame cards with rising, flickering noise ----------
+export class Fires {
+  constructor(scene) { this.scene = scene; this.pos = []; this.uv = []; this.seed = []; this.uniforms = { uTime: { value: 0 } }; }
+  add(x, y, z, s = 1) {
+    const sd = Math.random() * 10;
+    for (let i = 0; i < 3; i++) {
+      const a = i * Math.PI / 3, cx = Math.cos(a) * 0.5 * s, cz = Math.sin(a) * 0.5 * s, h = 1.9 * s;
+      const q = [[-cx, 0, -cz, 0, 0], [cx, 0, cz, 1, 0], [cx, h, cz, 1, 1], [-cx, h, -cz, 0, 1]];
+      for (const k of [0, 1, 2, 0, 2, 3]) { const v = q[k]; this.pos.push(x + v[0], y + v[1], z + v[2]); this.uv.push(v[3], v[4]); this.seed.push(sd + i * 3.1); }
+    }
+  }
+  build() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    g.setAttribute('seed', new THREE.Float32BufferAttribute(this.seed, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: this.uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: 'attribute float seed; varying vec2 vUv; varying float vSeed; void main(){ vUv = uv; vSeed = seed; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: NOISE_GLSL + /* glsl */`
+        uniform float uTime; varying vec2 vUv; varying float vSeed;
+        void main(){
+          float n = vnoise(vec2(vUv.x * 3.5 + vSeed, vUv.y * 2.6 - uTime * 2.4)) * 0.6 + vnoise(vec2(vUv.x * 7.0 - vSeed, vUv.y * 5.5 - uTime * 3.8)) * 0.4;
+          float x = (vUv.x - 0.5) * 2.0 + (n - 0.5) * 0.7 * vUv.y;
+          float w = mix(0.95, 0.05, pow(vUv.y, 0.8));
+          float shape = 1.0 - smoothstep(w * 0.45, w, abs(x));
+          float h = vUv.y + (n - 0.5) * 0.55;
+          float body = shape * smoothstep(0.95, 0.2, h) * smoothstep(0.0, 0.06, vUv.y);
+          vec3 col = mix(vec3(0.9, 0.18, 0.03), vec3(1.0, 0.55, 0.12), smoothstep(0.05, 0.5, body));
+          col = mix(col, vec3(1.0, 0.92, 0.65), smoothstep(0.6, 0.95, body));
+          gl_FragColor = vec4(col * body * 2.4, 1.0);
+        }`,
+    });
+    const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; mesh.renderOrder = 5;
+    this.scene.add(mesh);
+    return mesh;
+  }
+  update(t) { this.uniforms.uTime.value = t; }
+}
+
+// A ring of stones and a pile of crossed logs under a fire
+export function firePit(k, x, y, z, s = 1) {
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; k.sphere('stone', 0.28 * s, '#5a5660', { x: x + Math.cos(a) * 1.1 * s, y: y + 0.08 * s, z: z + Math.sin(a) * 1.1 * s, sy: 0.6, ws: 7, hs: 5, bright: 0.8 + (i % 3) * 0.1 }); }
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + 0.3;
+    k.limb('bark', [x + Math.cos(a) * 0.85 * s, y + 0.05, z + Math.sin(a) * 0.85 * s], [x - Math.cos(a) * 0.1 * s, y + 0.55 * s, z - Math.sin(a) * 0.1 * s], 0.09 * s, 0.07 * s, '#4a3a2e', { seg: 7 });
+  }
+  k.sphere('glow', 0.45 * s, '#ff5a1a', { x, y: y + 0.1, z, sy: 0.35, bright: 2.2, ws: 10, hs: 6 });
 }

@@ -8,6 +8,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { makePaintShader } from './paint.js';
 import { AtmospherePass } from './atmosphere.js';
+import { marketStall, marketOuter } from './bazaar.js';
 import { rimColor } from './art.js';
 
 import { Terrain, TerrainMesh } from './terrain.js';
@@ -16,7 +17,7 @@ import { makeMaterials } from './art.js';
 import { Kit } from './kit.js';
 import * as S from './structures.js';
 import { Flora, glowFlowers } from './flora.js';
-import { makeSky, makeCloudSea, makeLake, makeCloudPuffs, Particles, makeWellVisual, LightPool, ShootingStars, moonDir } from './fx.js';
+import { makeSky, makeCloudSea, makeLake, makeCloudPuffs, Particles, makeWellVisual, LightPool, ShootingStars, moonDir, WaterReflection, Fires, firePit } from './fx.js';
 import { buildCharacter, buildDragon, NPC } from './characters.js';
 import { NPCS } from './npcs.js';
 import { Player } from './player.js';
@@ -97,6 +98,9 @@ const cloudSea = makeCloudSea();
 scene.add(cloudSea.mesh);
 const lake = makeLake();
 scene.add(lake.mesh);
+const reflection = new WaterReflection(renderer, 0.5);
+lake.uniforms.tRefl.value = reflection.rt.texture; lake.uniforms.uTexM.value = reflection.texMatrix;
+let bayouWater = null;
 
 // Post-processing: bloom for moon and windows, then a painterly grade
 const composer = new EffectComposer(renderer);
@@ -152,7 +156,7 @@ resize();
 const mats = makeMaterials();
 const terrain = new Terrain();
 const world = new World(terrain);
-let stars = null, acts = null, ground = null;
+let stars = null, acts = null, ground = null, fires = null;
 const data = { hasBroom: false, raceBest: 0, fish: [], lanterns: 0, snowmen: [] };
 { const s0 = store.get(SAVE_KEY); if (s0) { data.snowmen = s0.snowmen || []; data.lanterns = s0.lanterns || 0; } }
 let tmesh = null, flora = null, particles = null, puffDrift = null, player = null, dragon = null, lights = null;
@@ -220,6 +224,7 @@ async function load() {
     dismount: () => { if (player.broom) toggleBroom(); },
   });
   for (const sp of addCozy(acts, () => dragon.g)) things.push({ ...sp, cool: 0 });
+  fires = new Fires(scene); for (const f of world.fires) fires.add(...f); fires.build();
   puffDrift = makeCloudPuffs(scene, mats.tex.cloud);
   lights = new LightPool(scene, HQ() ? 6 : 3);
   // Warm up terrain near the title camera and the start
@@ -275,13 +280,14 @@ function buildPlaces() {
   const cloths = ['#7a1a2a', '#3a2a6a', '#2a5a3a', '#8a5a1a', '#5a1a5a', '#1a4a5a', '#7a3a1a', '#4a4a7a'];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + 0.2;
-    S.stall(k, world, T, -640 + Math.cos(a) * 24, 140 + Math.sin(a) * 24, Math.atan2(Math.cos(a), Math.sin(a)) + Math.PI, cloths[i]);
+    marketStall(k, world, T, -640 + Math.cos(a) * 24, 140 + Math.sin(a) * 24, Math.atan2(Math.cos(a), Math.sin(a)) + Math.PI, cloths[i], 100 + i);
   }
+  marketOuter(k, world, T, -640, 140);
+  world.bare.push([-640, 140, 34]);
   for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + 0.5; S.goblinHut(k, world, T, -640 + Math.cos(a) * 52, 140 + Math.sin(a) * 52, Math.atan2(-Math.cos(a), -Math.sin(a))); }
   const fy = T.heightAt(-640, 140);
   for (let i = 0; i < 6; i++) { const a = i; k.cyl('wood', 0.2, 0.2, 2.4, 6, '#3a2a20', { x: -640 + Math.cos(a) * 0.9, y: fy + 0.4, z: 140 + Math.sin(a) * 0.9, rz: Math.cos(a) * 1.2, rx: Math.sin(a) * 1.2 }); }
-  k.cone('glow', 1.2, 2.4, 8, '#ff8a30', { x: -640, y: fy + 1.2, z: 140, bright: 2.6 });
-  k.cone('glow', 0.7, 1.8, 7, '#ffd070', { x: -640, y: fy + 1.4, z: 140, bright: 3 });
+  firePit(k, -640, fy, 140, 1.3); world.fires.push([-640, fy + 0.1, 140, 1.5]);
   world.lights.push({ x: -640, y: fy + 2, z: 140, color: 0xff9040, intensity: 3, range: 40 });
   world.circle(-640, 140, 1.4, fy - 2, fy + 3);
   // string lights between stalls
@@ -358,7 +364,7 @@ function buildPlaces() {
   { // the bayou's dark water shares the lake's shader
     const bw = new THREE.Mesh(new THREE.PlaneGeometry(BAYOU.r * 2 + 160, BAYOU.r * 2 + 160).rotateX(-Math.PI / 2), lake.mesh.material);
     bw.position.set(BAYOU.x, BAYOU.water, BAYOU.z);
-    scene.add(bw);
+    scene.add(bw); bayouWater = bw;
     // a low ember glow behind the cypresses, like a sunset that never quite ends
     const glowTex = mats.tex.soft;
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(2.2, 0.55, 0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
@@ -373,7 +379,7 @@ function buildPlaces() {
     const ek = new Kit(mats);
     ek.box('stone', 14, 16, 4, '#5a5048', { x: 140, y: ey + 6, z: -694 });
     ek.box('glow', 6, 9, 0.3, '#ffb040', { x: 140, y: ey + 4, z: -691.8, bright: 2.5 });
-    for (const sx of [-5, 5]) { ek.box('stone', 2.6, 14, 2.6, '#6a5e54', { x: 140 + sx, y: ey + 6, z: -691 }); ek.cone('glow', 0.6, 1.4, 6, '#ff8a30', { x: 140 + sx, y: ey + 13.6, z: -690, bright: 3 }); }
+    for (const sx of [-5, 5]) { ek.box('stone', 2.6, 14, 2.6, '#6a5e54', { x: 140 + sx, y: ey + 6, z: -691 }); world.fires.push([140 + sx, ey + 13.1, -690, 0.55]); }
     ek.box('stone', 14, 2.2, 3, '#6a5e54', { x: 140, y: ey + 11.5, z: -691 });
     scene.add(ek.build());
     world.lights.push({ x: 140, y: ey + 6, z: -686, color: 0xffa040, intensity: 4, range: 60 });
@@ -683,6 +689,19 @@ function toggleBroom() {
 }
 $('dialogue').addEventListener('click', advanceTalk);
 
+// ---------- Mirror reflections on the nearest water ----------
+function updateReflection() {
+  lake.uniforms.uReflOn.value = 0;
+  if (!HQ()) return;
+  const cp = camera.position;
+  const dl = Math.hypot(Math.max(0, Math.abs(cp.x) - 280), Math.max(0, Math.abs(cp.z - 205) - 150));
+  const db = Math.max(0, Math.hypot(cp.x - BAYOU.x, cp.z - BAYOU.z) - BAYOU.r - 80);
+  const y = dl <= db ? WATER_Y : BAYOU.water;
+  if (Math.min(dl, db) > 350 || cp.y < y + 0.3) return;
+  reflection.render(scene, camera, y, [lake.mesh, bayouWater, ground && ground.grass, ground && ground.flowers]);
+  lake.uniforms.uReflY.value = y; lake.uniforms.uReflOn.value = 1;
+}
+
 // ---------- Portrait camera while talking ----------
 let portraitK = 0, portraitCamPos = null;
 const _pt = new THREE.Vector3(), _pc = new THREE.Vector3();
@@ -959,7 +978,7 @@ function frame(now) {
   atmo.uniforms.uMist.value = 0.4 + tod.night * 0.8;
   atmo.update(camera, lightDir, 1, scene.fog.color, _glow.copy(moonLight.color).multiplyScalar(Math.min(0.9, 0.2 + moonLight.intensity * 0.15)), t);
   renderer.toneMappingExposure *= 1 - 0.28 * portraitK;
-  sky.uniforms.uTime.value = t; cloudSea.uniforms.uTime.value = t; lake.uniforms.uTime.value = t; grade.uniforms.uTime.value = t % 10;
+  sky.uniforms.uTime.value = t; cloudSea.uniforms.uTime.value = t; lake.uniforms.uTime.value = t; grade.uniforms.uTime.value = t % 10; if (fires) fires.update(t);
 
   if (state === 'loading') {
     camera.position.set(0, 200, 0); camera.lookAt(0, 200, -100);
@@ -1095,6 +1114,7 @@ function frame(now) {
   if (isTouch && state !== 'loading' && state !== 'title') $('touch').hidden = state !== 'play' || !!talk;
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('show'); }
   if (whisperT > 0) { whisperT -= dt; if (whisperT <= 0) $('whisper').classList.remove('show'); }
+  updateReflection();
   if (state !== 'loading') audio.update(dt, { windStrength: player && player.pos.y > 120 ? 0.9 : 0.35, night: 1, underwater: false, cave: false, zones: state === 'title' ? titleZones : zonesAt(player.pos) });
   composer.render(dt);
   if (!firstFrameAt) firstFrameAt = now;

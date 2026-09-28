@@ -178,29 +178,6 @@ export function waterWheel(scene, kitMats, w, x, y, z, rot) {
 }
 
 // ---------- Goblin market ----------
-export function stall(k, w, T, x, z, rot, cloth) {
-  const y = T.heightAt(x, z);
-  const P = L(x, z, rot);
-  k.box('wood', 3.2, 1.05, 1.2, '#5a4230', { x, y: y + 0.52, z, ry: rot });
-  for (const [a, b] of [[-1.6, -0.6], [1.6, -0.6], [-1.6, 1.6], [1.6, 1.6]]) {
-    const [px, pz] = P(a, b);
-    k.cyl('wood', 0.07, 0.07, b > 0 ? 2.6 : 3.1, 5, '#3a2b20', { x: px, y: y + (b > 0 ? 1.3 : 1.55), z: pz });
-  }
-  const [cx, cz] = P(0, 0.5);
-  k.box('plain', 3.8, 0.08, 2.9, cloth, { x: cx, y: y + 2.85, z: cz, ry: rot, rx: 0.18, order: 'YXZ' });
-  for (let i = 0; i < 4; i++) {
-    const [px, pz] = P(-1.2 + i * 0.8, 0);
-    const c = ['#7a3a8a', '#c9a860', '#3f7a5a', '#a0402a'][i];
-    k.sphere('plain', 0.18, c, { x: px, y: y + 1.2, z: pz, ws: 6, hs: 5 });
-  }
-  const [lx, lz] = P(1.4, -0.4);
-  k.box('glow', 0.25, 0.35, 0.25, WARM, { x: lx, y: y + 2.35, z: lz, bright: 2.5 });
-  const [bx, bz] = P(-2.3, -0.3);
-  k.cyl('wood', 0.45, 0.4, 1, 8, '#4f3a28', { x: bx, y: y + 0.5, z: bz });
-  w.box(x, z, 1.7, 0.7, rot, y - 2, y + 1.1);
-  w.lights.push({ x: lx, y: y + 2.3, z: lz, color: 0xffa050, intensity: 1, range: 14 });
-}
-
 export function goblinHut(k, w, T, x, z, rot) {
   const y = T.heightAt(x, z) - 0.3;
   const P = L(x, z, rot);

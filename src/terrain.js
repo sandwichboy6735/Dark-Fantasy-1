@@ -151,7 +151,9 @@ export class Terrain {
     c = mix(c, mix(C.witch, C.witchDark, sm(-0.2, 0.5, v)), sm(330, 230, dw));
     c = mix(c, C.grave, sm(110, 60, Math.hypot(x - 430, z - 500)));
     c = mix(c, mix(C.bog, C.mud, sm(BAYOU.water + 1.5, BAYOU.water - 0.5, y)), sm(BAYOU.r + 80, BAYOU.r, Math.hypot(x - BAYOU.x, z - BAYOU.z)));
-    c = mix(c, C.market, sm(100, 70, Math.hypot(x + 640, z - 140)) * 0.8);
+    const dmk = Math.hypot(x + 640, z - 140);
+    c = mix(c, C.market, sm(100, 70, dmk) * 0.8);
+    c = mix(c, C.road, sm(44, 22, dmk + v2 * 10) * (0.7 + 0.3 * v2)); // trampled earth among the stalls
     // Lake shore
     if (y < WATER_Y + 2.5) c = mix(c, C.shore, sm(WATER_Y + 2.5, WATER_Y + 0.5, y));
     // Roads
